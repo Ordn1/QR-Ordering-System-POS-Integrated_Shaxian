@@ -6,7 +6,16 @@ from starlette.requests import Request
 
 from app.config import settings
 from app.core.exceptions import AppError, handle_app_error, handle_unexpected_error
-from app.routers import auth, menu, orders, queue, realtime, recommendations, sessions
+from app.routers import (
+    auth,
+    menu,
+    orders,
+    pos,
+    queue,
+    realtime,
+    recommendations,
+    sessions,
+)
 
 app = FastAPI(title="Shaxian QR Table Ordering")
 
@@ -25,6 +34,7 @@ app.include_router(orders.orders_router)
 app.include_router(sessions.router)
 app.include_router(queue.router)
 app.include_router(recommendations.router)
+app.include_router(pos.router)
 app.include_router(realtime.router)
 
 

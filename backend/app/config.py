@@ -36,6 +36,10 @@ class Settings(BaseSettings):
 
     MENU_IMAGE_DIR: str = "menu"
 
+    # The register the POS bridge transmits to. Points at this server's own
+    # simulated terminal; a real deployment repoints it at the counter's register.
+    POS_ENDPOINT: str = "http://127.0.0.1:8001/api/v1/pos/register/inbox"
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def split_origins(cls, value: str | list[str]) -> list[str]:

@@ -93,7 +93,11 @@
     "colCardholder": "Tag-iya sa ID",
     "colIssuingLgu": "LGU nga nag-isyu",
     "colVerifiedBy": "Gi-beripika ni",
-    "colDiscountEligible": "Diskwento"
+    "colDiscountEligible": "Diskwento",
+    "posTitle": "POS bridge",
+    "runApriori": "Padagana ang Apriori",
+    "aprioriDone": "{{rules}} ka lagda sa support nga {{support}}",
+    "colTable": "Lamesa"
   },
   "auth": {
     "brand": "Shaxian Snacks",
@@ -202,6 +206,29 @@
     "previous": "Miaging panid",
     "next": "Sunod nga panid",
     "page": "Panid {{number}}"
+  },
+  "pos": {
+    "acknowledged": "Nadawat",
+    "attempts": "Pagsulay",
+    "avgLatency": "Kasagarang latency",
+    "endpoint": "Endpoint",
+    "intro": "Ang mga bayad nga order gipadala sa register sa counter agi sa local network, aron dili na kinahanglan i-type pag-usab sa kahera ang order nga naa na sa sistema. Gi-simulate ang register niining prototype.",
+    "latency": "Latency",
+    "logEmpty": "Wala pay transmisyon.",
+    "logTitle": "Talaan sa transmisyon",
+    "notFiscal": "Prototype — dili opisyal nga resibo",
+    "payloadSize": "Payload",
+    "payloadTitle": "Payload · {{queue}}",
+    "queue": "Pila",
+    "receiptNo": "Resibo",
+    "refresh": "I-refresh",
+    "registerEmpty": "Wala pay nadawat nga order ang register.",
+    "registerTitle": "Register sa counter",
+    "sentAt": "Gipadala",
+    "status_acknowledged": "Nadawat",
+    "status_failed": "Napakyas",
+    "terminal": "Tindahan · terminal",
+    "viewPayload": "Payload"
   },
   "priority": {
     "open": "Tabang sa prayoridad",

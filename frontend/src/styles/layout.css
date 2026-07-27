@@ -176,3 +176,18 @@
   height: auto;
   flex-wrap: wrap;
 }
+
+/* Action labels run longer in Filipino and Bisaya than in English, and on a phone
+   they no longer sit beside the heading. Wrapping them onto their own row keeps
+   every translation inside the viewport. */
+@media (max-width: 640px) {
+  .page-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

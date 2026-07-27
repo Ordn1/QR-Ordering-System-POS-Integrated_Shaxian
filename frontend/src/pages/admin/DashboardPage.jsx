@@ -2,11 +2,12 @@ import { BadgePercent, Receipt, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { fetchSummary } from '../../api/analytics';
+import { fetchSummary, runApriori } from '../../api/analytics';
 import SalesTrendChart from '../../components/admin/SalesTrendChart';
 import PriorityMixChart from '../../components/admin/PriorityMixChart';
 import SegmentMixChart from '../../components/admin/SegmentMixChart';
 import TopItemsChart from '../../components/admin/TopItemsChart';
+import Button from '../../components/shared/Button';
 import Card from '../../components/shared/Card';
 import KpiCard from '../../components/shared/KpiCard';
 import { peso } from '../../lib/format';
@@ -17,12 +18,29 @@ const percent = (value) => `${Math.round(value * 100)}%`;
 export default function DashboardPage() {
   const { t } = useTranslation();
   const [summary, setSummary] = useState(null);
+  const [mining, setMining] = useState(false);
 
   useEffect(() => {
     fetchSummary()
       .then(setSummary)
       .catch((error) => toast.error(error.message));
   }, []);
+
+  // Runs the same routine as `python -m jobs.apriori`, so the batch job can be
+  // demonstrated live and the rule set seen to regenerate.
+  async function mine() {
+    setMining(true);
+    try {
+      const run = await runApriori();
+      const rules = run.segments.reduce((total, segment) => total + segment.rules, 0);
+      toast.success(t('admin.aprioriDone', { rules, support: run.min_support }));
+      setSummary(await fetchSummary());
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setMining(false);
+    }
+  }
 
   if (!summary) {
     return (
@@ -41,6 +59,11 @@ export default function DashboardPage() {
     <main className="content-area">
       <header className="page-header">
         <h1>{t('admin.dashboardTitle')}</h1>
+        <div className="page-header-actions">
+          <Button variant="secondary" loading={mining} onClick={mine}>
+            {t('admin.runApriori')}
+          </Button>
+        </div>
       </header>
 
       <div className="kpi-grid">
