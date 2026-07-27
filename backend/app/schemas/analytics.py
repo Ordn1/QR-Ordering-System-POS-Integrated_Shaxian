@@ -37,6 +37,20 @@ class VerificationRow(BaseModel):
     declared_at: str
 
 
+class SegmentReportRead(BaseModel):
+    segment: str
+    baskets: int
+    itemsets: int
+    rules: int
+
+
+class AprioriRunRead(BaseModel):
+    min_support: float
+    min_lift: float
+    generated_at: str
+    segments: list[SegmentReportRead]
+
+
 class Funnel(BaseModel):
     shown: int
     accepted: int

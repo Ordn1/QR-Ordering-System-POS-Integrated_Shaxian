@@ -1,8 +1,15 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter
 
 from app.core.customer import CurrentDevice
 from app.core.deps import AdminStaff, DbSession
-from app.schemas.analytics import AnalyticsSummary, VerificationRow
+from app.schemas.analytics import (
+    AnalyticsSummary,
+    AprioriRunRead,
+    SegmentReportRead,
+    VerificationRow,
+)
 from app.schemas.recommendation import (
     EventWrite,
     RecommendationRequest,
@@ -10,6 +17,7 @@ from app.schemas.recommendation import (
     Suggestion,
 )
 from app.services import analytics as analytics_service
+from app.services import apriori as apriori_service
 from app.services import recommendation as recommendation_service
 from app.services import session as session_service
 
@@ -42,6 +50,18 @@ async def analytics_summary(db: DbSession, staff: AdminStaff) -> AnalyticsSummar
         segment_mix=await analytics_service.segment_mix(db),
         priority_mix=await analytics_service.priority_mix(db),
         recommendation_funnel=await analytics_service.recommendation_funnel(db),
+    )
+
+
+@router.post("/analytics/apriori/run", response_model=AprioriRunRead)
+async def run_apriori(db: DbSession, staff: AdminStaff) -> AprioriRunRead:
+    """Run the Apriori batch job on demand — the same routine as `python -m jobs.apriori`."""
+    reports = await apriori_service.generate(db)
+    return AprioriRunRead(
+        min_support=apriori_service.MIN_SUPPORT,
+        min_lift=apriori_service.MIN_LIFT,
+        generated_at=datetime.now(UTC).isoformat(),
+        segments=[SegmentReportRead(**vars(report)) for report in reports],
     )
 
 

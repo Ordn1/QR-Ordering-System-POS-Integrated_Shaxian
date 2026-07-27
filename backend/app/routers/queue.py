@@ -1,11 +1,17 @@
+import logging
+
 from fastapi import APIRouter
 from sqlalchemy import select
 
+from app.config import settings
 from app.core.deps import AnyStaff, DbSession
 from app.models import KitchenQueue, Payment, Table, Transaction
 from app.schemas.queue import OrderStatusRead, QueueEntryRead, StatusWrite
+from app.services import pos as pos_service
 from app.services import queue as queue_service
 from app.websocket import events
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/queue", tags=["queue"])
 
@@ -62,6 +68,17 @@ async def update_status(
 async def confirm_payment(txn_id: int, db: DbSession, staff: AnyStaff) -> OrderStatusRead:
     transaction = await queue_service.confirm_cash_payment(db, txn_id, staff.staff_id)
     await events.publish_status(transaction)
+
+    # §2.2.3.1.13: the sale goes to the register the moment the cash is collected,
+    # so the counter never re-keys it. A bridge failure is logged and surfaced on
+    # the POS console — it must never fail a payment the crew has already taken.
+    try:
+        await pos_service.transmit(
+            db, txn_id, settings.POS_ENDPOINT, staff_id=staff.staff_id
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("POS transmission failed for txn %s", txn_id)
+
     return await order_status(db, transaction)
 
 

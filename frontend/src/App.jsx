@@ -13,6 +13,7 @@ import TableEntryPage from './pages/customer/TableEntryPage';
 import CategoriesPage from './pages/admin/CategoriesPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import MenuPage from './pages/admin/MenuPage';
+import PosPage from './pages/admin/PosPage';
 import TransactionsPage from './pages/admin/TransactionsPage';
 import VerificationsPage from './pages/admin/VerificationsPage';
 import AtomsPage from './pages/dev/AtomsPage';
@@ -27,6 +28,7 @@ const ADMIN_LINKS = [
   { to: '/admin/categories', labelKey: 'admin.categoriesTitle' },
   { to: '/admin/transactions', labelKey: 'admin.transactionsTitle' },
   { to: '/admin/verifications', labelKey: 'admin.verificationsTitle' },
+  { to: '/admin/pos', labelKey: 'admin.posTitle' },
 ];
 
 const STAFF_LINKS = [{ to: '/staff/queue', labelKey: 'staff.queueTitle' }];
@@ -61,6 +63,7 @@ export default function App() {
             <Route path="categories" element={<CategoriesPage />} />
             <Route path="transactions" element={<TransactionsPage />} />
             <Route path="verifications" element={<VerificationsPage />} />
+            <Route path="pos" element={<PosPage />} />
           </Route>
         </Route>
 

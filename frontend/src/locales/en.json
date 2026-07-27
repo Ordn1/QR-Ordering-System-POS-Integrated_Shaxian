@@ -93,7 +93,11 @@
     "colCardholder": "Cardholder",
     "colIssuingLgu": "Issuing LGU",
     "colVerifiedBy": "Verified by",
-    "colDiscountEligible": "Discount"
+    "colDiscountEligible": "Discount",
+    "posTitle": "POS bridge",
+    "runApriori": "Run Apriori job",
+    "aprioriDone": "{{rules}} rules generated at support {{support}}",
+    "colTable": "Table"
   },
   "auth": {
     "brand": "Shaxian Snacks",
@@ -202,6 +206,29 @@
     "previous": "Previous page",
     "next": "Next page",
     "page": "Page {{number}}"
+  },
+  "pos": {
+    "acknowledged": "Acknowledged",
+    "attempts": "Attempts",
+    "avgLatency": "Average latency",
+    "endpoint": "Endpoint",
+    "intro": "Settled orders are transmitted to the counter register over the local network, so the cashier never re-keys an order this system already holds. The register on the receiving end is simulated for this prototype.",
+    "latency": "Latency",
+    "logEmpty": "No transmissions yet.",
+    "logTitle": "Transmission log",
+    "notFiscal": "Prototype — not a fiscal receipt",
+    "payloadSize": "Payload",
+    "payloadTitle": "Payload · {{queue}}",
+    "queue": "Queue",
+    "receiptNo": "Receipt",
+    "refresh": "Refresh",
+    "registerEmpty": "The register has not received an order yet.",
+    "registerTitle": "Counter register",
+    "sentAt": "Sent",
+    "status_acknowledged": "Acknowledged",
+    "status_failed": "Failed",
+    "terminal": "Store · terminal",
+    "viewPayload": "Payload"
   },
   "priority": {
     "open": "Priority assistance",

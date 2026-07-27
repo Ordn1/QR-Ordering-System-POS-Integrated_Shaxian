@@ -93,7 +93,11 @@
     "colCardholder": "May-ari ng ID",
     "colIssuingLgu": "LGU na nag-isyu",
     "colVerifiedBy": "Beripikado ni",
-    "colDiscountEligible": "Diskwento"
+    "colDiscountEligible": "Diskwento",
+    "posTitle": "POS bridge",
+    "runApriori": "Patakbuhin ang Apriori",
+    "aprioriDone": "{{rules}} panuntunan sa support na {{support}}",
+    "colTable": "Mesa"
   },
   "auth": {
     "brand": "Shaxian Snacks",
@@ -202,6 +206,29 @@
     "previous": "Nakaraang pahina",
     "next": "Susunod na pahina",
     "page": "Pahina {{number}}"
+  },
+  "pos": {
+    "acknowledged": "Natanggap",
+    "attempts": "Pagsubok",
+    "avgLatency": "Karaniwang latency",
+    "endpoint": "Endpoint",
+    "intro": "Ang mga bayad na order ay ipinapadala sa register ng counter sa local network, kaya hindi na kailangang muling i-type ng kahera ang order na nasa sistema na. Simulate ang register sa prototype na ito.",
+    "latency": "Latency",
+    "logEmpty": "Wala pang transmisyon.",
+    "logTitle": "Talaan ng transmisyon",
+    "notFiscal": "Prototype — hindi opisyal na resibo",
+    "payloadSize": "Payload",
+    "payloadTitle": "Payload · {{queue}}",
+    "queue": "Pila",
+    "receiptNo": "Resibo",
+    "refresh": "I-refresh",
+    "registerEmpty": "Wala pang natatanggap na order ang register.",
+    "registerTitle": "Register ng counter",
+    "sentAt": "Ipinadala",
+    "status_acknowledged": "Natanggap",
+    "status_failed": "Nabigo",
+    "terminal": "Tindahan · terminal",
+    "viewPayload": "Payload"
   },
   "priority": {
     "open": "Tulong sa prayoridad",
