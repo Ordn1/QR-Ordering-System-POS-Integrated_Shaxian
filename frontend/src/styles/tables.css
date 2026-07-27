@@ -1,0 +1,103 @@
+.data-table,
+.compact-table,
+.queue-table {
+  width: 100%;
+  border: none;
+  font-size: var(--font-sm);
+}
+
+.data-table thead th,
+.compact-table thead th,
+.queue-table thead th {
+  height: var(--h-row);
+  padding: 0 var(--space-4);
+  background: var(--cream);
+  border-bottom: 1px solid var(--border-strong);
+  font-size: var(--font-xs);
+  font-weight: var(--weight-emphasis);
+  letter-spacing: var(--track-xs);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.data-table tbody td,
+.compact-table tbody td,
+.queue-table tbody td {
+  height: var(--h-row);
+  padding: 0 var(--space-4);
+  border: none;
+  vertical-align: middle;
+}
+
+.data-table tbody tr:nth-child(even),
+.compact-table tbody tr:nth-child(even) {
+  background: var(--surface);
+}
+
+.data-table tbody tr,
+.compact-table tbody tr,
+.queue-table tbody tr {
+  transition: background-color var(--duration-hover) ease-out;
+}
+
+.data-table tbody tr:hover,
+.compact-table tbody tr:hover,
+.queue-table tbody tr:hover {
+  background: var(--cream-deep);
+}
+
+.compact-table thead th,
+.compact-table tbody td {
+  height: var(--h-row-compact);
+}
+
+.queue-table thead th,
+.queue-table tbody td {
+  height: var(--h-row-comfortable);
+}
+
+.queue-table tbody tr.table-row-priority td:first-child {
+  box-shadow: inset var(--seal-bar) 0 0 0 var(--red);
+}
+
+.table-row-active {
+  background: var(--cream-deep);
+}
+
+.table-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.table-actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.table-empty,
+.table-loading {
+  padding: var(--space-7) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.table-empty-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-4);
+}
+
+.table-skeleton-row {
+  height: var(--h-row);
+  background: var(--surface);
+}

@@ -1,0 +1,324 @@
+.primary-btn,
+.secondary-btn,
+.ghost-btn,
+.wide-create-btn,
+.wide-edit-btn,
+.wide-delete-btn,
+.wide-view-btn,
+.add-to-cart-btn,
+.checkout-btn,
+.navbar-btn,
+.lang-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--h-btn);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius);
+  font-size: var(--font-btn);
+  font-weight: var(--weight-heading);
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-hover) ease-out,
+    color var(--duration-hover) ease-out,
+    border-color var(--duration-hover) ease-out,
+    transform var(--duration-hover) ease-out,
+    box-shadow var(--duration-glow) ease-out;
+}
+
+.primary-btn:hover:not(:disabled),
+.secondary-btn:hover:not(:disabled),
+.ghost-btn:hover:not(:disabled),
+.wide-create-btn:hover:not(:disabled),
+.wide-edit-btn:hover:not(:disabled),
+.wide-delete-btn:hover:not(:disabled),
+.wide-view-btn:hover:not(:disabled),
+.add-to-cart-btn:hover:not(:disabled),
+.checkout-btn:hover:not(:disabled),
+.lang-btn:hover:not(:disabled),
+.navbar-btn:hover {
+  transform: scale(var(--hover-lift));
+}
+
+.primary-btn:active:not(:disabled),
+.secondary-btn:active:not(:disabled),
+.wide-create-btn:active:not(:disabled),
+.wide-edit-btn:active:not(:disabled),
+.wide-delete-btn:active:not(:disabled),
+.wide-view-btn:active:not(:disabled),
+.add-to-cart-btn:active:not(:disabled),
+.checkout-btn:active:not(:disabled) {
+  transform: scale(1);
+}
+
+.primary-btn {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.primary-btn:hover:not(:disabled) {
+  background: var(--ink-hover);
+}
+
+.secondary-btn {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+
+.secondary-btn:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.ghost-btn,
+.lang-btn {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.ghost-btn:hover:not(:disabled),
+.lang-btn:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.wide-create-btn {
+  background: var(--green);
+  color: var(--bg);
+}
+
+.wide-create-btn:hover:not(:disabled) {
+  background: var(--green-hover);
+}
+
+.wide-edit-btn {
+  background: var(--amber-strong);
+  color: var(--bg);
+}
+
+.wide-edit-btn:hover:not(:disabled) {
+  background: var(--amber-hover);
+}
+
+.wide-delete-btn {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+.wide-delete-btn:hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+.wide-view-btn {
+  background: var(--blue);
+  color: var(--bg);
+}
+
+.wide-view-btn:hover:not(:disabled) {
+  background: var(--blue-hover);
+}
+
+.add-to-cart-btn,
+.checkout-btn {
+  background: var(--ink);
+  color: var(--bg);
+  min-height: var(--tap-target);
+}
+
+.add-to-cart-btn:hover:not(:disabled),
+.checkout-btn:hover:not(:disabled) {
+  background: var(--ink-hover);
+}
+
+.checkout-btn {
+  width: 100%;
+}
+
+.navbar-btn {
+  position: relative;
+  height: var(--h-navbar);
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--font-base);
+  font-weight: var(--weight-display);
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+
+.navbar-btn:hover {
+  background: var(--cream-deep);
+  color: var(--ink);
+}
+
+.navbar-btn[aria-current='page'] {
+  color: var(--ink);
+}
+
+.navbar-btn[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--seal-bar);
+  background: var(--red);
+}
+
+.icon-view-btn,
+.icon-edit-btn,
+.icon-delete-btn,
+.icon-create-btn,
+.remove-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-icon-btn);
+  height: var(--h-icon-btn);
+  min-width: var(--h-icon-btn);
+  min-height: var(--h-icon-btn);
+  padding: 0;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  background: transparent;
+  transition:
+    background-color var(--duration-hover) ease-out,
+    color var(--duration-hover) ease-out,
+    transform var(--duration-hover) ease-out,
+    box-shadow var(--duration-glow) ease-out;
+}
+
+.icon-view-btn:hover:not(:disabled),
+.icon-edit-btn:hover:not(:disabled),
+.icon-delete-btn:hover:not(:disabled),
+.icon-create-btn:hover:not(:disabled),
+.remove-btn:hover:not(:disabled) {
+  transform: scale(var(--hover-lift));
+}
+
+.icon-view-btn::after,
+.icon-edit-btn::after,
+.icon-delete-btn::after,
+.icon-create-btn::after,
+.remove-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  transform: translate(-50%, -50%);
+}
+
+.icon-view-btn:hover:not(:disabled) {
+  color: var(--blue);
+  background: var(--blue-tint);
+}
+
+.icon-edit-btn:hover:not(:disabled) {
+  color: var(--amber-strong);
+  background: var(--amber-tint);
+}
+
+.icon-delete-btn:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-tint);
+}
+
+.icon-create-btn:hover:not(:disabled) {
+  color: var(--green);
+  background: var(--green-tint);
+}
+
+.remove-btn {
+  color: var(--text-muted);
+}
+
+.remove-btn:hover:not(:disabled) {
+  color: var(--danger);
+  background: transparent;
+}
+
+.primary-btn:disabled,
+.secondary-btn:disabled,
+.ghost-btn:disabled,
+.wide-create-btn:disabled,
+.wide-edit-btn:disabled,
+.wide-delete-btn:disabled,
+.wide-view-btn:disabled,
+.add-to-cart-btn:disabled,
+.checkout-btn:disabled,
+.icon-view-btn:disabled,
+.icon-edit-btn:disabled,
+.icon-delete-btn:disabled,
+.icon-create-btn:disabled,
+.remove-btn:disabled {
+  background: var(--surface-2);
+  color: var(--text-faint);
+  border-color: transparent;
+  cursor: not-allowed;
+}
+
+.btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.is-loading {
+  position: relative;
+}
+
+.is-loading .btn-label {
+  visibility: hidden;
+}
+
+.btn-spinner {
+  position: absolute;
+  top: 50%;  
+  left: 50%;
+  width: var(--spinner);
+  height: var(--spinner);
+  margin: calc(var(--spinner) / -2) 0 0 calc(var(--spinner) / -2);
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-pill);
+  animation: btn-spin 600ms linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-btn);
+  height: var(--h-btn);
+  min-width: var(--tap-target);
+  min-height: var(--tap-target);
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  transition:
+    background-color var(--duration-hover) ease-out,
+    color var(--duration-hover) ease-out,
+    transform var(--duration-hover) ease-out,
+    box-shadow var(--duration-glow) ease-out;
+}
+
+.toggle-btn:hover {
+  background: var(--surface);
+  transform: scale(var(--hover-lift));
+}
+
+.toggle-btn:active {
+  transform: scale(1);
+}

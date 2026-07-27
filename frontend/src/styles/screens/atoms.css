@@ -1,0 +1,59 @@
+.atoms-section {
+  margin-bottom: var(--space-7);
+}
+
+.atoms-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+
+.atoms-swatch {
+  border: 1px solid var(--border);
+}
+
+.atoms-swatch-chip {
+  height: var(--space-8);
+}
+
+.atoms-swatch-label {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.atoms-type-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.atoms-type-token {
+  min-width: 140px;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.atoms-grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.atoms-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .atoms-grid-two {
+    grid-template-columns: 1fr;
+  }
+}

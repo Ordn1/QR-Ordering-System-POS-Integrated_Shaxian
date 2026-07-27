@@ -1,0 +1,18 @@
+@import './styles/base.css';
+
+@import './styles/buttons.css';
+@import './styles/tables.css';
+@import './styles/cards.css';
+@import './styles/forms.css';
+@import './styles/badges.css';
+@import './styles/overlays.css';
+@import './styles/layout.css';
+
+@import './styles/accessibility.css';
+
+@import './styles/screens/atoms.css';
+@import './styles/screens/auth.css';
+@import './styles/screens/admin.css';
+@import './styles/screens/customer.css';
+@import './styles/screens/dashboard.css';
+@import './styles/screens/queue.css';

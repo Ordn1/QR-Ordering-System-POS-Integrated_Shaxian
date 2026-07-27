@@ -1,0 +1,82 @@
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.dashboard-hero-number {
+  font-size: var(--font-xl);
+  font-weight: var(--weight-display);
+  color: var(--red);
+  line-height: var(--leading-tight);
+}
+
+.dashboard-hero-caption {
+  margin-bottom: var(--space-4);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.dashboard-facts {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.dashboard-facts dd {
+  margin: 0;
+  text-align: right;
+  font-weight: var(--weight-emphasis);
+}
+
+.chart-tooltip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-raised);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.chart-tooltip-head {
+  padding: var(--space-2) var(--space-3);
+  background: var(--cream);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-xs);
+  font-weight: var(--weight-emphasis);
+  color: var(--text-muted);
+}
+
+.chart-tooltip-body {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+[data-ui-mode='accessible'] .dashboard-grid {
+  grid-template-columns: 1fr;
+}
+
+.verifications-note {
+  max-width: none;
+  margin-bottom: var(--space-5);
+  color: var(--text-muted);
+}
+
+/* The recommendation panel closes the page on its own row — it is prose and
+   figures rather than a plot, so it does not need a chart beside it. */
+.dashboard-grid-wide {
+  grid-template-columns: 1fr;
+}

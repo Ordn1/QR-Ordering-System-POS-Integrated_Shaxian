@@ -1,0 +1,210 @@
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--space-5);
+}
+
+.admin-table-scroll {
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+[data-ui-mode='accessible'] .form-grid {
+  grid-template-columns: 1fr;
+}
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-min), 1fr));
+  gap: var(--space-4);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition:
+    transform var(--duration-hover) ease-out,
+    box-shadow var(--duration-hover) ease-out;
+}
+
+.tile:hover {
+  transform: scale(var(--hover-lift-sm));
+  box-shadow: var(--shadow-raised);
+}
+
+.tile-media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--cream);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.tile-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: var(--space-2);
+  mix-blend-mode: multiply;
+}
+
+.tile-media-empty {
+  color: var(--text-faint);
+}
+
+.tile-status {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+}
+
+.tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  flex: 1;
+}
+
+.tile-name {
+  font-size: var(--font-base);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-tight);
+}
+
+.tile-meta {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.tile-price {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  font-size: var(--font-md);
+  font-weight: var(--weight-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.tile-icon {
+  color: var(--red);
+}
+
+.category-tile .tile-media {
+  aspect-ratio: 16 / 9;
+  background: var(--cream);
+}
+
+.tile-empty {
+  padding: var(--space-7);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+[data-ui-mode='accessible'] .tile-grid {
+  grid-template-columns: 1fr;
+}
+
+/* --- Pagination ---------------------------------------------------------- */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.pagination-range {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.pagination-step,
+.pagination-page {
+  display: grid;
+  place-items: center;
+  min-width: var(--h-btn);
+  height: var(--h-btn);
+  padding: 0 var(--space-2);
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-emphasis);
+  transition:
+    background-color var(--duration-hover) ease-out,
+    border-color var(--duration-hover) ease-out;
+}
+
+.pagination-step svg {
+  display: block;
+}
+
+.pagination-step:hover:not(:disabled),
+.pagination-page:hover {
+  background: var(--cream);
+  border-color: var(--border-strong);
+}
+
+.pagination-step:disabled {
+  color: var(--text-faint);
+  background: var(--surface-2);
+  cursor: not-allowed;
+}
+
+/* Current page is marked by the brand rule, never by a filled red button. */
+.pagination-page[aria-current='page'] {
+  position: relative;
+  color: var(--ink);
+  border-color: var(--border-strong);
+}
+
+.pagination-page[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--seal-bar);
+  background: var(--red);
+}
+
+.pagination-gap {
+  padding: 0 var(--space-1);
+  color: var(--text-faint);
+}
+
+[data-ui-mode='accessible'] .pagination-step,
+[data-ui-mode='accessible'] .pagination-page {
+  min-width: var(--tap-target);
+  height: var(--tap-target);
+}

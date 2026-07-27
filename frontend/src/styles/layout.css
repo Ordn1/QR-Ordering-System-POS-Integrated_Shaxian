@@ -1,0 +1,178 @@
+.app-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-shell:has(.navbar)::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('/branding/ShaxianBricks.png');
+  background-size: cover;
+  background-position: center;
+  opacity: var(--brick-opacity);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-shell:has(.navbar) > * {
+  position: relative;
+  z-index: 1;
+}
+
+.navbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--h-navbar);
+  padding: 0 var(--space-6);
+  background: var(--cream);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-md);
+  font-weight: var(--weight-display);
+  color: var(--red-logo);
+  white-space: nowrap;
+}
+
+.navbar-logo {
+  height: 34px;
+  width: auto;
+  mix-blend-mode: multiply;
+}
+
+.navbar-nav {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.navbar-identity {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.content-area {
+  flex: 1;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-6);
+  background: var(--bg);
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  font-size: var(--font-lg);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--track-lg);
+}
+
+.stack-2 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stack-4 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stack-6 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.row-2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.row-3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.row-4 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+/* The admin bar carries five links plus the language and identity cluster.
+   Below tablet width that no longer fits on one row, so the bar grows a second
+   row rather than pushing the page into a horizontal scroll. */
+@media (max-width: 900px) {
+  .navbar {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .navbar-nav {
+    order: 3;
+    width: 100%;
+    height: auto;
+    flex-wrap: wrap;
+  }
+
+  .navbar-identity {
+    max-width: 12ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Accessible mode scales type up past the fixed bar height, which cropped the
+   identity above and below the rule. The bar grows instead of cropping. */
+[data-ui-mode='accessible'] .navbar {
+  height: auto;
+  min-height: var(--h-navbar);
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+  padding-block: var(--space-2);
+}
+
+[data-ui-mode='accessible'] .navbar-nav {
+  height: auto;
+  flex-wrap: wrap;
+}

@@ -1,0 +1,132 @@
+.login-page {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-6);
+  background: var(--surface);
+}
+
+/* The login sits outside the app shell, so it lays its own brick backdrop
+   rather than inheriting the one keyed to .navbar. */
+.login-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('/branding/ShaxianBricks.png');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.login-shell {
+  position: relative;
+  width: 100%;
+  max-width: 940px;
+}
+
+.login-split {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--space-6);
+}
+
+.login-art {
+  flex: 0 1 360px;
+  display: grid; 
+  place-items: center;
+  padding: var(--space-5);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.login-art img {
+  width: 100%;
+  max-height: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* The hint sits outside the card, so the card has to grow to fill the column —
+   otherwise the seal panel stretches to the hint and the two panels end on
+   different lines. */
+.login-form {
+  flex: 0 1 460px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-7) var(--space-6);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.login-logo {
+  display: block;
+  width: 50%;
+  height: auto;
+  margin: 0 auto var(--space-4);
+}
+
+.login-title {
+  margin-bottom: var(--space-1);
+  color: var(--red-logo);
+  font-size: var(--font-xl);
+  font-weight: var(--weight-display);
+  text-align: center;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.login-subtitle {
+  margin-bottom: var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+/* Phones get the form alone — the seal panel is decoration and would push the
+   fields below the fold. */
+@media (max-width: 720px) {
+  .login-art {
+    display: none;
+  }
+
+  .login-split {
+    max-width: 460px;
+  }
+}
+
+.login-form .primary-btn {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.login-hint {
+  margin-top: var(--space-4);
+  text-align: center;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+  align-items: baseline;
+}
+
+.detail-list dd {
+  margin: 0;
+}

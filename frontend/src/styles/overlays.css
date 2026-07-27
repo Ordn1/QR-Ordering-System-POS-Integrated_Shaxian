@@ -1,0 +1,174 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+  animation: overlay-fade var(--duration-enter) ease-out;
+}
+
+.modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 640px;
+  max-width: 100%;
+  max-height: 90vh;
+  background: var(--bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-modal);
+  animation: modal-enter var(--duration-enter) ease-out;
+}
+
+.modal-small {
+  width: 480px;
+}
+
+.modal-large {
+  width: 880px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--cream);
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  font-size: var(--font-md);
+  font-weight: var(--weight-heading);
+}
+
+.modal-body {
+  padding: var(--space-5);
+  background: var(--bg);
+  overflow-y: auto;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.modal-footer-destructive {
+  justify-content: space-between;
+}
+
+.toast-region {
+  position: fixed;
+  top: var(--space-5);
+  right: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  z-index: 200;
+  pointer-events: none;
+}
+
+.app-shell:has(.navbar) > .toast-region {
+  top: calc(var(--h-navbar) + var(--space-3));
+}
+
+.toast {
+  width: 320px;
+  padding: var(--space-4);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
+  font-size: var(--font-base);
+  font-weight: var(--weight-heading);
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: toast-enter var(--duration-enter) ease-out;
+}
+
+.toast-success {
+  background: var(--green-tint);
+  color: var(--green);
+}
+
+.toast-info {
+  background: var(--blue-tint);
+  color: var(--blue);
+}
+
+.toast-error {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.modal .toast-region {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  left: var(--space-4);
+  align-items: flex-end;
+  z-index: 1;
+}
+
+.modal .toast {
+  width: 280px;
+  max-width: 100%;
+}
+
+.rec-overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg);
+  border-top: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-modal);
+  padding: var(--space-5);
+  z-index: 150;
+  animation: modal-enter var(--duration-enter) ease-out;
+}
+
+.confirm-dialog .modal-body {
+  color: var(--text);
+}
+
+@keyframes overlay-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
