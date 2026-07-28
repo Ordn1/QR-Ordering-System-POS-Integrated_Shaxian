@@ -121,7 +121,8 @@
     "quantity": "Gidaghanon sa {{name}}",
     "itemCount": "{{count}} ka item",
     "itemCount_other": "{{count}} ka item",
-    "checkout": "Adto sa bayranan",
+    "viewBasket": "Tan-awa ang Basket",
+    "checkout": "Adto sa checkout",
     "splitBill": "Bahina ang bayad"
   },
   "checkout": {
@@ -324,5 +325,11 @@
     "pay_pending": "Bayronon sa counter",
     "pay_paid": "Bayad na",
     "pay_failed": "Wala nadawat ang bayad"
+  },
+  "search": {
+    "title": "Pangitaa sa menu",
+    "placeholder": "Pangitaa og pagkaon…",
+    "close": "Siradhi ang pagpangita",
+    "noResults": "Walay nakitang katugma."
   }
 }

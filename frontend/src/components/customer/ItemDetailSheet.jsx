@@ -1,4 +1,5 @@
 import { UtensilsCrossed } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { peso } from '../../lib/format';
@@ -6,10 +7,13 @@ import { menuImageUrl } from '../../lib/menuImage';
 import Badge from '../shared/Badge';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
+import QtyStepper from '../shared/QtyStepper';
 
 export default function ItemDetailSheet({ item, name, description, onAdd, onClose }) {
   const { t } = useTranslation();
+  const [qty, setQty] = useState(1);
   const src = menuImageUrl(item.image_filename);
+  const totalPrice = Number(item.price) * qty;
 
   return (
     <Modal
@@ -17,9 +21,19 @@ export default function ItemDetailSheet({ item, name, description, onAdd, onClos
       onClose={onClose}
       footer={
         item.is_available ? (
-          <Button variant="add-to-cart" onClick={() => onAdd(item)}>
-            {t('menu.addToCart')}
-          </Button>
+          <div className="item-detail-footer-content">
+            <QtyStepper
+              value={qty}
+              onChange={setQty}
+              itemLabel={name}
+            />
+            <Button
+              variant="add-to-cart"
+              onClick={() => onAdd(item, qty)}
+            >
+              {t('menu.addToCart')} · {peso(totalPrice)}
+            </Button>
+          </div>
         ) : (
           <Badge value="sold out" label={t('menu.soldOut')} />
         )
@@ -33,7 +47,11 @@ export default function ItemDetailSheet({ item, name, description, onAdd, onClos
         )}
       </div>
 
-      <p className="item-detail-price numeric">{peso(item.price)}</p>
+      <div className="item-detail-header-row">
+        <h3 className="item-detail-title">{name}</h3>
+        <p className="item-detail-price numeric">{peso(item.price)}</p>
+      </div>
+
       {description ? <p className="item-detail-description">{description}</p> : null}
 
       <dl className="detail-list item-detail-facts">

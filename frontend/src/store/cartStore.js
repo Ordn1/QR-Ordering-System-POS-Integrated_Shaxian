@@ -3,19 +3,19 @@ import { create } from 'zustand';
 export const useCartStore = create((set, get) => ({
   lines: [],
 
-  add: (item) =>
+  add: (item, qty = 1) =>
     set((state) => {
       const existing = state.lines.find((line) => line.item_id === item.item_id);
       if (existing) {
         return {
           lines: state.lines.map((line) =>
             line.item_id === item.item_id
-              ? { ...line, quantity: line.quantity + 1 }
+              ? { ...line, quantity: line.quantity + qty }
               : line,
           ),
         };
       }
-      return { lines: [...state.lines, { ...item, quantity: 1 }] };
+      return { lines: [...state.lines, { ...item, quantity: qty }] };
     }),
 
   setQuantity: (itemId, quantity) =>

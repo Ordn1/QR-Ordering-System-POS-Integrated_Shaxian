@@ -121,7 +121,8 @@
     "quantity": "Dami ng {{name}}",
     "itemCount": "{{count}} item",
     "itemCount_other": "{{count}} na item",
-    "checkout": "Pumunta sa bayaran",
+    "viewBasket": "Tingnan ang Basket",
+    "checkout": "Pumunta sa checkout",
     "splitBill": "Hatiin ang bayad"
   },
   "checkout": {
@@ -324,5 +325,11 @@
     "pay_pending": "Babayaran sa counter",
     "pay_paid": "Bayad na",
     "pay_failed": "Hindi natanggap ang bayad"
+  },
+  "search": {
+    "title": "Hanapin sa menu",
+    "placeholder": "Maghanap ng pagkain…",
+    "close": "Isara ang paghahanap",
+    "noResults": "Walang nakitang katugma."
   }
 }

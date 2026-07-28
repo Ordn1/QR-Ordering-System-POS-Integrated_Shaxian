@@ -121,6 +121,7 @@
     "quantity": "{{name}} quantity",
     "itemCount": "{{count}} item",
     "itemCount_other": "{{count}} items",
+    "viewBasket": "View Basket",
     "checkout": "Go to checkout",
     "splitBill": "Split the bill"
   },
@@ -324,5 +325,11 @@
     "pay_pending": "Due at the counter",
     "pay_paid": "Paid",
     "pay_failed": "Payment failed"
+  },
+  "search": {
+    "title": "Search menu",
+    "placeholder": "Search for a dish…",
+    "close": "Close search",
+    "noResults": "No items match your search."
   }
 }

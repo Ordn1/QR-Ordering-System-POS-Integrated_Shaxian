@@ -54,9 +54,17 @@ export default function CustomerMenuPage() {
   const descriptionKey = DESCRIPTION_BY_LANGUAGE[i18n.language] ?? 'description_en';
   const shown = items.filter((item) => item.cat_id === activeCategory);
 
-  function onAdd(item) {
+  function onAdd(item, qty = 1) {
     completed?.('add');
-    add({ item_id: item.item_id, name: item[nameKey], price: item.price });
+    add(
+      {
+        item_id: item.item_id,
+        name: item[nameKey],
+        price: item.price,
+        image_filename: item.image_filename,
+      },
+      qty,
+    );
     toast.success(`${item[nameKey]} · ${t('menu.addToCart')}`);
   }
 
@@ -109,8 +117,8 @@ export default function CustomerMenuPage() {
           item={viewing}
           name={viewing[nameKey]}
           description={viewing[descriptionKey] ?? viewing.description_en}
-          onAdd={(item) => {
-            onAdd(item);
+          onAdd={(item, qty) => {
+            onAdd(item, qty);
             setViewing(null);
           }}
           onClose={() => setViewing(null)}

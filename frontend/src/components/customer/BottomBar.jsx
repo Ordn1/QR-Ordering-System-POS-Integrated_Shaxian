@@ -13,22 +13,28 @@ export default function BottomBar({ sessionPath, trackControl }) {
 
   return (
     <nav className="bottom-bar">
-      <NavLink to={`${sessionPath}/menu`} className="bottom-bar-item">
+      <NavLink
+        to={`${sessionPath}/menu`}
+        className={({ isActive }) => `bottom-bar-item${isActive ? ' active' : ''}`}
+      >
         <UtensilsCrossed size={20} strokeWidth={1.75} />
-        {t('nav.menu')}
+        <span>{t('nav.menu')}</span>
       </NavLink>
       <NavLink
         to={`${sessionPath}/cart`}
-        className="bottom-bar-item"
+        className={({ isActive }) => `bottom-bar-item${isActive ? ' active' : ''}`}
         ref={trackControl?.('cart')}
       >
         <ShoppingBag size={20} strokeWidth={1.75} />
-        {t('nav.cart')}
+        <span>{t('nav.cart')}</span>
         {count > 0 ? <span className="bottom-bar-count numeric">{count}</span> : null}
       </NavLink>
-      <NavLink to={`${sessionPath}/status`} className="bottom-bar-item">
+      <NavLink
+        to={`${sessionPath}/status`}
+        className={({ isActive }) => `bottom-bar-item${isActive ? ' active' : ''}`}
+      >
         <ClipboardList size={20} strokeWidth={1.75} />
-        {t('nav.status')}
+        <span>{t('nav.status')}</span>
       </NavLink>
     </nav>
   );
