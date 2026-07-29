@@ -1,3 +1,4 @@
+/* ── Queue stats KPI bar ─────────────────────────────────────────────────── */
 .queue-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -9,60 +10,175 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   background: var(--bg);
   border: 1px solid var(--border);
+  border-radius: 14px;
+  transition: box-shadow 0.15s;
+}
+
+.queue-stat:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+}
+
+.queue-stat .eyebrow {
+  font-size: var(--font-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .queue-stat-value {
-  font-size: var(--font-lg);
+  font-size: 2rem;
   font-weight: var(--weight-display);
+  line-height: 1;
+  color: var(--ink);
 }
 
+/* ── Page layout ─────────────────────────────────────────────────────────── */
 .queue-layout {
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
-  gap: var(--space-4);
+  gap: var(--space-5);
   align-items: start;
 }
 
+/* ── Queue Hero Card ─────────────────────────────────────────────────────── */
 .queue-hero {
   padding: var(--space-6);
   background: var(--cream);
-  border: 1px solid var(--border-strong);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 18px;
   text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 .queue-hero-idle {
   background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
 }
 
-.queue-hero-idle-text {
-  margin-top: var(--space-4);
+.queue-hero-idle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--border);
   color: var(--text-muted);
 }
 
+.queue-hero-idle-title {
+  font-size: var(--font-md);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+  margin: 0;
+}
+
+.queue-hero-idle-text {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  max-width: 240px;
+  margin: 0;
+}
+
+/* Eyebrow / stage label */
+.queue-hero-eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.queue-hero-stage-label {
+  font-size: var(--font-xs);
+  font-weight: var(--weight-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.queue-hero-late-badge {
+  font-size: var(--font-xs);
+  font-weight: var(--weight-heading);
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 2px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.02em;
+  animation: pulse-subtle 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Big queue number */
 .queue-hero-number {
-  font-size: 72px;
+  font-size: 80px;
   font-weight: var(--weight-display);
   line-height: 1;
   color: var(--red);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   margin: var(--space-3) 0;
 }
 
+/* Meta row chips */
 .queue-hero-meta {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  font-size: var(--font-sm);
+  gap: var(--space-2) var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.queue-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-xs);
+  font-weight: var(--weight-emphasis);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 3px 10px;
   color: var(--text-muted);
 }
 
-.queue-hero-timer-label {
-  margin-top: var(--space-5);
+/* Timer block */
+.queue-hero-timer-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: var(--space-4);
+}
+
+.queue-hero-timer-block--late {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.queue-hero-timer-label-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .queue-hero-timer {
@@ -70,13 +186,69 @@
   font-weight: var(--weight-display);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
+  letter-spacing: 0.02em;
 }
 
+.queue-hero-timer-block--late .queue-hero-timer {
+  color: #dc2626;
+}
+
+/* Item list within hero */
+.queue-hero-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 var(--space-3);
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--space-3);
+}
+
+.queue-hero-item-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--font-sm);
+}
+
+.queue-hero-item-qty {
+  font-weight: var(--weight-display);
+  color: var(--red);
+  text-align: right;
+}
+
+.queue-hero-item-name {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-hero-item-price {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+/* Total row */
+.queue-hero-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-strong);
+  margin-bottom: var(--space-4);
+  font-weight: var(--weight-heading);
+  font-size: var(--font-sm);
+}
+
+/* Actions */
 .queue-hero-actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  margin-top: var(--space-5);
 }
 
 .queue-hero-actions .primary-btn,
@@ -84,16 +256,27 @@
   width: 100%;
   height: var(--tap-target);
   font-size: var(--font-base);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
 }
 
+/* ── Queue panel (sidebar list) ──────────────────────────────────────────── */
 .queue-panel {
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
 }
 
+/* Stage tabs */
 .queue-tabs {
   display: flex;
   border-bottom: 1px solid var(--border-strong);
+  background: var(--surface);
 }
 
 .queue-tab {
@@ -103,15 +286,20 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: var(--tap-target);
+  min-height: 48px;
   padding: var(--space-2) var(--space-3);
-  background: var(--cream);
   font-size: var(--font-sm);
   font-weight: var(--weight-emphasis);
   color: var(--text-muted);
-  transition:
-    background-color var(--duration-hover) ease-out,
-    color var(--duration-hover) ease-out;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.queue-tab:hover {
+  color: var(--ink);
+  background: var(--cream);
 }
 
 .queue-tab[aria-selected='true'] {
@@ -126,14 +314,32 @@
   left: 0;
   right: 0;
   bottom: -1px;
-  height: var(--seal-bar);
+  height: 2px;
   background: var(--red);
+  border-radius: 2px 2px 0 0;
 }
 
 .queue-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--border);
+  font-size: var(--font-xs);
+  font-weight: var(--weight-heading);
   font-variant-numeric: tabular-nums;
+  color: var(--ink);
 }
 
+.queue-tab[aria-selected='true'] .queue-tab-count {
+  background: var(--red);
+  color: #fff;
+}
+
+/* ── Queue list rows ─────────────────────────────────────────────────────── */
 .queue-list {
   display: flex;
   flex-direction: column;
@@ -147,46 +353,81 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  min-height: var(--h-row-comfortable);
+  min-height: 64px;
   padding: var(--space-3) var(--space-4);
   text-align: left;
   border-bottom: 1px solid var(--border);
-  transition: background-color var(--duration-hover) ease-out;
+  border-left: 3px solid transparent;
+  transition: background-color 0.12s, border-color 0.12s;
+  background: none;
+  cursor: pointer;
 }
 
 .queue-row:hover {
-  background: var(--cream-deep);
+  background: var(--cream);
 }
 
 .queue-row-priority {
-  box-shadow: inset var(--seal-bar) 0 0 0 var(--red);
+  border-left-color: var(--red);
+  background: #fff8f8;
+}
+
+.queue-row-priority:hover {
+  background: #fef2f2;
 }
 
 .queue-row-active {
   background: var(--cream);
+  border-left-color: var(--ink);
 }
 
 .queue-row-number {
   font-size: var(--font-md);
   font-weight: var(--weight-display);
   font-variant-numeric: tabular-nums;
+  color: var(--red);
+  min-width: 48px;
 }
 
 .queue-row-detail {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+}
+
+.queue-row-main {
   font-size: var(--font-sm);
+  font-weight: var(--weight-emphasis);
+  color: var(--ink);
 }
 
 .queue-row-sub {
-  color: var(--text-muted);
   font-size: var(--font-xs);
+  color: var(--text-muted);
 }
 
 .queue-row-tags {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
+.queue-row-elapsed {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 3px;
+  font-size: var(--font-xs);
+  font-weight: var(--weight-emphasis);
+  color: var(--text-muted);
+  background: var(--border);
+  border-radius: 99px;
+  padding: 2px 7px;
+}
+
+.queue-row-elapsed--late {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .queue-row-skips {
@@ -195,11 +436,13 @@
 }
 
 .queue-list-empty {
-  padding: var(--space-6);
+  padding: var(--space-8);
   text-align: center;
   color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
+/* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .queue-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -214,8 +457,7 @@
   grid-template-columns: 1fr;
 }
 
-/* --- Cashier confirmation (prototype #19) -------------------------------- */
-
+/* ── Cashier confirmation modal ──────────────────────────────────────────── */
 .cash-queue {
   font-size: var(--font-xl);
   font-weight: var(--weight-display);

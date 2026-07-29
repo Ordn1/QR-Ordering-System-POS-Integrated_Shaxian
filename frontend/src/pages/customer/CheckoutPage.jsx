@@ -1,3 +1,4 @@
+import { Check, CreditCard, Receipt, Store } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useOutletContext, useParams } from 'react-router-dom';
@@ -23,8 +24,7 @@ export default function CheckoutPage() {
   const [quote, setQuote] = useState(null);
 
   // The server prices the cart, so what the diner reads here is exactly what the
-  // receipt will say — including the statutory discount, which they are entitled
-  // to see before committing rather than after.
+  // receipt will say — including statutory discounts.
   useEffect(() => {
     if (!session || lines.length === 0) {
       return undefined;
@@ -75,46 +75,63 @@ export default function CheckoutPage() {
         <h1>{t('checkout.title')}</h1>
       </div>
 
-      <section className="checkout-summary">
-        <h2 className="section-heading">
-          <span className="seal" aria-hidden="true" />
-          {t('checkout.summary')}
-        </h2>
-        <ul className="checkout-lines">
+      {/* Order Summary Card */}
+      <section className="checkout-card">
+        <div className="checkout-card-header">
+          <Receipt size={20} strokeWidth={1.75} className="checkout-card-icon" />
+          <h2>
+            {t('checkout.summary')} ({lines.reduce((acc, l) => acc + l.quantity, 0)})
+          </h2>
+        </div>
+        <ul className="checkout-item-list">
           {lines.map((line) => (
-            <li key={line.item_id}>
-              <span>
-                {line.quantity} × {line.name}
+            <li key={line.item_id} className="checkout-item-row">
+              <span className="checkout-item-qty">{line.quantity}×</span>
+              <span className="checkout-item-name">{line.name}</span>
+              <span className="checkout-item-price numeric">
+                {peso(Number(line.price) * line.quantity)}
               </span>
-              <span className="numeric">{peso(Number(line.price) * line.quantity)}</span>
             </li>
           ))}
         </ul>
+
         {quote ? (
           <dl className="checkout-totals">
-            <dt>{t('checkout.gross')}</dt>
-            <dd className="numeric">{peso(quote.gross_amount)}</dd>
+            <div className="checkout-total-row">
+              <dt>{t('checkout.gross')}</dt>
+              <dd className="numeric">{peso(quote.gross_amount)}</dd>
+            </div>
 
             {quote.discount_applied ? (
               <>
-                <dt>{t('checkout.vatExempt')}</dt>
-                <dd className="numeric">{peso(quote.vat_exempt_sales)}</dd>
-                <dt className="checkout-discount">{t('checkout.discount')}</dt>
-                <dd className="checkout-discount numeric">
-                  −{peso(quote.discount_amount)}
-                </dd>
+                <div className="checkout-total-row">
+                  <dt>{t('checkout.vatExempt')}</dt>
+                  <dd className="numeric">{peso(quote.vat_exempt_sales)}</dd>
+                </div>
+                <div className="checkout-total-row checkout-discount-row">
+                  <dt className="checkout-discount">{t('checkout.discount')}</dt>
+                  <dd className="checkout-discount numeric">
+                    −{peso(quote.discount_amount)}
+                  </dd>
+                </div>
               </>
             ) : (
               <>
-                <dt>{t('checkout.vatable')}</dt>
-                <dd className="numeric">{peso(quote.vatable_sales)}</dd>
-                <dt>{t('checkout.vat')}</dt>
-                <dd className="numeric">{peso(quote.vat_amount)}</dd>
+                <div className="checkout-total-row">
+                  <dt>{t('checkout.vatable')}</dt>
+                  <dd className="numeric">{peso(quote.vatable_sales)}</dd>
+                </div>
+                <div className="checkout-total-row">
+                  <dt>{t('checkout.vat')}</dt>
+                  <dd className="numeric">{peso(quote.vat_amount)}</dd>
+                </div>
               </>
             )}
 
-            <dt className="checkout-net">{t('checkout.net')}</dt>
-            <dd className="checkout-net numeric">{peso(quote.net_amount)}</dd>
+            <div className="checkout-total-row checkout-net-row">
+              <dt className="checkout-net">{t('checkout.net')}</dt>
+              <dd className="checkout-net numeric">{peso(quote.net_amount)}</dd>
+            </div>
           </dl>
         ) : null}
 
@@ -123,39 +140,54 @@ export default function CheckoutPage() {
         ) : null}
       </section>
 
-      <section className="checkout-payment-options">
-        <h2 className="section-heading">
-          <span className="seal" aria-hidden="true" />
-          {t('checkout.payment')}
-        </h2>
-        <label className="radio-field">
-          <input
-            type="radio"
-            name="payment"
-            checked={method === 'cashier'}
-            onChange={() => setMethod('cashier')}
-          />
-          {t('checkout.payAtCashier')}
-        </label>
-        <label className="radio-field">
-          <input
-            type="radio"
-            name="payment"
-            checked={method === 'online'}
-            onChange={() => setMethod('online')}
-          />
-          {t('checkout.payOnline')}
-        </label>
+      {/* Payment Method Cards */}
+      <section className="payment-options-section">
+        <h2 className="section-title-sm">{t('checkout.payment')}</h2>
+        <div className="payment-card-grid">
+          <button
+            type="button"
+            className={`payment-card${method === 'cashier' ? ' selected' : ''}`}
+            onClick={() => setMethod('cashier')}
+          >
+            <div className="payment-card-icon-wrap">
+              <Store size={22} strokeWidth={1.75} />
+            </div>
+            <div className="payment-card-text">
+              <span className="payment-card-title">{t('checkout.payAtCashier')}</span>
+            </div>
+            <div className="payment-card-check">
+              {method === 'cashier' ? <Check size={16} strokeWidth={2.5} /> : null}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className={`payment-card${method === 'online' ? ' selected' : ''}`}
+            onClick={() => setMethod('online')}
+          >
+            <div className="payment-card-icon-wrap">
+              <CreditCard size={22} strokeWidth={1.75} />
+            </div>
+            <div className="payment-card-text">
+              <span className="payment-card-title">{t('checkout.payOnline')}</span>
+            </div>
+            <div className="payment-card-check">
+              {method === 'online' ? <Check size={16} strokeWidth={2.5} /> : null}
+            </div>
+          </button>
+        </div>
       </section>
 
-      <Button
-        variant="checkout"
-        loading={placing}
-        ref={trackControl?.('place')}
-        onClick={submit}
-      >
-        {t('checkout.placeOrder')}
-      </Button>
+      <div className="checkout-submit-wrap">
+        <Button
+          variant="checkout"
+          loading={placing}
+          ref={trackControl?.('place')}
+          onClick={submit}
+        >
+          {t('checkout.placeOrder')} {quote ? `· ${peso(quote.net_amount)}` : ''}
+        </Button>
+      </div>
     </main>
   );
 }
