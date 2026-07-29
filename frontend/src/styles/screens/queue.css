@@ -13,7 +13,7 @@
   padding: var(--space-4) var(--space-5);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 0;
   transition: box-shadow 0.15s;
 }
 
@@ -48,7 +48,7 @@
   padding: var(--space-6);
   background: var(--cream);
   border: 1.5px solid var(--border-strong);
-  border-radius: 18px;
+  border-radius: 0;
   text-align: center;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
@@ -68,7 +68,7 @@
   justify-content: center;
   width: 72px;
   height: 72px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--border);
   color: var(--text-muted);
 }
@@ -148,7 +148,7 @@
   font-weight: var(--weight-emphasis);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 99px;
+  border-radius: 0;
   padding: 3px 10px;
   color: var(--text-muted);
 }
@@ -162,7 +162,7 @@
   padding: var(--space-3) var(--space-5);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 0;
   margin-bottom: var(--space-4);
 }
 
@@ -202,7 +202,7 @@
   text-align: left;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
   padding: var(--space-3);
 }
 
@@ -256,7 +256,7 @@
   width: 100%;
   height: var(--tap-target);
   font-size: var(--font-base);
-  border-radius: 12px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -267,7 +267,7 @@
 .queue-panel {
   background: var(--bg);
   border: 1.5px solid var(--border);
-  border-radius: 18px;
+  border-radius: 0;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
 }
@@ -316,7 +316,7 @@
   bottom: -1px;
   height: 2px;
   background: var(--red);
-  border-radius: 2px 2px 0 0;
+  border-radius: 0;
 }
 
 .queue-tab-count {
@@ -421,7 +421,7 @@
   font-weight: var(--weight-emphasis);
   color: var(--text-muted);
   background: var(--border);
-  border-radius: 99px;
+  border-radius: 0;
   padding: 2px 7px;
 }
 
