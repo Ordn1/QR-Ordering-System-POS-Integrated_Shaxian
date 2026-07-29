@@ -1,3 +1,4 @@
+import { Utensils } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useParams } from 'react-router-dom';
@@ -38,23 +39,35 @@ export default function TableEntryPage() {
   if (status === 'failed') {
     return (
       <main className="customer-notice">
-        <h1>{t('entry.unknownTitle')}</h1>
-        <p>{t('entry.unknownBody')}</p>
+        <div className="entry-card entry-failed-card">
+          <h1>{t('entry.unknownTitle')}</h1>
+          <p>{t('entry.unknownBody')}</p>
+        </div>
       </main>
     );
   }
 
   return (
     <main className="entry-page">
-      <img className="entry-logo" src="/logos/ShaxianIcon.png" alt="" />
-      <p className="eyebrow">{t('entry.eyebrow')}</p>
-      {session ? (
-        <p className="entry-table numeric">
-          {t('menu.table', { number: session.table_number })}
-        </p>
-      ) : null}
-      <span className="entry-rule" aria-hidden="true" />
-      <p className="entry-note">{t('entry.starting')}</p>
+      <div className="entry-hero-card">
+        <div className="entry-logo-wrap">
+          <img className="entry-logo" src="/logos/ShaxianIcon.png" alt="" />
+        </div>
+        <p className="eyebrow">{t('entry.eyebrow')}</p>
+
+        {session ? (
+          <div className="entry-table-pill numeric">
+            <Utensils size={18} strokeWidth={2} />
+            <span>{t('menu.table', { number: session.table_number })}</span>
+          </div>
+        ) : null}
+
+        <span className="entry-rule" aria-hidden="true" />
+        <div className="entry-status-wrap">
+          <span className="btn-spinner entry-spinner" role="status" aria-label="Loading" />
+          <p className="entry-note">{t('entry.starting')}</p>
+        </div>
+      </div>
     </main>
   );
 }

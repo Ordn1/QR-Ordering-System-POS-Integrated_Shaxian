@@ -14,6 +14,8 @@ async def recommend(
 ) -> list[dict]:
     """Return the top rules for this cart, scoped strictly to the session's segment."""
     rules = await matching_rules(db, segment, cart)
+    if not rules and cart:
+        rules = await matching_rules(db, segment, cart=[])
 
     suggested: list[str] = []
     for rule in rules:

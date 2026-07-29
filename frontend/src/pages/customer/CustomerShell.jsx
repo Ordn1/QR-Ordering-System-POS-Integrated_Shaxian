@@ -1,15 +1,18 @@
-import { HelpCircle } from 'lucide-react';
-import { useState } from 'react';
+import { HelpCircle, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import BottomBar from '../../components/customer/BottomBar';
 import GroupBanner from '../../components/customer/GroupBanner';
 import LanguageSwitch from '../../components/customer/LanguageSwitch';
 import NavHighlight from '../../components/customer/NavHighlight';
 import RecommendationOverlay from '../../components/customer/RecommendationOverlay';
+import SearchOverlay from '../../components/customer/SearchOverlay';
 import { useConfusionSignals } from '../../hooks/useConfusionSignals';
 import { useNavGuidance } from '../../hooks/useNavGuidance';
+import { listItems } from '../../api/menu';
+import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
@@ -27,11 +30,27 @@ function routeOf(pathname) {
 export default function CustomerShell() {
   const { qrToken } = useParams();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const session = useSessionStore((state) => state.session);
   const lines = useCartStore((state) => state.lines);
   const add = useCartStore((state) => state.add);
   const [activeCategory, setActiveCategory] = useState(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [allItems, setAllItems] = useState([]);
+
+  const totalCount = lines.reduce((total, line) => total + line.quantity, 0);
+  const totalSubtotal = lines.reduce(
+    (total, line) => total + Number(line.price) * line.quantity,
+    0,
+  );
+
+  // Pre-fetch all items so search overlay can filter them client-side.
+  useEffect(() => {
+    listItems()
+      .then(setAllItems)
+      .catch(() => {});
+  }, []);
 
   const { suggestions, observeItem, accept, dismiss } = useConfusionSignals({
     sessionId: session?.session_id,
@@ -55,7 +74,17 @@ export default function CustomerShell() {
     <div className="customer-shell">
       <header className="customer-header">
         <span className="customer-table">{t('menu.table', { number: session.table_number })}</span>
-        <LanguageSwitch />
+        <div className="customer-header-actions">
+          <button
+            type="button"
+            className="header-icon-btn"
+            aria-label={t('search.title')}
+            onClick={() => setShowSearch(true)}
+          >
+            <Search size={20} strokeWidth={1.75} />
+          </button>
+          <LanguageSwitch />
+        </div>
       </header>
 
       <GroupBanner session={session} />
@@ -97,7 +126,41 @@ export default function CustomerShell() {
         <HelpCircle size={22} strokeWidth={1.75} aria-hidden="true" />
       </button>
 
+      {totalCount > 0 && routeOf(pathname) === 'menu' ? (
+        <div className="floating-cart-pill-wrap">
+          <button
+            type="button"
+            className="floating-cart-pill"
+            onClick={() => navigate(`/t/${qrToken}/cart`)}
+          >
+            <span className="floating-cart-count numeric">{totalCount}</span>
+            <span className="floating-cart-label">
+              {t('cart.viewBasket', { defaultValue: 'View Basket' })}
+            </span>
+            <span className="floating-cart-price numeric">{peso(totalSubtotal)}</span>
+          </button>
+        </div>
+      ) : null}
+
       <BottomBar sessionPath={`/t/${qrToken}`} trackControl={guidance.trackControl} />
+
+      {showSearch ? (
+        <SearchOverlay
+          items={allItems}
+          language={i18n.language}
+          onSelect={(item) => {
+            const nameKey = { en: 'name_en', fil: 'name_fil', bis: 'name_bis' }[i18n.language] ?? 'name_en';
+            add({
+              item_id: item.item_id,
+              name: item[nameKey] || item.name_en,
+              price: item.price,
+              image_filename: item.image_filename,
+            });
+            toast.success(`${item[nameKey] || item.name_en} · ${t('menu.addToCart')}`);
+          }}
+          onClose={() => setShowSearch(false)}
+        />
+      ) : null}
     </div>
   );
 }

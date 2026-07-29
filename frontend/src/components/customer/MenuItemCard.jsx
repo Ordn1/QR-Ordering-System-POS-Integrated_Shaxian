@@ -1,10 +1,9 @@
-import { UtensilsCrossed } from 'lucide-react';
+import { Plus, UtensilsCrossed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { peso } from '../../lib/format';
 import { menuImageUrl } from '../../lib/menuImage';
 import Badge from '../shared/Badge';
-import Button from '../shared/Button';
 
 export default function MenuItemCard({
   item,
@@ -19,45 +18,44 @@ export default function MenuItemCard({
   const src = menuImageUrl(item.image_filename);
 
   return (
-    <article className="menu-item-row" data-item-id={item.item_id} ref={observeItem}>
-      {/* UIDesign.md §16: full-width row, image left. The photo is decorative —
-          the name beside it already carries the item, so alt stays empty. */}
-      <div className="menu-item-photo">
-        {src ? (
-          <img src={src} alt="" loading="lazy" />
-        ) : (
-          <UtensilsCrossed className="menu-item-photo-empty" size={24} strokeWidth={1.5} />
-        )}
-      </div>
-      <div className="menu-item-body">
-        <div className="menu-item-head">
-          {/* The name opens the detail sheet. A real button rather than a click
-              handler on the row, so it is reachable by keyboard and announced. */}
-          <h3 className="menu-item-name">
-            <button type="button" className="menu-item-open" onClick={() => onOpen(item)}>
-              {name}
-            </button>
-          </h3>
-          <span className="menu-item-price numeric">{peso(item.price)}</span>
-        </div>
-        {description ? <p className="menu-item-description">{description}</p> : null}
-        <p className="menu-item-meta">
-          {item.calories !== null ? t('menu.calories', { count: item.calories }) : null}
-          {item.allergens ? ` · ${t('menu.allergens', { list: item.allergens })}` : null}
-        </p>
-        <div className="menu-item-side">
-          {item.is_available ? (
-            <Button
-              variant="add-to-cart"
-              ref={trackAdd?.('add')}
-              onClick={() => onAdd(item)}
-            >
-              {t('menu.addToCart')}
-            </Button>
+    <article className="menu-card" data-item-id={item.item_id} ref={observeItem}>
+      {/* Tappable card body opens the detail sheet */}
+      <button
+        type="button"
+        className="menu-card-tap"
+        onClick={() => onOpen(item)}
+        aria-label={name}
+      >
+        <div className="menu-card-photo">
+          {src ? (
+            <img src={src} alt="" loading="lazy" />
           ) : (
-            <Badge value="sold out" label={t('menu.soldOut')} />
+            <UtensilsCrossed className="menu-card-photo-empty" size={28} strokeWidth={1.5} />
           )}
         </div>
+        <div className="menu-card-body">
+          <h3 className="menu-card-name">{name}</h3>
+          {description ? <p className="menu-card-desc">{description}</p> : null}
+        </div>
+      </button>
+      <div className="menu-card-footer">
+        <span className="menu-card-price numeric">{peso(item.price)}</span>
+        {item.is_available ? (
+          <button
+            type="button"
+            className="menu-card-add"
+            ref={trackAdd?.('add')}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd(item);
+            }}
+            aria-label={t('menu.addToCart')}
+          >
+            <Plus size={18} strokeWidth={2.5} />
+          </button>
+        ) : (
+          <Badge value="sold out" label={t('menu.soldOut')} />
+        )}
       </div>
     </article>
   );

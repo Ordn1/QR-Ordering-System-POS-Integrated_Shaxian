@@ -1,3 +1,4 @@
+import { Smartphone, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useParams } from 'react-router-dom';
 
@@ -6,17 +7,6 @@ import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 
-/**
- * Split-bill view for a group session.
- *
- * Every amount here is the real cart priced line by line. What is *not* live is the
- * attribution: each phone keeps its own cart locally and only posts its own order,
- * so this screen distributes the current cart across the session's registered
- * devices to show the shape of a split. The schema supports true attribution —
- * transaction_items.device_id and payments.device_id both exist — but settling
- * shares independently is out of scope, so the pay control is inert and shares are
- * reconciled at the counter.
- */
 export default function SplitBillPage() {
   const { t } = useTranslation();
   const { qrToken } = useParams();
@@ -43,44 +33,49 @@ export default function SplitBillPage() {
 
       <p className="declaration-prompt">{t('split.prompt', { count: deviceCount })}</p>
 
-      {shares.map((share, index) => (
-        <section className="split-share" key={index}>
-          <header className="split-share-head">
-            <h2 className="split-share-name">
-              {index === 0
-                ? t('split.deviceHost', { number: index + 1 })
-                : t('split.device', { number: index + 1 })}
-            </h2>
-            <span className="split-share-total numeric">{peso(shareTotal(share))}</span>
-          </header>
-          {share.length > 0 ? (
-            <ul className="checkout-lines">
-              {share.map((line) => (
-                <li key={line.item_id}>
-                  <span>
-                    {line.quantity} × {line.name}
-                  </span>
-                  <span className="numeric">
-                    {peso(Number(line.price) * line.quantity)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="split-share-empty">{t('split.noItems')}</p>
-          )}
-        </section>
-      ))}
-
-      <div className="cart-totals">
-        <span>{t('split.total')}</span>
-        <span className="numeric">{peso(total)}</span>
+      <div className="split-shares-container">
+        {shares.map((share, index) => (
+          <section className="split-share-card" key={index}>
+            <header className="split-share-header">
+              <div className="split-share-title-wrap">
+                <Smartphone size={18} strokeWidth={1.75} className="split-share-icon" />
+                <h2 className="split-share-name">
+                  {index === 0
+                    ? t('split.deviceHost', { number: index + 1 })
+                    : t('split.device', { number: index + 1 })}
+                </h2>
+              </div>
+              <span className="split-share-total numeric">{peso(shareTotal(share))}</span>
+            </header>
+            {share.length > 0 ? (
+              <ul className="split-share-item-list">
+                {share.map((line) => (
+                  <li key={line.item_id} className="split-share-item-row">
+                    <span className="split-share-item-qty">{line.quantity}×</span>
+                    <span className="split-share-item-name">{line.name}</span>
+                    <span className="split-share-item-price numeric">
+                      {peso(Number(line.price) * line.quantity)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="split-share-empty">{t('split.noItems')}</p>
+            )}
+          </section>
+        ))}
       </div>
 
-      <Button variant="checkout" disabled>
-        {t('split.payShare')}
-      </Button>
-      <p className="login-hint">{t('split.settleNote')}</p>
+      <div className="split-table-total-card">
+        <div className="split-total-row">
+          <span>{t('split.total')}</span>
+          <span className="numeric">{peso(total)}</span>
+        </div>
+        <Button variant="checkout" disabled>
+          {t('split.payShare')}
+        </Button>
+        <p className="login-hint">{t('split.settleNote')}</p>
+      </div>
     </main>
   );
 }

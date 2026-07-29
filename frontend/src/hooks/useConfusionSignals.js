@@ -104,22 +104,37 @@ export function useConfusionSignals({
     [language, log, sessionId],
   );
 
+  // fireOnce: guards against the same signal type being added to the active
+  // window more than once while it is already live. Repeatable signals like
+  // 'scroll' bypass this and call evaluate() directly so two distinct
+  // category-revisit events can accumulate to REQUIRED_SIGNALS.
   const fireOnce = useCallback(
     (name, detail) => {
-      if (firedOnce.current.has(name)) {
+      // Already active in the current window — skip duplicate
+      if (active.current.has(name)) {
         return;
       }
-      firedOnce.current.add(name);
       evaluate(name, detail);
     },
     [evaluate],
   );
 
-  const fireRef = useRef(fireOnce);
+  // evaluateRepeatable: used for signals that should contribute every time
+  // they fire (e.g. scroll reversal / category revisit). Unlike fireOnce it
+  // does NOT skip if the same type is already in the active window — each
+  // new occurrence extends the window timestamp and may push size to REQUIRED.
+  const evaluateRepeatable = useCallback(
+    (name, detail) => {
+      evaluate(name, detail);
+    },
+    [evaluate],
+  );
+
+  const fireRef = useRef(evaluateRepeatable);
 
   useEffect(() => {
-    fireRef.current = fireOnce;
-  }, [fireOnce]);
+    fireRef.current = evaluateRepeatable;
+  }, [evaluateRepeatable]);
 
   useEffect(() => {
     function onPopState() {
@@ -161,9 +176,10 @@ export function useConfusionSignals({
       fireOnce('abandon', {});
     }
     if (returning) {
-      fireOnce('scroll', {});
+      // scroll reversal is repeatable — each revisit is a fresh confusion signal
+      evaluateRepeatable('scroll', {});
     }
-  }, [activeCategory, fireOnce]);
+  }, [activeCategory, fireOnce, evaluateRepeatable]);
 
   const observeItem = useCallback(
     (element) => {

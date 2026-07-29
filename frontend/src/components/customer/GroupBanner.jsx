@@ -2,9 +2,7 @@ import { Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
- * Shown once a second phone scans the same table code. Without it a joining diner
- * gets an ordinary menu and no sign that they are attached to the table's session,
- * which is the moment the group segment starts driving their recommendations.
+ * Shown once a second phone scans the same table code.
  */
 export default function GroupBanner({ session }) {
   const { t } = useTranslation();
@@ -14,9 +12,11 @@ export default function GroupBanner({ session }) {
   }
 
   return (
-    <aside className="group-banner">
-      <Users className="group-banner-icon" size={20} strokeWidth={1.75} aria-hidden="true" />
-      <div>
+    <aside className="group-banner-card">
+      <div className="group-banner-icon-wrap">
+        <Users size={18} strokeWidth={2} />
+      </div>
+      <div className="group-banner-content">
         <p className="group-banner-title">
           {session.is_host ? t('group.hostTitle') : t('group.joinedTitle')}
         </p>
