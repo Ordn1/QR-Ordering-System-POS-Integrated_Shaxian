@@ -77,8 +77,13 @@
   pointer-events: none;
 }
 
+/* `position: fixed` is restated here because the shell's blanket `> *` rule wins
+   on specificity and was pinning the region to the document flow — admin toasts
+   scrolled off with the page instead of holding below the bar. */
 .app-shell:has(.navbar) > .toast-region {
+  position: fixed;
   top: calc(var(--h-navbar) + var(--space-3));
+  z-index: 200;
 }
 
 .toast {

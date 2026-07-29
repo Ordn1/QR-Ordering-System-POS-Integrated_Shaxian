@@ -22,6 +22,22 @@
   z-index: 1;
 }
 
+/* The bar stays put while the page scrolls, so the nav and the sign-out control
+   are always reachable. Needs to out-specify the blanket rule above, which would
+   otherwise force it back to `relative`. Sits above page content but below the
+   modal backdrop (100) and toasts (200).
+
+   Only above the wrap breakpoint: below it the bar becomes a two-row block that
+   would hold a third of a phone screen — over half of it in accessible mode —
+   permanently occupied by navigation. There it scrolls away with the page. */
+@media (min-width: 901px) {
+  .app-shell:has(.navbar) > .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+}
+
 .navbar {
   display: flex;
   align-items: center;
