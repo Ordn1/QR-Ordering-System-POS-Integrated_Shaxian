@@ -1,5 +1,5 @@
 import { HelpCircle, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
@@ -11,6 +11,7 @@ import RecommendationOverlay from '../../components/customer/RecommendationOverl
 import SearchOverlay from '../../components/customer/SearchOverlay';
 import { useConfusionSignals } from '../../hooks/useConfusionSignals';
 import { useNavGuidance } from '../../hooks/useNavGuidance';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import { listItems } from '../../api/menu';
 import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
@@ -33,6 +34,7 @@ export default function CustomerShell() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const session = useSessionStore((state) => state.session);
+  const refreshSession = useSessionStore((state) => state.refresh);
   const lines = useCartStore((state) => state.lines);
   const add = useCartStore((state) => state.add);
   const [activeCategory, setActiveCategory] = useState(null);
@@ -45,12 +47,27 @@ export default function CustomerShell() {
     0,
   );
 
-  // Pre-fetch all items so search overlay can filter them client-side.
   useEffect(() => {
     listItems()
       .then(setAllItems)
       .catch(() => {});
   }, []);
+
+  const handleSocketMessage = useCallback(
+    (payload) => {
+      if (payload?.type === 'session_changed') {
+        refreshSession();
+      }
+    },
+    [refreshSession],
+  );
+
+  useWebSocket(
+    session
+      ? `/ws/orders/${session.session_id}?device=${session.device_token}`
+      : null,
+    handleSocketMessage,
+  );
 
   const { suggestions, observeItem, accept, dismiss } = useConfusionSignals({
     sessionId: session?.session_id,

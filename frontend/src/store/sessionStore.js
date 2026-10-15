@@ -45,6 +45,21 @@ export const useSessionStore = create((set, get) => ({
     }
   },
 
+  refresh: async () => {
+    const current = get().session;
+    if (!current) {
+      return null;
+    }
+    try {
+      const next = await sessionApi.readSession(current.session_id);
+      applySession(next);
+      set({ session: next });
+      return next;
+    } catch {
+      return null;
+    }
+  },
+
   declare: async (status) => {
     const session = await sessionApi.declarePriority(get().session.session_id, status);
     applySession(session);

@@ -11,6 +11,7 @@ from app.schemas.session import (
 )
 from app.services import analytics as analytics_service
 from app.services import session as session_service
+from app.websocket import events
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
 
@@ -42,7 +43,10 @@ async def open_session(payload: SessionOpen, db: DbSession) -> SessionRead:
     session, device, table = await session_service.open_session(
         db, payload.qr_token, payload.device_token
     )
-    return await to_read(db, session, device, table)
+    read_model = await to_read(db, session, device, table)
+    if session.group_mode:
+        await events.publish_session_changed(session.session_id)
+    return read_model
 
 
 @router.get("/{session_id}", response_model=SessionRead)
@@ -60,7 +64,9 @@ async def declare(
         db, session_id, payload.declared_priority_status
     )
     table = await db.get(Table, session.table_id)
-    return await to_read(db, session, device, table)
+    read_model = await to_read(db, session, device, table)
+    await events.publish_session_changed(session.session_id)
+    return read_model
 
 
 @router.patch("/{session_id}/preferences", response_model=SessionRead)

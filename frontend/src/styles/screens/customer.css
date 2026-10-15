@@ -35,7 +35,7 @@
   place-items: center;
   width: var(--tap-target);
   height: var(--tap-target);
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   color: var(--text);
   transition: background-color var(--duration-hover) ease-out;
 }
@@ -86,7 +86,7 @@
 }
 
 .lang-toggle-sep {
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--font-sm);
   user-select: none;
 }
@@ -119,7 +119,7 @@
   height: var(--tap-target);
   padding: 0 var(--space-3);
   background: var(--surface-2);
-  border-radius: var(--radius-pill);
+  border-radius: 0;
 }
 
 .search-overlay-icon {
@@ -141,7 +141,7 @@
   width: var(--tap-target);
   height: var(--tap-target);
   color: var(--text-muted);
-  border-radius: var(--radius-pill);
+  border-radius: 0;
 }
 
 .search-overlay-close:hover {
@@ -179,7 +179,7 @@
 .search-result-thumb {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--cream);
   flex: none;
@@ -252,7 +252,7 @@
   margin-bottom: var(--space-4);
   overflow: hidden;
   background: var(--cream);
-  border-radius: 12px;
+  border-radius: 0;
 }
 
 .item-detail-media img {
@@ -326,7 +326,7 @@
   font-weight: var(--weight-heading);
   color: var(--text);
   white-space: nowrap;
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   border: 1px solid var(--border-strong);
   background: var(--bg);
   transition:
@@ -363,7 +363,7 @@
   display: flex;
   flex-direction: column;
   background: var(--bg);
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   transition: transform var(--duration-hover) ease-out, box-shadow var(--duration-hover) ease-out;
@@ -449,7 +449,7 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   background: var(--red);
   color: var(--bg);
   box-shadow: 0 2px 6px rgba(179, 40, 33, 0.25);
@@ -483,13 +483,13 @@
   padding: var(--space-3);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 0;
 }
 
 .cart-line-thumb {
   width: 64px;
   height: 64px;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--cream);
   display: grid;
@@ -538,7 +538,7 @@
   padding: var(--space-4);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
@@ -578,7 +578,7 @@
 .checkout-card {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 0;
   padding: var(--space-4);
   margin-bottom: var(--space-5);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
@@ -684,7 +684,7 @@
   padding: var(--space-4);
   background: var(--bg);
   border: 2px solid var(--border);
-  border-radius: 14px;
+  border-radius: 0;
   cursor: pointer;
   text-align: left;
   transition:
@@ -707,7 +707,7 @@
   place-items: center;
   width: 42px;
   height: 42px;
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   background: var(--surface-2);
   color: var(--text-muted);
   flex: none;
@@ -732,7 +732,7 @@
 .payment-card-check {
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   border: 2px solid var(--border-strong);
   display: grid;
   place-items: center;
@@ -783,7 +783,7 @@
   padding: var(--space-5) var(--space-4);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
   text-align: center;
   position: relative;
@@ -844,7 +844,7 @@
   position: relative;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 0;
   padding: var(--space-5) var(--space-4);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
@@ -884,7 +884,7 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   background: var(--surface-2);
   color: var(--text-muted);
   border: 2px solid var(--border-strong);
@@ -919,7 +919,7 @@
 .status-meta-card {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 0;
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
@@ -946,7 +946,7 @@
 .receipt-card {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 0;
   padding: var(--space-4);
   margin-bottom: var(--space-5);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
@@ -1091,7 +1091,7 @@
   height: 52px;
   background: var(--red);
   color: var(--bg);
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1287,7 +1287,7 @@
   width: 40px;
   height: 4px;
   background: var(--border-strong);
-  border-radius: 99px;
+  border-radius: 0;
   margin: 0 auto var(--space-4);
 }
 
@@ -1304,19 +1304,6 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-}
-
-.rec-sparkle-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  border-radius: 12px;
-  background: var(--red);
-  color: #fff;
-  flex-shrink: 0;
 }
 
 .rec-overlay-title {
@@ -1339,7 +1326,7 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--border);
   color: var(--text-muted);
   border: none;
@@ -1368,7 +1355,7 @@
   padding: var(--space-3);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 0;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -1381,7 +1368,7 @@
 .rec-item-thumb {
   width: 56px;
   height: 56px;
-  border-radius: 10px;
+  border-radius: 0;
   object-fit: cover;
   flex-shrink: 0;
   background: var(--border);
@@ -1391,7 +1378,7 @@
   width: 56px;
   height: 56px;
   min-width: 56px;
-  border-radius: 10px;
+  border-radius: 0;
   background: linear-gradient(135deg, var(--red) 0%, #c0392b 100%);
   color: #fff;
   font-size: var(--font-sm);
@@ -1460,7 +1447,7 @@
   width: 40px;
   height: 40px;
   min-width: 40px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--red);
   color: #fff;
   border: none;
@@ -1509,11 +1496,6 @@
 }
 
 /* ── Shell context adjustments ───────────────────────────────────────── */
-.app-shell:has(.customer-shell) .rec-overlay {
-  bottom: var(--bottom-bar-h);
-  border-radius: 20px 20px 0 0;
-}
-
 /* --- QR landing (prototype #1) ------------------------------------------- */
 
 /* --- Table entry page (Module 9) ----------------------------------------- */
@@ -1540,7 +1522,7 @@
   padding: var(--space-6) var(--space-5);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 0;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   animation: modal-enter var(--duration-enter) ease-out;
 }
@@ -1548,7 +1530,7 @@
 .entry-logo-wrap {
   width: 80px;
   height: 80px;
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   background: var(--cream);
   display: grid;
   place-items: center;
@@ -1567,7 +1549,7 @@
   padding: var(--space-2) var(--space-4);
   background: var(--red);
   color: var(--bg);
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   font-size: var(--font-lg);
   font-weight: var(--weight-display);
   box-shadow: 0 4px 12px rgba(179, 40, 33, 0.25);
@@ -1633,33 +1615,6 @@
   border-top: 1px solid var(--border);
 }
 
-/* --- Checkout totals (prototypes #5, #12) -------------------------------- */
-
-.checkout-totals {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-2) var(--space-4);
-  margin: var(--space-4) 0 0;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
-}
-
-.checkout-totals dd {
-  margin: 0;
-  text-align: right;
-}
-
-.checkout-totals .checkout-discount {
-  color: var(--red);
-}
-
-.checkout-totals .checkout-net {
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border-strong);
-  font-size: var(--font-md);
-  font-weight: var(--weight-heading);
-}
-
 .checkout-discount-note {
   margin-top: var(--space-3);
   font-size: var(--font-sm);
@@ -1679,7 +1634,7 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-left: 4px solid var(--red);
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
@@ -1688,7 +1643,7 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   background: var(--danger-tint);
   color: var(--red);
   flex: none;
@@ -1719,7 +1674,7 @@
 .split-share-card {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 0;
   padding: var(--space-4);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
@@ -1784,7 +1739,7 @@
 .split-table-total-card {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 0;
   padding: var(--space-4);
   display: flex;
   flex-direction: column;

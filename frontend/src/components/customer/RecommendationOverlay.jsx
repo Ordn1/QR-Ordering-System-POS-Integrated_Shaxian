@@ -1,7 +1,8 @@
-import { Sparkles, X, Plus, TrendingUp, Star, Zap } from 'lucide-react';
+import { X, Plus, TrendingUp, Star, Zap, UtensilsCrossed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { peso } from '../../lib/format';
+import { menuImageUrl } from '../../lib/menuImage';
 
 /* ── Confidence tier badges ─────────────────────────────────────────────── */
 function ConfidenceBadge({ confidence }) {
@@ -27,15 +28,16 @@ function ConfidenceBadge({ confidence }) {
   );
 }
 
-/* ── Food icon placeholder (shown when no image URL) ────────────────────── */
-function FoodIcon({ name }) {
-  const initials = (name || '?')
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
-  return <span className="rec-item-icon" aria-hidden="true">{initials}</span>;
+/* ── Thumbnail: the dish photo, falling back to the menu's utensil mark ──── */
+function FoodThumb({ src }) {
+  if (!src) {
+    return (
+      <span className="rec-item-icon" aria-hidden="true">
+        <UtensilsCrossed size={20} strokeWidth={1.5} />
+      </span>
+    );
+  }
+  return <img className="rec-item-thumb" src={src} alt="" loading="lazy" />;
 }
 
 /* ── Main overlay ────────────────────────────────────────────────────────── */
@@ -54,9 +56,6 @@ export default function RecommendationOverlay({ suggestions, onAccept, onDismiss
         {/* Header */}
         <div className="rec-overlay-head">
           <div className="rec-overlay-title-group">
-            <span className="rec-sparkle-wrap" aria-hidden="true">
-              <Sparkles size={18} />
-            </span>
             <div>
               <h2 className="rec-overlay-title">{t('recommend.title')}</h2>
               <p className="rec-overlay-subtitle">{t('recommend.prompt')}</p>
@@ -81,19 +80,8 @@ export default function RecommendationOverlay({ suggestions, onAccept, onDismiss
 
             return (
               <li className="rec-overlay-item" key={suggestion.item_id}>
-                {/* Dish thumbnail / icon */}
-                {suggestion.image_url ? (
-                  <img
-                    className="rec-item-thumb"
-                    src={`/images/${suggestion.image_url}`}
-                    alt={name}
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
-                <FoodIcon name={name} />
+                {/* Dish photo, same source the menu uses */}
+                <FoodThumb src={menuImageUrl(suggestion.image_filename)} />
 
                 {/* Info block */}
                 <div className="rec-item-info">

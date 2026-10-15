@@ -15,6 +15,7 @@ class Suggestion(BaseModel):
     item_id: str
     name: str
     price: Decimal
+    image_filename: str | None
     lift: Decimal
     confidence: Decimal
 

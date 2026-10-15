@@ -1,4 +1,4 @@
-import { Smartphone, Users } from 'lucide-react';
+import { Smartphone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useParams } from 'react-router-dom';
 

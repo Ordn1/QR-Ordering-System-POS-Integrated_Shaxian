@@ -36,7 +36,6 @@ export function useConfusionSignals({
   }, [cart]);
 
   const active = useRef(new Map());
-  const firedOnce = useRef(new Set());
   const dwelt = useRef(new Set());
   const backCount = useRef(0);
   const visited = useRef(new Set());
