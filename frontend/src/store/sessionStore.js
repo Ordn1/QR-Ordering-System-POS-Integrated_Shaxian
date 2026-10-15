@@ -13,8 +13,26 @@ function remember(qrToken, deviceToken) {
 
 function recall(qrToken) {
   try {
+    if (typeof window !== 'undefined' && window.location?.search) {
+      const params = new URLSearchParams(window.location.search);
+      const urlDevice = params.get('device');
+      if (urlDevice) {
+        if (qrToken) {
+          remember(qrToken, urlDevice);
+        }
+        return urlDevice;
+      }
+    }
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return saved?.qrToken === qrToken ? saved.deviceToken : null;
+    if (!saved?.deviceToken) {
+      return null;
+    }
+    if (!qrToken) {
+      return saved.deviceToken;
+    }
+    return saved.qrToken?.toLowerCase() === qrToken?.toLowerCase()
+      ? saved.deviceToken
+      : null;
   } catch {
     return null;
   }

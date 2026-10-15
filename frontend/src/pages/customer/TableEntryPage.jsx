@@ -1,7 +1,7 @@
 import { Utensils } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useParams } from 'react-router-dom';
+import { Navigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { useSessionStore } from '../../store/sessionStore';
 
@@ -10,8 +10,12 @@ import { useSessionStore } from '../../store/sessionStore';
 // replaces it — this screen is the confirmation that the right code was scanned.
 const HOLD_MS = 1200;
 
+// localStorage key must match the one in sessionStore.js
+const STORAGE_KEY = 'shaxian.device';
+
 export default function TableEntryPage() {
   const { qrToken } = useParams();
+  const [searchParams] = useSearchParams();
   const { t } = useTranslation();
   const open = useSessionStore((state) => state.open);
   const session = useSessionStore((state) => state.session);
@@ -24,8 +28,21 @@ export default function TableEntryPage() {
       return;
     }
     started.current = true;
+
+    // If PayMongo redirected back with ?device=<token>, pre-seed localStorage
+    // so that recall(qrToken) inside open() finds the correct device token and
+    // does NOT create a new SessionDevice (which would falsely bump device_count).
+    const deviceParam = searchParams.get('device');
+    if (deviceParam) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ qrToken, deviceToken: deviceParam }));
+      } catch {
+        // localStorage unavailable — open() will create a new device as a safe fallback
+      }
+    }
+
     open(qrToken).catch(() => {});
-  }, [open, qrToken]);
+  }, [open, qrToken, searchParams]);
 
   useEffect(() => {
     const timer = setTimeout(() => setHeld(true), HOLD_MS);

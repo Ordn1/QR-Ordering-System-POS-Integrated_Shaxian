@@ -16,6 +16,7 @@ class OrderCreate(BaseModel):
     items: list[OrderLineWrite] = Field(min_length=1)
     payment_method: PaymentMethod
     language: Language = Language.EN
+    origin_url: str | None = Field(default=None, max_length=120)
 
 
 class QuoteCreate(BaseModel):
@@ -62,4 +63,6 @@ class ReceiptRead(BaseModel):
     net_amount: Decimal
     payment_method: PaymentMethod
     payment_status: PaymentStatus
+    checkout_url: str | None = None
+    fallback_to_cashier: bool = False
     lines: list[ReceiptLine]

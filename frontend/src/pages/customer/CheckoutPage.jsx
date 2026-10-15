@@ -23,8 +23,6 @@ export default function CheckoutPage() {
   const [placed, setPlaced] = useState(false);
   const [quote, setQuote] = useState(null);
 
-  // The server prices the cart, so what the diner reads here is exactly what the
-  // receipt will say — including statutory discounts.
   useEffect(() => {
     if (!session || lines.length === 0) {
       return undefined;
@@ -39,7 +37,7 @@ export default function CheckoutPage() {
           setQuote(next);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -56,12 +54,31 @@ export default function CheckoutPage() {
         items: lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity })),
         payment_method: method,
         language: i18n.language,
+        origin_url: window.location.origin,
       });
       setPlaced(true);
       completed?.('place');
       clear();
-      toast.success(t('checkout.placed'));
-      navigate(`/t/${qrToken}/receipt`, { state: { receipt }, replace: true });
+
+      if (receipt.checkout_url) {
+        window.location.assign(receipt.checkout_url);
+        return;
+      }
+
+      if (receipt.fallback_to_cashier) {
+        toast.info(
+          t('checkout.offlineFallback', {
+            defaultValue: 'Online payment is unavailable. Switched to Pay at Cashier.',
+          }),
+        );
+      } else {
+        toast.success(t('checkout.placed'));
+      }
+
+      navigate(`/t/${qrToken}/receipt?txn_id=${receipt.txn_id}`, {
+        state: { receipt },
+        replace: true,
+      });
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -75,7 +92,6 @@ export default function CheckoutPage() {
         <h1>{t('checkout.title')}</h1>
       </div>
 
-      {/* Order Summary Card */}
       <section className="checkout-card">
         <div className="checkout-card-header">
           <Receipt size={20} strokeWidth={1.75} className="checkout-card-icon" />
@@ -140,7 +156,6 @@ export default function CheckoutPage() {
         ) : null}
       </section>
 
-      {/* Payment Method Cards */}
       <section className="payment-options-section">
         <h2 className="section-title-sm">{t('checkout.payment')}</h2>
         <div className="payment-card-grid">

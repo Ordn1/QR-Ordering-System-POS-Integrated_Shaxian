@@ -1,5 +1,5 @@
 import { HelpCircle, Search } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
@@ -11,7 +11,6 @@ import RecommendationOverlay from '../../components/customer/RecommendationOverl
 import SearchOverlay from '../../components/customer/SearchOverlay';
 import { useConfusionSignals } from '../../hooks/useConfusionSignals';
 import { useNavGuidance } from '../../hooks/useNavGuidance';
-import { useWebSocket } from '../../hooks/useWebSocket';
 import { listItems } from '../../api/menu';
 import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
@@ -34,7 +33,8 @@ export default function CustomerShell() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const session = useSessionStore((state) => state.session);
-  const refreshSession = useSessionStore((state) => state.refresh);
+  const status = useSessionStore((state) => state.status);
+  const openSession = useSessionStore((state) => state.open);
   const lines = useCartStore((state) => state.lines);
   const add = useCartStore((state) => state.add);
   const [activeCategory, setActiveCategory] = useState(null);
@@ -50,24 +50,14 @@ export default function CustomerShell() {
   useEffect(() => {
     listItems()
       .then(setAllItems)
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
-  const handleSocketMessage = useCallback(
-    (payload) => {
-      if (payload?.type === 'session_changed') {
-        refreshSession();
-      }
-    },
-    [refreshSession],
-  );
-
-  useWebSocket(
-    session
-      ? `/ws/orders/${session.session_id}?device=${session.device_token}`
-      : null,
-    handleSocketMessage,
-  );
+  useEffect(() => {
+    if (!session && status === 'idle' && qrToken) {
+      openSession(qrToken).catch(() => { });
+    }
+  }, [session, status, qrToken, openSession]);
 
   const { suggestions, observeItem, accept, dismiss } = useConfusionSignals({
     sessionId: session?.session_id,
@@ -84,7 +74,17 @@ export default function CustomerShell() {
   });
 
   if (!session) {
-    return <Navigate to={`/t/${qrToken}`} replace />;
+    if (status === 'failed') {
+      return <Navigate to={`/t/${qrToken}`} replace />;
+    }
+    return (
+      <main className="entry-page">
+        <div className="entry-status-wrap">
+          <span className="btn-spinner entry-spinner" role="status" aria-label="Loading" />
+          <p className="entry-note">{t('entry.starting')}</p>
+        </div>
+      </main>
+    );
   }
 
   return (

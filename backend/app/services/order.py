@@ -143,11 +143,7 @@ def assert_reconciles(order: PricedOrder) -> None:
 
 
 async def next_queue_number(db: AsyncSession) -> int:
-    """Reserve today's next queue number under an advisory lock held to commit.
-
-    A row lock cannot serialise this: on the day's first checkout there are no rows
-    to lock, and a concurrent INSERT is invisible to an already-started statement.
-    """
+    """Reserve today's next queue number under an advisory lock held to commit."""
     await db.execute(
         text("SELECT pg_advisory_xact_lock(hashtext('queue_number:' || CURRENT_DATE::text))")
     )
@@ -165,11 +161,7 @@ async def build_cart(
     device: SessionDevice,
     requested: list[tuple[str, int]],
 ) -> list[CartLine]:
-    """Resolve a requested cart into priceable lines, validating session and stock.
-
-    Shared by place_order and quote_order so a checkout preview can never disagree
-    with what the diner is finally charged.
-    """
+    """Resolve a requested cart into priceable lines, validating session and stock."""
     if not requested:
         raise BusinessRuleError("Your cart is empty. Add an item before checking out.")
 
@@ -266,9 +258,9 @@ async def place_order(
             method=method,
             amount=priced.net_amount,
             discount_applied=priced.discount_amount,
-            status=PaymentStatus.PAID if method is PaymentMethod.ONLINE else PaymentStatus.PENDING,
-            aggregator_ref=simulate_online_payment() if method is PaymentMethod.ONLINE else None,
-            paid_at=func.now() if method is PaymentMethod.ONLINE else None,
+            status=PaymentStatus.PENDING,
+            aggregator_ref=None,
+            paid_at=None,
         )
     )
 
@@ -278,12 +270,9 @@ async def place_order(
     return transaction
 
 
-def simulate_online_payment() -> str:
-    """Stand in for the payment aggregator until sandbox credentials exist."""
-    return "SIMULATED-OK"
-
-
-async def get_receipt(db: AsyncSession, txn_id: int) -> tuple[Transaction, list[tuple[TransactionItem, MenuItem]], Payment]:
+async def get_receipt(
+    db: AsyncSession, txn_id: int
+) -> tuple[Transaction, list[tuple[TransactionItem, MenuItem]], Payment]:
     transaction = await db.get(Transaction, txn_id)
     if transaction is None:
         raise NotFoundError("That receipt is no longer available.")

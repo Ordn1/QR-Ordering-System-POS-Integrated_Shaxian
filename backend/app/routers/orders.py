@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.core.customer import CurrentDevice
 from app.core.deps import AdminStaff, DbSession
-from app.schemas.queue import OrderStatusRead
+from app.core.exceptions import PermissionError
+from app.models.enums import Language, PaymentMethod
 from app.schemas.checkout import (
     OrderCreate,
     QuoteCreate,
@@ -11,7 +12,9 @@ from app.schemas.checkout import (
     ReceiptRead,
 )
 from app.schemas.order import TransactionRead
+from app.schemas.queue import OrderStatusRead
 from app.services import order as order_service
+from app.services import payment as payment_service
 from app.websocket import events
 
 router = APIRouter(prefix="/api/v1/transactions", tags=["transactions"])
@@ -23,10 +26,16 @@ def name_for(item, language: str) -> str:
         "en": item.name_en,
         "fil": item.name_fil,
         "bis": item.name_bis,
-    }[language]
+    }.get(language, item.name_en)
 
 
-async def build_receipt(db: DbSession, txn_id: int, language: str) -> ReceiptRead:
+async def build_receipt(
+    db: DbSession,
+    txn_id: int,
+    language: str,
+    checkout_url: str | None = None,
+    fallback_to_cashier: bool = False,
+) -> ReceiptRead:
     transaction, rows, payment = await order_service.get_receipt(db, txn_id)
     return ReceiptRead(
         **{
@@ -49,6 +58,8 @@ async def build_receipt(db: DbSession, txn_id: int, language: str) -> ReceiptRea
         },
         payment_method=payment.method,
         payment_status=payment.status,
+        checkout_url=checkout_url,
+        fallback_to_cashier=fallback_to_cashier,
         lines=[
             ReceiptLine(
                 item_id=line.item_id,
@@ -104,8 +115,52 @@ async def place_order(
         [(line.item_id, line.quantity) for line in payload.items],
         payload.payment_method,
     )
+
+    checkout_url: str | None = None
+    fallback_to_cashier = False
+    if payload.payment_method is PaymentMethod.ONLINE:
+        checkout_url, fallback_to_cashier = await payment_service.initiate_online_payment(
+            db, transaction, payload.origin_url,
+            device_token=str(device.device_token),
+        )
+
     await events.publish_new_order(transaction)
-    return await build_receipt(db, transaction.txn_id, payload.language.value)
+    return await build_receipt(
+        db,
+        transaction.txn_id,
+        payload.language.value,
+        checkout_url=checkout_url,
+        fallback_to_cashier=fallback_to_cashier,
+    )
+
+
+@orders_router.get("/{session_id}/receipt/{txn_id}", response_model=ReceiptRead)
+async def get_order_receipt(
+    session_id: int,
+    txn_id: int,
+    db: DbSession,
+    device: CurrentDevice,
+    language: Language = Query(default=Language.EN),
+) -> ReceiptRead:
+    transaction, _, _ = await order_service.get_receipt(db, txn_id)
+    if transaction.session_id != session_id:
+        raise PermissionError("That order belongs to another table session.")
+    return await build_receipt(db, txn_id, language.value)
+
+
+@orders_router.post("/{session_id}/verify/{txn_id}", response_model=ReceiptRead)
+async def verify_order_payment(
+    session_id: int,
+    txn_id: int,
+    db: DbSession,
+    device: CurrentDevice,
+    language: Language = Query(default=Language.EN),
+) -> ReceiptRead:
+    transaction, _, _ = await order_service.get_receipt(db, txn_id)
+    if transaction.session_id != session_id:
+        raise PermissionError("That order belongs to another table session.")
+    await payment_service.verify_online_payment(db, txn_id)
+    return await build_receipt(db, txn_id, language.value)
 
 
 @router.get("", response_model=list[TransactionRead])
