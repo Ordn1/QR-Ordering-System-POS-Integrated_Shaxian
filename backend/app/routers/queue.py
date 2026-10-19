@@ -6,7 +6,9 @@ from sqlalchemy import select
 from app.config import settings
 from app.core.deps import AnyStaff, DbSession
 from app.models import KitchenQueue, Payment, Table, Transaction
+from app.models.enums import PaymentMethod, PaymentStatus
 from app.schemas.queue import OrderStatusRead, QueueEntryRead, StatusWrite
+from app.services import order as order_service
 from app.services import pos as pos_service
 from app.services import queue as queue_service
 from app.websocket import events
@@ -16,6 +18,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/queue", tags=["queue"])
 
 
+def _summary_method_and_status(
+    payments: list[Payment],
+) -> tuple[PaymentMethod, PaymentStatus]:
+    if not payments:
+        return PaymentMethod.CASHIER, PaymentStatus.PENDING
+    status = order_service.aggregate_payment_status(payments)
+    if any(p.status != PaymentStatus.PAID for p in payments):
+        return PaymentMethod.CASHIER, status
+    if any(p.method is PaymentMethod.ONLINE for p in payments):
+        return PaymentMethod.ONLINE, status
+    return payments[0].method, status
+
+
 @router.get("", response_model=list[QueueEntryRead])
 async def read_queue(db: DbSession, staff: AnyStaff) -> list[QueueEntryRead]:
     rows = await queue_service.list_queue(db)
@@ -23,36 +38,41 @@ async def read_queue(db: DbSession, staff: AnyStaff) -> list[QueueEntryRead]:
         return []
 
     tables = {table.table_id: table.table_number for table in await db.scalars(select(Table))}
-    payments = {
-        payment.txn_id: payment
-        for payment in await db.scalars(
+    all_payments = list(
+        await db.scalars(
             select(Payment).where(Payment.txn_id.in_([txn.txn_id for _, txn, _ in rows]))
         )
-    }
+    )
+    payments_by_txn: dict[int, list[Payment]] = {}
+    for p in all_payments:
+        payments_by_txn.setdefault(p.txn_id, []).append(p)
 
-    return [
-        QueueEntryRead(
-            txn_id=txn.txn_id,
-            queue_position=slot.queue_position,
-            queue_number=txn.queue_number,
-            priority_skips_used=slot.priority_skips_used,
-            is_priority=txn.is_priority,
-            declared_priority_status=session.declared_priority_status,
-            session_type=session.session_type,
-            table_number=tables[session.table_id],
-            status=txn.status,
-            item_count=txn.item_count,
-            gross_amount=txn.gross_amount,
-            vat_amount=txn.vat_amount,
-            discount_amount=txn.discount_amount,
-            net_amount=txn.net_amount,
-            payment_method=payments[txn.txn_id].method,
-            payment_status=payments[txn.txn_id].status,
-            entered_queue_at=slot.entered_queue_at,
-            prep_started_at=slot.prep_started_at,
+    result: list[QueueEntryRead] = []
+    for slot, txn, session in rows:
+        method, status = _summary_method_and_status(payments_by_txn.get(txn.txn_id, []))
+        result.append(
+            QueueEntryRead(
+                txn_id=txn.txn_id,
+                queue_position=slot.queue_position,
+                queue_number=txn.queue_number,
+                priority_skips_used=slot.priority_skips_used,
+                is_priority=txn.is_priority,
+                declared_priority_status=session.declared_priority_status,
+                session_type=session.session_type,
+                table_number=tables[session.table_id],
+                status=txn.status,
+                item_count=txn.item_count,
+                gross_amount=txn.gross_amount,
+                vat_amount=txn.vat_amount,
+                discount_amount=txn.discount_amount,
+                net_amount=txn.net_amount,
+                payment_method=method,
+                payment_status=status,
+                entered_queue_at=slot.entered_queue_at,
+                prep_started_at=slot.prep_started_at,
+            )
         )
-        for slot, txn, session in rows
-    ]
+    return result
 
 
 @router.patch("/{txn_id}/status", response_model=OrderStatusRead)
@@ -68,10 +88,8 @@ async def update_status(
 async def confirm_payment(txn_id: int, db: DbSession, staff: AnyStaff) -> OrderStatusRead:
     transaction = await queue_service.confirm_cash_payment(db, txn_id, staff.staff_id)
     await events.publish_status(transaction)
+    await events.publish_cart_changed(transaction.session_id)
 
-    # §2.2.3.1.13: the sale goes to the register the moment the cash is collected,
-    # so the counter never re-keys it. A bridge failure is logged and surfaced on
-    # the POS console — it must never fail a payment the crew has already taken.
     try:
         await pos_service.transmit(
             db, txn_id, settings.POS_ENDPOINT, staff_id=staff.staff_id
@@ -86,7 +104,9 @@ async def order_status(db: DbSession, transaction: Transaction) -> OrderStatusRe
     slot = await db.scalar(
         select(KitchenQueue).where(KitchenQueue.txn_id == transaction.txn_id)
     )
-    payment = await db.scalar(select(Payment).where(Payment.txn_id == transaction.txn_id))
+    payments = list(
+        await db.scalars(select(Payment).where(Payment.txn_id == transaction.txn_id))
+    )
     return OrderStatusRead(
         txn_id=transaction.txn_id,
         queue_number=transaction.queue_number,
@@ -96,5 +116,5 @@ async def order_status(db: DbSession, transaction: Transaction) -> OrderStatusRe
             slot.queue_position if slot is not None and slot.completed_at is None else None
         ),
         net_amount=transaction.net_amount,
-        payment_status=payment.status,
+        payment_status=order_service.aggregate_payment_status(payments),
     )

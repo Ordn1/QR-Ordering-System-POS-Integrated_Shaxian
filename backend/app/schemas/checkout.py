@@ -13,16 +13,18 @@ class OrderLineWrite(BaseModel):
 
 
 class OrderCreate(BaseModel):
-    items: list[OrderLineWrite] = Field(min_length=1)
+    items: list[OrderLineWrite] = Field(default_factory=list)
     payment_method: PaymentMethod
     language: Language = Language.EN
     origin_url: str | None = Field(default=None, max_length=120)
+    checkout_scope: str = Field(default="single", pattern=r"^(single|table|split)$")
 
 
 class QuoteCreate(BaseModel):
     """A cart priced for preview. No payment method — nothing is recorded."""
 
-    items: list[OrderLineWrite] = Field(min_length=1)
+    items: list[OrderLineWrite] = Field(default_factory=list)
+    checkout_scope: str = Field(default="single", pattern=r"^(single|table|split)$")
 
 
 class QuoteRead(BaseModel):
@@ -43,6 +45,18 @@ class ReceiptLine(BaseModel):
     unit_price: Decimal
     subtotal: Decimal
     discount_amount: Decimal
+    device_id: int | None = None
+
+
+class PaymentShareRead(BaseModel):
+    payment_id: int
+    device_id: int | None
+    device_number: int
+    is_host: bool
+    is_me: bool
+    amount: Decimal
+    method: PaymentMethod
+    status: PaymentStatus
 
 
 class ReceiptRead(BaseModel):
@@ -66,3 +80,4 @@ class ReceiptRead(BaseModel):
     checkout_url: str | None = None
     fallback_to_cashier: bool = False
     lines: list[ReceiptLine]
+    shares: list[PaymentShareRead] = Field(default_factory=list)

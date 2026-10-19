@@ -1,9 +1,16 @@
 import { Check, CreditCard, Receipt, Store } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import {
+  Navigate,
+  useNavigate,
+  useOutletContext,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 
 import { placeOrder, quoteOrder } from '../../api/orders';
+import { fetchTableCart } from '../../api/sessions';
 import Button from '../../components/shared/Button';
 import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
@@ -13,48 +20,107 @@ import { toast } from '../../store/toastStore';
 export default function CheckoutPage() {
   const { t, i18n } = useTranslation();
   const { qrToken } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { trackControl, completed } = useOutletContext();
   const session = useSessionStore((state) => state.session);
   const lines = useCartStore((state) => state.lines);
   const clear = useCartStore((state) => state.clear);
+
+  const scope = searchParams.get('scope') || 'single';
+
   const [method, setMethod] = useState('cashier');
   const [placing, setPlacing] = useState(false);
   const [placed, setPlaced] = useState(false);
   const [quote, setQuote] = useState(null);
+  const [displayLines, setDisplayLines] = useState(lines);
+  const [loadingScope, setLoadingScope] = useState(scope !== 'single');
 
   useEffect(() => {
-    if (!session || lines.length === 0) {
+    if (!session?.session_id) {
       return undefined;
     }
     let cancelled = false;
-    quoteOrder(
-      session.session_id,
-      lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity })),
-    )
-      .then((next) => {
-        if (!cancelled) {
-          setQuote(next);
+
+    async function loadQuoteAndLines() {
+      try {
+        let effectiveLines = lines;
+
+        if (scope === 'table' || scope === 'split') {
+          const tableCart = await fetchTableCart(session.session_id, i18n.language);
+          if (cancelled) {
+            return;
+          }
+          if (scope === 'table') {
+            const merged = tableCart.shares.flatMap((s) =>
+              s.lines.map((l) => ({
+                item_id: l.item_id,
+                name: l.name,
+                price: l.unit_price,
+                quantity: l.quantity,
+              })),
+            );
+            setDisplayLines(merged);
+            effectiveLines = merged;
+          } else {
+            const myShare = tableCart.shares.find((s) => s.is_me);
+            const myLines = (myShare?.lines ?? []).map((l) => ({
+              item_id: l.item_id,
+              name: l.name,
+              price: l.unit_price,
+              quantity: l.quantity,
+            }));
+            setDisplayLines(myLines);
+            effectiveLines = myLines;
+          }
+        } else {
+          setDisplayLines(lines);
+          effectiveLines = lines;
         }
-      })
-      .catch(() => { });
+
+        const itemsForQuote = (effectiveLines.length > 0 ? effectiveLines : lines).map(
+          (line) => ({ item_id: line.item_id, quantity: line.quantity }),
+        );
+
+        const nextQuote = await quoteOrder(session.session_id, itemsForQuote, scope);
+        if (!cancelled) {
+          setQuote(nextQuote);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(error.message);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingScope(false);
+        }
+      }
+    }
+
+    loadQuoteAndLines();
     return () => {
       cancelled = true;
     };
-  }, [session, lines]);
+  }, [session?.session_id, lines, scope, i18n.language]);
 
-  if (lines.length === 0 && !placed) {
+  if (!loadingScope && displayLines.length === 0 && lines.length === 0 && !placed) {
     return <Navigate to={`/t/${qrToken}/cart`} replace />;
   }
 
   async function submit() {
     setPlacing(true);
     try {
+      const itemsToSend = (lines.length > 0 ? lines : displayLines).map((line) => ({
+        item_id: line.item_id,
+        quantity: line.quantity,
+      }));
+
       const receipt = await placeOrder(session.session_id, {
-        items: lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity })),
+        items: itemsToSend,
         payment_method: method,
         language: i18n.language,
         origin_url: window.location.origin,
+        checkout_scope: scope,
       });
       setPlaced(true);
       completed?.('place');
@@ -89,19 +155,26 @@ export default function CheckoutPage() {
   return (
     <main className="customer-page">
       <div className="customer-page-head">
-        <h1>{t('checkout.title')}</h1>
+        <h1>
+          {scope === 'table'
+            ? `${t('checkout.title')} · Entire Table`
+            : scope === 'split'
+              ? `${t('checkout.title')} · My Share`
+              : t('checkout.title')}
+        </h1>
       </div>
 
       <section className="checkout-card">
         <div className="checkout-card-header">
           <Receipt size={20} strokeWidth={1.75} className="checkout-card-icon" />
           <h2>
-            {t('checkout.summary')} ({lines.reduce((acc, l) => acc + l.quantity, 0)})
+            {t('checkout.summary')} (
+            {displayLines.reduce((acc, l) => acc + l.quantity, 0)})
           </h2>
         </div>
         <ul className="checkout-item-list">
-          {lines.map((line) => (
-            <li key={line.item_id} className="checkout-item-row">
+          {displayLines.map((line, idx) => (
+            <li key={`${line.item_id}-${idx}`} className="checkout-item-row">
               <span className="checkout-item-qty">{line.quantity}×</span>
               <span className="checkout-item-name">{line.name}</span>
               <span className="checkout-item-price numeric">

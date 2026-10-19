@@ -1,5 +1,5 @@
 import { HelpCircle, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
@@ -11,7 +11,9 @@ import RecommendationOverlay from '../../components/customer/RecommendationOverl
 import SearchOverlay from '../../components/customer/SearchOverlay';
 import { useConfusionSignals } from '../../hooks/useConfusionSignals';
 import { useNavGuidance } from '../../hooks/useNavGuidance';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import { listItems } from '../../api/menu';
+import { syncDeviceCart } from '../../api/sessions';
 import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
@@ -35,6 +37,7 @@ export default function CustomerShell() {
   const session = useSessionStore((state) => state.session);
   const status = useSessionStore((state) => state.status);
   const openSession = useSessionStore((state) => state.open);
+  const refreshSession = useSessionStore((state) => state.refresh);
   const lines = useCartStore((state) => state.lines);
   const add = useCartStore((state) => state.add);
   const [activeCategory, setActiveCategory] = useState(null);
@@ -58,6 +61,33 @@ export default function CustomerShell() {
       openSession(qrToken).catch(() => { });
     }
   }, [session, status, qrToken, openSession]);
+
+  useEffect(() => {
+    if (!session?.session_id) {
+      return;
+    }
+    syncDeviceCart(
+      session.session_id,
+      lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity })),
+      i18n.language,
+    ).catch(() => { });
+  }, [session?.session_id, lines, i18n.language]);
+
+  const handleSocketMessage = useCallback(
+    (payload) => {
+      if (payload?.type === 'session_changed') {
+        refreshSession();
+      }
+    },
+    [refreshSession],
+  );
+
+  useWebSocket(
+    session
+      ? `/ws/orders/${session.session_id}?device=${session.device_token}`
+      : null,
+    handleSocketMessage,
+  );
 
   const { suggestions, observeItem, accept, dismiss } = useConfusionSignals({
     sessionId: session?.session_id,

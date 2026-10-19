@@ -1,13 +1,16 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.core.customer import CurrentDevice
 from app.core.deps import DbSession
 from app.models import Session, SessionDevice, Table
+from app.models.enums import Language
 from app.schemas.session import (
     DeclarationWrite,
     PreferencesWrite,
+    SessionCartWrite,
     SessionOpen,
     SessionRead,
+    TableCartRead,
 )
 from app.services import analytics as analytics_service
 from app.services import session as session_service
@@ -78,3 +81,33 @@ async def preferences(
     )
     table = await db.get(Table, session.table_id)
     return await to_read(db, session, device, table)
+
+
+@router.get("/{session_id}/cart", response_model=TableCartRead)
+async def read_table_cart(
+    session_id: int,
+    db: DbSession,
+    device: CurrentDevice,
+    language: Language = Query(default=Language.EN),
+) -> TableCartRead:
+    return await session_service.get_table_cart(
+        db, session_id, device.device_id, language.value
+    )
+
+
+@router.patch("/{session_id}/cart", response_model=TableCartRead)
+async def sync_device_cart(
+    session_id: int,
+    payload: SessionCartWrite,
+    db: DbSession,
+    device: CurrentDevice,
+) -> TableCartRead:
+    session_service.update_device_cart(
+        session_id,
+        device.device_id,
+        [(line.item_id, line.quantity) for line in payload.items],
+    )
+    await events.publish_cart_changed(session_id)
+    return await session_service.get_table_cart(
+        db, session_id, device.device_id, payload.language.value
+    )

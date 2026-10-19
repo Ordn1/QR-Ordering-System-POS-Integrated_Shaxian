@@ -1,7 +1,9 @@
-import { UtensilsCrossed } from 'lucide-react';
+import { Split, UtensilsCrossed } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 
+import { fetchTableCart } from '../../api/sessions';
 import Button from '../../components/shared/Button';
 import IconButton from '../../components/shared/IconButton';
 import QtyStepper from '../../components/shared/QtyStepper';
@@ -11,7 +13,7 @@ import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 
 export default function CartPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { qrToken } = useParams();
   const navigate = useNavigate();
   const { trackControl } = useOutletContext();
@@ -20,17 +22,70 @@ export default function CartPage() {
   const setQuantity = useCartStore((state) => state.setQuantity);
   const remove = useCartStore((state) => state.remove);
 
+  const [activeSplitTxn, setActiveSplitTxn] = useState(null);
+
   const count = lines.reduce((total, line) => total + line.quantity, 0);
   const subtotal = lines.reduce(
     (total, line) => total + Number(line.price) * line.quantity,
     0,
   );
 
+  const checkForActiveSplit = useCallback(() => {
+    if (!session?.session_id) {
+      return;
+    }
+    fetchTableCart(session.session_id, i18n.language)
+      .then((cart) => {
+        if (cart?.active_txn_id) {
+          setActiveSplitTxn(cart);
+        } else {
+          setActiveSplitTxn(null);
+        }
+      })
+      .catch(() => {});
+  }, [session?.session_id, i18n.language]);
+
+  useEffect(() => {
+    checkForActiveSplit();
+  }, [checkForActiveSplit]);
+
+  const hasActiveSplit = activeSplitTxn?.active_txn_id != null;
+  const showSplitBanner = session?.group_mode || hasActiveSplit;
+
   return (
     <main className="customer-page">
       <div className="customer-page-head">
         <h1>{t('cart.title')}</h1>
       </div>
+
+      {showSplitBanner && lines.length === 0 ? (
+        <div className="split-active-banner">
+          <div className="split-active-banner-content">
+            <Split size={20} strokeWidth={1.75} />
+            <div>
+              <p className="split-active-banner-title">
+                {hasActiveSplit
+                  ? t('cart.activeSplitOrder', { defaultValue: 'Active split order in progress' })
+                  : t('cart.groupModeHint', { defaultValue: 'Multiple phones are at this table' })}
+              </p>
+              {hasActiveSplit ? (
+                <p className="split-active-banner-hint">
+                  {t('cart.splitUnpaidHint', {
+                    defaultValue: 'Some shares may still need payment.',
+                    amount: peso(activeSplitTxn?.unpaid_total ?? 0),
+                  })}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <Button
+            variant="checkout"
+            onClick={() => navigate(`/t/${qrToken}/split`)}
+          >
+            {t('cart.splitBill', { defaultValue: 'Split the Bill' })}
+          </Button>
+        </div>
+      ) : null}
 
       {lines.length === 0 ? (
         <div className="customer-empty">
@@ -39,7 +94,9 @@ export default function CartPage() {
             {t('cart.browse')}
           </Button>
         </div>
-      ) : (
+      ) : null}
+
+      {lines.length > 0 ? (
         <>
           <ul className="cart-list">
             {lines.map((line) => {
@@ -93,13 +150,13 @@ export default function CartPage() {
               </Button>
               {session?.group_mode ? (
                 <Button variant="secondary" onClick={() => navigate(`/t/${qrToken}/split`)}>
-                  {t('cart.splitBill')}
+                  {t('cart.splitBill', { defaultValue: 'Split the Bill' })}
                 </Button>
               ) : null}
             </div>
           </div>
         </>
-      )}
+      ) : null}
     </main>
   );
 }

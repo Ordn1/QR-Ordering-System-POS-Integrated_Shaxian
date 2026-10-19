@@ -1,4 +1,4 @@
-import { CheckCircle2, CreditCard, Receipt } from 'lucide-react';
+import { CheckCircle2, CreditCard, Receipt, Smartphone } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -10,7 +10,9 @@ import {
 } from 'react-router-dom';
 
 import { fetchReceipt, verifyOrderPayment } from '../../api/orders';
+import Badge from '../../components/shared/Badge';
 import Button from '../../components/shared/Button';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import { peso, queueLabel } from '../../lib/format';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
@@ -35,6 +37,15 @@ export default function ReceiptPage() {
 
   const txnId = receipt?.txn_id ?? (txnIdParam ? Number(txnIdParam) : null);
 
+  const reloadReceipt = useCallback(() => {
+    if (!session?.session_id || !txnId) {
+      return Promise.resolve();
+    }
+    return fetchReceipt(session.session_id, txnId, i18n.language)
+      .then(setReceipt)
+      .catch(() => { });
+  }, [session?.session_id, txnId, i18n.language]);
+
   const runVerification = useCallback(async () => {
     if (!session?.session_id || !txnId) {
       return;
@@ -48,7 +59,8 @@ export default function ReceiptPage() {
       );
       setReceipt(updated);
       setSearchParams({ txn_id: String(txnId) }, { replace: true });
-      if (updated.payment_status === 'paid') {
+      const myShare = updated.shares?.find((s) => s.is_me);
+      if (updated.payment_status === 'paid' || myShare?.status === 'paid') {
         toast.success(
           t('receipt.paidOnlineToast', {
             defaultValue: 'Online payment confirmed!',
@@ -71,15 +83,13 @@ export default function ReceiptPage() {
 
     if (shouldVerify) {
       runVerification();
-    } else if (!initialReceipt) {
+    } else {
       fetchReceipt(session.session_id, txnId, i18n.language)
         .then(setReceipt)
         .catch((error) => toast.error(error.message))
         .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
     }
-  }, [session?.session_id, txnId, shouldVerify, initialReceipt, i18n.language, runVerification]);
+  }, [session?.session_id, txnId, shouldVerify, i18n.language, runVerification]);
 
   useEffect(() => {
     if (wasCancelled) {
@@ -91,6 +101,13 @@ export default function ReceiptPage() {
       );
     }
   }, [wasCancelled, t]);
+
+  useWebSocket(
+    session
+      ? `/ws/orders/${session.session_id}?device=${session.device_token}`
+      : null,
+    reloadReceipt,
+  );
 
   if (loading || verifying) {
     return (
@@ -113,6 +130,11 @@ export default function ReceiptPage() {
     return <Navigate to={`/t/${qrToken}/menu`} replace />;
   }
 
+  const shares = receipt.shares ?? [];
+  const hasMultipleShares = shares.length > 1;
+  const myShare = shares.find((s) => s.is_me);
+  const isCashierOrder = receipt.payment_method === 'cashier' || receipt.fallback_to_cashier;
+
   return (
     <main className="customer-page">
       <div className="customer-page-head text-center">
@@ -128,9 +150,38 @@ export default function ReceiptPage() {
         <p className="receipt-note">
           {receipt.payment_status === 'paid'
             ? t('receipt.paidOnline')
-            : t('receipt.payAtCounter')}
+            : isCashierOrder && !hasMultipleShares
+              ? t('receipt.payAtCounter', {
+                  defaultValue: 'Pay at the counter when your number is called.',
+                })
+              : hasMultipleShares
+                ? 'Kitchen preparation begins once all payment shares are settled.'
+                : t('receipt.payAtCounter')}
         </p>
       </section>
+
+      {hasMultipleShares ? (
+        <section className="receipt-card">
+          <div className="receipt-card-header">
+            <Smartphone size={20} strokeWidth={1.75} className="receipt-card-icon" />
+            <h2>{t('split.title')}</h2>
+          </div>
+          <ul className="receipt-item-list">
+            {shares.map((share) => (
+              <li key={share.payment_id} className="receipt-item-row">
+                <span className="receipt-item-name">
+                  {share.is_host
+                    ? t('split.deviceHost', { number: share.device_number })
+                    : t('split.device', { number: share.device_number })}
+                  {share.is_me ? ' (You)' : ''}
+                </span>
+                <Badge value={share.status} domain="payment" />
+                <span className="receipt-item-price numeric">{peso(share.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="receipt-card">
         <div className="receipt-card-header">
@@ -138,8 +189,8 @@ export default function ReceiptPage() {
           <h2>{t('receipt.items')}</h2>
         </div>
         <ul className="receipt-item-list">
-          {receipt.lines.map((line) => (
-            <li key={line.item_id} className="receipt-item-row">
+          {receipt.lines.map((line, idx) => (
+            <li key={`${line.item_id}-${idx}`} className="receipt-item-row">
               <span className="receipt-item-qty">{line.quantity}×</span>
               <span className="receipt-item-name">{line.name}</span>
               <span className="receipt-item-price numeric">{peso(line.subtotal)}</span>
@@ -184,7 +235,7 @@ export default function ReceiptPage() {
       </section>
 
       <div className="receipt-actions">
-        {receipt.payment_method === 'online' && receipt.payment_status !== 'paid' ? (
+        {myShare && myShare.status !== 'paid' && myShare.method === 'online' ? (
           <Button
             variant="primary"
             icon={CreditCard}
@@ -192,6 +243,14 @@ export default function ReceiptPage() {
             onClick={runVerification}
           >
             {t('receipt.recheckPayment', { defaultValue: 'Verify online payment' })}
+          </Button>
+        ) : null}
+        {hasMultipleShares && receipt.payment_status !== 'paid' ? (
+          <Button
+            variant="primary"
+            onClick={() => navigate(`/t/${qrToken}/split`)}
+          >
+            {t('split.title')}
           </Button>
         ) : null}
         <Button variant="secondary" onClick={() => navigate(`/t/${qrToken}/status`)}>
