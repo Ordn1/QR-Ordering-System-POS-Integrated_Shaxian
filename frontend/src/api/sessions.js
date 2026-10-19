@@ -10,3 +10,9 @@ export const declarePriority = (sessionId, status) =>
 
 export const savePreferences = (sessionId, preferences) =>
   api.patch(`/sessions/${sessionId}/preferences`, preferences);
+
+export const fetchTableCart = (sessionId, language = 'en') =>
+  api.get(`/sessions/${sessionId}/cart?language=${encodeURIComponent(language)}`);
+
+export const syncDeviceCart = (sessionId, items, language = 'en') =>
+  api.patch(`/sessions/${sessionId}/cart`, { items, language });

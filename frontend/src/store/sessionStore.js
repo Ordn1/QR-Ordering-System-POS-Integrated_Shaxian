@@ -5,19 +5,38 @@ import * as sessionApi from '../api/sessions';
 import i18n from '../lib/i18n';
 import { useUiStore } from './uiStore';
 
-const STORAGE_KEY = 'shaxian.device';
+const STORAGE_KEY = 'shaxian.devices';
+
+let inflightPromise = null;
+let inflightToken = null;
 
 function remember(qrToken, deviceToken) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ qrToken, deviceToken }));
+  try {
+    const map = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    map[qrToken] = deviceToken;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ [qrToken]: deviceToken }));
+  }
 }
 
 function recall(qrToken) {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return saved?.qrToken === qrToken ? saved.deviceToken : null;
-  } catch {
-    return null;
-  }
+    const map = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (map && map[qrToken]) {
+      return map[qrToken];
+    }
+  } catch {}
+
+  try {
+    const legacy = JSON.parse(localStorage.getItem('shaxian.device'));
+    if (legacy?.qrToken === qrToken && legacy?.deviceToken) {
+      remember(qrToken, legacy.deviceToken);
+      return legacy.deviceToken;
+    }
+  } catch {}
+
+  return null;
 }
 
 function applySession(session) {
@@ -32,16 +51,54 @@ export const useSessionStore = create((set, get) => ({
   status: 'idle',
 
   open: async (qrToken) => {
+    if (inflightPromise && inflightToken === qrToken) {
+      return inflightPromise;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlDeviceToken = urlParams.get('device_token');
+
+    let tokenToUse = urlDeviceToken || recall(qrToken);
+
+    if (urlDeviceToken) {
+      remember(qrToken, urlDeviceToken);
+    }
+
     set({ status: 'opening' });
+
+    inflightToken = qrToken;
+    inflightPromise = sessionApi
+      .openSession(qrToken, tokenToUse)
+      .then((session) => {
+        remember(qrToken, session.device_token);
+        applySession(session);
+        set({ session, status: 'ready' });
+        return session;
+      })
+      .catch((error) => {
+        set({ status: 'failed' });
+        throw error;
+      })
+      .finally(() => {
+        inflightPromise = null;
+        inflightToken = null;
+      });
+
+    return inflightPromise;
+  },
+
+  refresh: async () => {
+    const current = get().session;
+    if (!current) {
+      return null;
+    }
     try {
-      const session = await sessionApi.openSession(qrToken, recall(qrToken));
-      remember(qrToken, session.device_token);
-      applySession(session);
-      set({ session, status: 'ready' });
-      return session;
-    } catch (error) {
-      set({ status: 'failed' });
-      throw error;
+      const next = await sessionApi.readSession(current.session_id);
+      applySession(next);
+      set({ session: next });
+      return next;
+    } catch {
+      return null;
     }
   },
 

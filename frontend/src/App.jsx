@@ -14,6 +14,7 @@ import CategoriesPage from './pages/admin/CategoriesPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import MenuPage from './pages/admin/MenuPage';
 import PosPage from './pages/admin/PosPage';
+import TablesPage from './pages/admin/TablesPage';
 import TransactionsPage from './pages/admin/TransactionsPage';
 import VerificationsPage from './pages/admin/VerificationsPage';
 import AtomsPage from './pages/dev/AtomsPage';
@@ -24,6 +25,7 @@ import ProtectedRoute from './routes/ProtectedRoute';
 
 const ADMIN_LINKS = [
   { to: '/admin/dashboard', labelKey: 'admin.dashboardTitle' },
+  { to: '/admin/tables', labelKey: 'admin.tablesTitle' },
   { to: '/admin/menu', labelKey: 'admin.menuTitle' },
   { to: '/admin/categories', labelKey: 'admin.categoriesTitle' },
   { to: '/admin/transactions', labelKey: 'admin.transactionsTitle' },
@@ -31,7 +33,10 @@ const ADMIN_LINKS = [
   { to: '/admin/pos', labelKey: 'admin.posTitle' },
 ];
 
-const STAFF_LINKS = [{ to: '/staff/queue', labelKey: 'staff.queueTitle' }];
+const STAFF_LINKS = [
+  { to: '/staff/queue', labelKey: 'staff.queueTitle' },
+  { to: '/staff/tables', labelKey: 'admin.tablesTitle' },
+];
 
 export default function App() {
   return (
@@ -59,6 +64,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="tables" element={<TablesPage />} />
             <Route path="menu" element={<MenuPage />} />
             <Route path="categories" element={<CategoriesPage />} />
             <Route path="transactions" element={<TransactionsPage />} />
@@ -78,6 +84,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="/staff/queue" replace />} />
             <Route path="queue" element={<QueuePage />} />
+            <Route path="tables" element={<TablesPage />} />
             <Route path="account" element={<SignedInPage />} />
           </Route>
         </Route>

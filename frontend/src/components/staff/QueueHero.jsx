@@ -51,7 +51,8 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
   }
 
   const awaitingCash =
-    entry.payment_method === 'cashier' && entry.payment_status === 'pending';
+    entry.payment_status === 'pending' ||
+    (entry.payment_method === 'cashier' && entry.payment_status !== 'paid');
 
   const statusStage = entry.status === 'preparing'
     ? t('staff.nowPreparing')

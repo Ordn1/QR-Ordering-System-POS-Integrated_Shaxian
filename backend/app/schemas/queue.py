@@ -39,6 +39,17 @@ class StatusWrite(BaseModel):
     status: TxnStatus
 
 
+class PaymentShareStatusRead(BaseModel):
+    payment_id: int
+    device_id: int | None
+    device_number: int
+    is_host: bool
+    is_me: bool
+    amount: Decimal
+    method: PaymentMethod
+    status: PaymentStatus
+
+
 class OrderStatusRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,3 +60,9 @@ class OrderStatusRead(BaseModel):
     queue_position: int | None
     net_amount: Decimal
     payment_status: PaymentStatus
+    shares_total: int = 0
+    shares_paid: int = 0
+    unpaid_amount: Decimal = Decimal("0.00")
+    my_share_unpaid: bool = False
+    my_share_amount: Decimal = Decimal("0.00")
+    shares: list[PaymentShareStatusRead] = []

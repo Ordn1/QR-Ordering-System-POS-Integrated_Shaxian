@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.models import KitchenQueue, Payment, Session, Transaction
-from app.models.enums import PaymentMethod, PaymentStatus, PrintStatus, TxnStatus
+from app.models.enums import PaymentStatus, PrintStatus, TxnStatus
 
 QUEUE_LOCK_SQL = text("SELECT pg_advisory_xact_lock(hashtext('kitchen_queue'))")
 
@@ -37,11 +38,7 @@ class QueueEntry:
 
 
 async def lock_queue(db: AsyncSession) -> None:
-    """Serialise queue mutation for the whole transaction.
-
-    FOR UPDATE alone cannot do this: a row lock does not stop a concurrent INSERT,
-    and an already-started statement never sees the new row.
-    """
+    """Serialise queue mutation for the whole transaction."""
     await db.execute(QUEUE_LOCK_SQL)
 
 
@@ -56,12 +53,7 @@ async def pending_entries(db: AsyncSession) -> list[QueueEntry]:
 
 
 async def place_in_queue(db: AsyncSession, transaction: Transaction) -> KitchenQueue:
-    """Insert an order per Algorithms.md §2.3, with the three invariants held.
-
-    The advance condition is evaluated as one predicate rather than three sequential
-    loops: run separately, a protected standard order between two priority orders
-    lets a newer priority order jump an older one.
-    """
+    """Insert an order per Algorithms.md §2.3, with the three invariants held."""
     await lock_queue(db)
     queue = await pending_entries(db)
 
@@ -121,6 +113,18 @@ async def advance_status(
             f"not {target.value}."
         )
 
+    if target is TxnStatus.PREPARING:
+        payments = list(
+            await db.scalars(select(Payment).where(Payment.txn_id == txn_id))
+        )
+        unpaid = [p for p in payments if p.status != PaymentStatus.PAID]
+        if unpaid:
+            remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
+            raise BusinessRuleError(
+                f"Order Q-{transaction.queue_number:03d} cannot be prepared yet — "
+                f"{len(unpaid)} payment share(s) (₱{remaining:.2f}) are still unpaid."
+            )
+
     slot = await db.scalar(select(KitchenQueue).where(KitchenQueue.txn_id == txn_id))
     now = datetime.now(UTC)
 
@@ -138,28 +142,41 @@ async def advance_status(
 
 
 async def confirm_cash_payment(db: AsyncSession, txn_id: int, staff_id: str) -> Transaction:
-    """Mark a cashier-fallback payment settled once the crew has taken the cash."""
+    """Mark all unpaid payment shares settled once the crew has collected cash."""
     transaction = await db.get(Transaction, txn_id)
     if transaction is None:
         raise NotFoundError("That order no longer exists. Refresh the queue.")
 
-    payment = await db.scalar(select(Payment).where(Payment.txn_id == txn_id))
-    if payment is None:
+    payments = list(
+        await db.scalars(select(Payment).where(Payment.txn_id == txn_id))
+    )
+    if not payments:
         raise NotFoundError("That order has no payment record.")
-    if payment.method is not PaymentMethod.CASHIER:
-        raise BusinessRuleError("That order was paid online. There is nothing to collect.")
-    if payment.status is PaymentStatus.PAID:
+
+    unpaid = [p for p in payments if p.status != PaymentStatus.PAID]
+    if not unpaid:
         raise BusinessRuleError(
             f"Order Q-{transaction.queue_number:03d} is already marked paid."
         )
 
-    payment.status = PaymentStatus.PAID
-    payment.paid_at = datetime.now(UTC)
-    payment.print_status = PrintStatus.SUCCESS
+    now = datetime.now(UTC)
+    for payment in unpaid:
+        payment.status = PaymentStatus.PAID
+        payment.paid_at = now
+        payment.print_status = PrintStatus.SUCCESS
 
-    slot = await db.scalar(select(KitchenQueue).where(KitchenQueue.txn_id == txn_id))
-    if slot is not None:
-        slot.updated_by = staff_id
+    # Update
+    existing_slot = await db.scalar(
+        select(KitchenQueue).where(KitchenQueue.txn_id == txn_id)
+    )
+    if existing_slot is None:
+        await place_in_queue(db, transaction)
+        existing_slot = await db.scalar(
+            select(KitchenQueue).where(KitchenQueue.txn_id == txn_id)
+        )
+
+    if existing_slot is not None:
+        existing_slot.updated_by = staff_id
 
     await db.commit()
     await db.refresh(transaction)

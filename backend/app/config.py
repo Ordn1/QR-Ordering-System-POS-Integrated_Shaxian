@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     SESSION_MAX_AGE_HOURS: int = 3
 
     MENU_IMAGE_DIR: str = "menu"
+    FRONTEND_BASE_URL: str = "http://localhost:5173"
+    PAYMONGO_SECRET_KEY: str = ""
 
     # The register the POS bridge transmits to. Points at this server's own
     # simulated terminal; a real deployment repoints it at the counter's register.
