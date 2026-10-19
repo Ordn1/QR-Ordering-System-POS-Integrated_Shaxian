@@ -171,7 +171,142 @@ def _resolve_requested_with_devices(
         if all_lines:
             return all_lines
 
-    return [(item_id, qty, device.device_id) for item_id, qty in requested]
+    if requested:
+        return [(item_id, qty, device.device_id) for item_id, qty in requested]
+
+    saved_dev_lines = session_service.get_device_cart_lines(session_id, device.device_id)
+    if saved_dev_lines:
+        return [(item_id, qty, device.device_id) for item_id, qty in saved_dev_lines]
+
+    return session_service.get_all_session_cart_lines(session_id)
+
+
+async def find_open_table_transaction(
+    db: AsyncSession, session_id: int
+) -> Transaction | None:
+    ordering_session = await session_service.get_session(db, session_id)
+    txns = list(
+        await db.scalars(
+            select(Transaction)
+            .where(
+                Transaction.session_id == session_id,
+                Transaction.status == TxnStatus.PENDING,
+            )
+            .order_by(Transaction.placed_at.desc())
+        )
+    )
+    for txn in txns:
+        payments = list(
+            await db.scalars(select(Payment).where(Payment.txn_id == txn.txn_id))
+        )
+        if any(p.status != PaymentStatus.PAID for p in payments):
+            return txn
+        if ordering_session.group_mode:
+            slot = await db.scalar(
+                select(KitchenQueue).where(KitchenQueue.txn_id == txn.txn_id)
+            )
+            if slot is None or slot.prep_started_at is None:
+                return txn
+    return None
+
+
+async def _ensure_in_kitchen_queue(
+    db: AsyncSession, transaction: Transaction
+) -> None:
+    existing_slot = await db.scalar(
+        select(KitchenQueue).where(KitchenQueue.txn_id == transaction.txn_id)
+    )
+    if existing_slot is None:
+        await queue_service.place_in_queue(db, transaction)
+
+
+async def _append_device_items_to_transaction(
+    db: AsyncSession,
+    txn: Transaction,
+    session_id: int,
+    device: SessionDevice,
+    new_lines: list[tuple[str, int]],
+    method: PaymentMethod,
+) -> Payment:
+    eligible = await session_service.discount_eligible(db, session_id)
+    items_map = {
+        item.item_id: item
+        for item in await db.scalars(
+            select(MenuItem).where(MenuItem.item_id.in_([i for i, _ in new_lines]))
+        )
+    }
+    cart_to_add: list[CartLine] = []
+    for item_id, qty in new_lines:
+        item = items_map.get(item_id)
+        if item is None:
+            raise NotFoundError("An item in your cart is no longer on the menu.")
+        if not item.is_available:
+            raise BusinessRuleError(f"{item.name_en} has just sold out. Remove it to continue.")
+        cart_to_add.append(
+            CartLine(
+                item_id=item.item_id,
+                quantity=qty,
+                unit_price=item.price,
+                discount_eligible=eligible,
+                device_id=device.device_id,
+            )
+        )
+
+    priced_add = price_order(cart_to_add)
+    db.add_all(
+        TransactionItem(
+            txn_id=txn.txn_id,
+            item_id=line.item_id,
+            device_id=device.device_id,
+            quantity=line.quantity,
+            unit_price=line.unit_price,
+            subtotal=line.subtotal,
+            is_discounted=line.is_discounted,
+            discount_amount=line.discount_amount,
+        )
+        for line in priced_add.lines
+    )
+
+    txn.gross_amount += priced_add.gross_amount
+    txn.vatable_sales += priced_add.vatable_sales
+    txn.vat_exempt_sales += priced_add.vat_exempt_sales
+    txn.vat_amount += priced_add.vat_amount
+    txn.discount_amount += priced_add.discount_amount
+    txn.net_amount += priced_add.net_amount
+    txn.item_count += priced_add.item_count
+
+    my_payment = await db.scalar(
+        select(Payment).where(
+            Payment.txn_id == txn.txn_id,
+            Payment.device_id == device.device_id,
+            Payment.status != PaymentStatus.PAID,
+        )
+    )
+    if my_payment is not None:
+        my_payment.amount += priced_add.net_amount
+        my_payment.discount_applied += priced_add.discount_amount
+        my_payment.method = method
+        if method is PaymentMethod.CASHIER:
+            my_payment.aggregator_ref = "CASHIER-CONFIRMED"
+    else:
+        my_payment = Payment(
+            txn_id=txn.txn_id,
+            device_id=device.device_id,
+            method=method,
+            amount=priced_add.net_amount,
+            discount_applied=priced_add.discount_amount,
+            status=PaymentStatus.PENDING,
+            aggregator_ref="CASHIER-CONFIRMED" if method is PaymentMethod.CASHIER else None,
+            paid_at=None,
+        )
+        db.add(my_payment)
+
+    await _ensure_in_kitchen_queue(db, txn)
+    session_service.clear_device_cart(session_id, device.device_id)
+    await db.commit()
+    await db.refresh(txn)
+    await db.refresh(my_payment)
+    return my_payment
 
 
 async def build_cart(
@@ -186,10 +321,17 @@ async def build_cart(
     if ordering_session.ended_at is not None:
         raise BusinessRuleError("That table session has ended. Scan the QR code again.")
 
-    if checkout_scope in ("split", "table"):
-        existing_txn = await find_open_split_transaction(db, session_id)
+    if requested:
+        session_service.update_device_cart(session_id, device.device_id, requested)
+
+    effective_scope = checkout_scope
+    if ordering_session.group_mode and effective_scope == "single":
+        effective_scope = "split"
+
+    if effective_scope in ("split", "table"):
+        existing_txn = await find_open_table_transaction(db, session_id)
         if existing_txn is not None:
-            if checkout_scope == "split":
+            if effective_scope == "split":
                 existing_rows = list(
                     await db.scalars(
                         select(TransactionItem).where(
@@ -231,7 +373,10 @@ async def build_cart(
                 ]
 
     resolved = _resolve_requested_with_devices(
-        session_id, device, requested, "single" if checkout_scope == "split" else checkout_scope
+        session_id,
+        device,
+        requested,
+        "single" if effective_scope == "split" else effective_scope,
     )
     if not resolved:
         raise BusinessRuleError("Your cart is empty. Add an item before checking out.")
@@ -275,28 +420,6 @@ async def quote_order(
     return price_order(await build_cart(db, session_id, device, requested, checkout_scope))
 
 
-async def find_open_split_transaction(
-    db: AsyncSession, session_id: int
-) -> Transaction | None:
-    txns = list(
-        await db.scalars(
-            select(Transaction)
-            .where(
-                Transaction.session_id == session_id,
-                Transaction.status == TxnStatus.PENDING,
-            )
-            .order_by(Transaction.placed_at.desc())
-        )
-    )
-    for txn in txns:
-        payments = list(
-            await db.scalars(select(Payment).where(Payment.txn_id == txn.txn_id))
-        )
-        if len(payments) > 1 and any(p.status != PaymentStatus.PAID for p in payments):
-            return txn
-    return None
-
-
 async def place_order(
     db: AsyncSession,
     session_id: int,
@@ -310,59 +433,102 @@ async def place_order(
     if ordering_session.ended_at is not None:
         raise BusinessRuleError("That table session has ended. Scan the QR code again.")
 
-    if checkout_scope == "split":
-        existing_txn = await find_open_split_transaction(db, session_id)
-        if existing_txn is not None:
-            my_payment = await db.scalar(
-                select(Payment).where(
-                    Payment.txn_id == existing_txn.txn_id,
-                    Payment.device_id == device.device_id,
-                )
+    if requested:
+        session_service.update_device_cart(session_id, device.device_id, requested)
+
+    effective_scope = checkout_scope
+    if ordering_session.group_mode and effective_scope == "single":
+        effective_scope = "split"
+
+    existing_txn = await find_open_table_transaction(db, session_id)
+
+    if effective_scope == "split" and existing_txn is not None:
+        my_payment = await db.scalar(
+            select(Payment).where(
+                Payment.txn_id == existing_txn.txn_id,
+                Payment.device_id == device.device_id,
             )
-            if my_payment is None:
-                raise BusinessRuleError("This phone has no unpaid share in the active split order.")
-            if my_payment.status is PaymentStatus.PAID:
-                return existing_txn, my_payment
-            # Update
-            my_payment.method = method
-            if method is PaymentMethod.CASHIER:
-                my_payment.aggregator_ref = "CASHIER-CONFIRMED"
-            session_service.clear_device_cart(session_id, device.device_id)
-            await db.commit()
-            await db.refresh(existing_txn)
-            await db.refresh(my_payment)
+        )
+        my_live_lines = requested or session_service.get_device_cart_lines(
+            session_id, device.device_id
+        )
+
+        if my_payment is None:
+            if not my_live_lines:
+                raise BusinessRuleError(
+                    "Add an item to your cart first, or choose Pay Remaining Balance to settle the table."
+                )
+            my_payment = await _append_device_items_to_transaction(
+                db, existing_txn, session_id, device, my_live_lines, method
+            )
             return existing_txn, my_payment
 
-    if checkout_scope == "table":
-        existing_txn = await find_open_split_transaction(db, session_id)
-        if existing_txn is not None:
-            unpaid_payments = list(
+        if my_payment.status is PaymentStatus.PAID:
+            if my_live_lines:
+                my_payment = await _append_device_items_to_transaction(
+                    db, existing_txn, session_id, device, my_live_lines, method
+                )
+            return existing_txn, my_payment
+
+        # Update
+        my_payment.method = method
+        if method is PaymentMethod.CASHIER:
+            my_payment.aggregator_ref = "CASHIER-CONFIRMED"
+        await _ensure_in_kitchen_queue(db, existing_txn)
+        session_service.clear_device_cart(session_id, device.device_id)
+        await db.commit()
+        await db.refresh(existing_txn)
+        await db.refresh(my_payment)
+        return existing_txn, my_payment
+
+    if effective_scope == "table" and existing_txn is not None:
+        for dev_id in list(session_service._TABLE_CARTS.get(session_id, {}).keys()):
+            dev_lines = session_service.get_device_cart_lines(session_id, dev_id)
+            existing_dev_items = list(
                 await db.scalars(
-                    select(Payment).where(
-                        Payment.txn_id == existing_txn.txn_id,
-                        Payment.status != PaymentStatus.PAID,
+                    select(TransactionItem).where(
+                        TransactionItem.txn_id == existing_txn.txn_id,
+                        TransactionItem.device_id == dev_id,
                     )
                 )
             )
-            if unpaid_payments:
-                primary = unpaid_payments[0]
-                primary.device_id = device.device_id
-                primary.method = method
-                primary.amount = sum((p.amount for p in unpaid_payments), Decimal("0.00"))
-                primary.discount_applied = sum(
-                    (p.discount_applied for p in unpaid_payments), Decimal("0.00")
-                )
-                if method is PaymentMethod.CASHIER:
-                    primary.aggregator_ref = "CASHIER-CONFIRMED"
-                for extra in unpaid_payments[1:]:
-                    await db.delete(extra)
-                session_service.clear_table_cart(session_id)
-                await db.commit()
-                await db.refresh(existing_txn)
-                await db.refresh(primary)
-                return existing_txn, primary
+            if dev_lines and not existing_dev_items:
+                dev_obj = await db.get(SessionDevice, dev_id)
+                if dev_obj is not None:
+                    await _append_device_items_to_transaction(
+                        db, existing_txn, session_id, dev_obj, dev_lines, method
+                    )
 
-    resolved = _resolve_requested_with_devices(session_id, device, requested, checkout_scope)
+        unpaid_payments = list(
+            await db.scalars(
+                select(Payment).where(
+                    Payment.txn_id == existing_txn.txn_id,
+                    Payment.status != PaymentStatus.PAID,
+                )
+            )
+        )
+        if unpaid_payments:
+            primary = unpaid_payments[0]
+            primary.device_id = device.device_id
+            primary.method = method
+            primary.amount = sum((p.amount for p in unpaid_payments), Decimal("0.00"))
+            primary.discount_applied = sum(
+                (p.discount_applied for p in unpaid_payments), Decimal("0.00")
+            )
+            if method is PaymentMethod.CASHIER:
+                primary.aggregator_ref = "CASHIER-CONFIRMED"
+            for extra in unpaid_payments[1:]:
+                await db.delete(extra)
+            await _ensure_in_kitchen_queue(db, existing_txn)
+            session_service.clear_table_cart(session_id)
+            await db.commit()
+            await db.refresh(existing_txn)
+            await db.refresh(primary)
+            return existing_txn, primary
+
+    resolved = _resolve_requested_with_devices(
+        session_id, device, requested, effective_scope
+    )
     if not resolved:
         raise BusinessRuleError("Your cart is empty. Add an item before checking out.")
 
@@ -423,14 +589,11 @@ async def place_order(
         for line in priced.lines
     )
 
-    # Create
-    is_split = checkout_scope == "split"
-    if not is_split:
-        await queue_service.place_in_queue(db, transaction)
+    await queue_service.place_in_queue(db, transaction)
 
     active_payment: Payment | None = None
 
-    if checkout_scope == "split":
+    if effective_scope == "split":
         device_totals: dict[int, tuple[Decimal, Decimal]] = {}
         for line in priced.lines:
             dev_id = line.device_id or device.device_id
@@ -449,7 +612,9 @@ async def place_order(
                 discount_applied=dev_disc,
                 status=PaymentStatus.PENDING,
                 aggregator_ref=(
-                    None if is_initiating_device else "AWAITING-CHOICE"
+                    ("CASHIER-CONFIRMED" if method is PaymentMethod.CASHIER else None)
+                    if is_initiating_device
+                    else "AWAITING-CHOICE"
                 ),
                 paid_at=None,
             )
@@ -466,11 +631,11 @@ async def place_order(
             amount=priced.net_amount,
             discount_applied=priced.discount_amount,
             status=PaymentStatus.PENDING,
-            aggregator_ref=None,
+            aggregator_ref="CASHIER-CONFIRMED" if method is PaymentMethod.CASHIER else None,
             paid_at=None,
         )
         db.add(active_payment)
-        if checkout_scope == "table":
+        if effective_scope == "table":
             session_service.clear_table_cart(session_id)
         else:
             session_service.clear_device_cart(session_id, device.device_id)
@@ -598,7 +763,9 @@ async def session_order_status(
                 "is_priority": txn.is_priority,
                 "queue_position": (
                     slots[txn.txn_id].queue_position
-                    if txn.txn_id in slots and slots[txn.txn_id].completed_at is None
+                    if txn.txn_id in slots
+                    and slots[txn.txn_id].completed_at is None
+                    and overall_status is PaymentStatus.PAID
                     else None
                 ),
                 "net_amount": txn.net_amount,

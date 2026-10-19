@@ -10,7 +10,7 @@ import {
 } from 'react-router-dom';
 
 import { placeOrder, quoteOrder } from '../../api/orders';
-import { fetchTableCart } from '../../api/sessions';
+import { fetchTableCart, syncDeviceCart } from '../../api/sessions';
 import Button from '../../components/shared/Button';
 import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
@@ -27,14 +27,17 @@ export default function CheckoutPage() {
   const lines = useCartStore((state) => state.lines);
   const clear = useCartStore((state) => state.clear);
 
-  const scope = searchParams.get('scope') || 'single';
+  const requestedScope = searchParams.get('scope');
+  const initialScope =
+    requestedScope || (session?.group_mode ? 'split' : 'single');
 
+  const [activeScope, setActiveScope] = useState(initialScope);
   const [method, setMethod] = useState('cashier');
   const [placing, setPlacing] = useState(false);
   const [placed, setPlaced] = useState(false);
   const [quote, setQuote] = useState(null);
   const [displayLines, setDisplayLines] = useState(lines);
-  const [loadingScope, setLoadingScope] = useState(scope !== 'single');
+  const [loadingScope, setLoadingScope] = useState(true);
 
   useEffect(() => {
     if (!session?.session_id) {
@@ -43,46 +46,85 @@ export default function CheckoutPage() {
     let cancelled = false;
 
     async function loadQuoteAndLines() {
+      setLoadingScope(true);
       try {
-        let effectiveLines = lines;
+        if (lines.length > 0) {
+          await syncDeviceCart(
+            session.session_id,
+            lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity })),
+            i18n.language,
+          ).catch(() => { });
+        }
 
-        if (scope === 'table' || scope === 'split') {
-          const tableCart = await fetchTableCart(session.session_id, i18n.language);
-          if (cancelled) {
-            return;
-          }
-          if (scope === 'table') {
-            const merged = tableCart.shares.flatMap((s) =>
-              s.lines.map((l) => ({
-                item_id: l.item_id,
-                name: l.name,
-                price: l.unit_price,
-                quantity: l.quantity,
-              })),
-            );
-            setDisplayLines(merged);
-            effectiveLines = merged;
-          } else {
-            const myShare = tableCart.shares.find((s) => s.is_me);
-            const myLines = (myShare?.lines ?? []).map((l) => ({
+        const tableCart = await fetchTableCart(session.session_id, i18n.language);
+        if (cancelled) {
+          return;
+        }
+
+        let resolvedScope =
+          requestedScope || (session?.group_mode ? 'split' : 'single');
+
+        const myShare = tableCart.shares.find((s) => s.is_me);
+        const myLines = (myShare?.lines ?? []).map((l) => ({
+          item_id: l.item_id,
+          name: l.name,
+          price: l.unit_price,
+          quantity: l.quantity,
+        }));
+        const allTableLines = tableCart.shares
+          .filter((s) => s.payment_status !== 'paid')
+          .flatMap((s) =>
+            s.lines.map((l) => ({
               item_id: l.item_id,
               name: l.name,
               price: l.unit_price,
               quantity: l.quantity,
-            }));
-            setDisplayLines(myLines);
+            })),
+          );
+
+        let effectiveLines = lines;
+
+        if (resolvedScope === 'table') {
+          effectiveLines = allTableLines.length > 0 ? allTableLines : lines;
+        } else if (resolvedScope === 'split') {
+          if (lines.length > 0) {
+            effectiveLines = lines;
+          } else if (myLines.length > 0) {
             effectiveLines = myLines;
+          } else if (allTableLines.length > 0) {
+            resolvedScope = 'table';
+            effectiveLines = allTableLines;
           }
         } else {
-          setDisplayLines(lines);
-          effectiveLines = lines;
+          if (lines.length > 0) {
+            effectiveLines = lines;
+          } else if (myLines.length > 0) {
+            resolvedScope = session?.group_mode ? 'split' : 'single';
+            effectiveLines = myLines;
+          } else if (allTableLines.length > 0) {
+            resolvedScope = 'table';
+            effectiveLines = allTableLines;
+          }
         }
 
-        const itemsForQuote = (effectiveLines.length > 0 ? effectiveLines : lines).map(
-          (line) => ({ item_id: line.item_id, quantity: line.quantity }),
-        );
+        setActiveScope(resolvedScope);
+        setDisplayLines(effectiveLines);
 
-        const nextQuote = await quoteOrder(session.session_id, itemsForQuote, scope);
+        if (effectiveLines.length === 0) {
+          setLoadingScope(false);
+          return;
+        }
+
+        const itemsForQuote = effectiveLines.map((line) => ({
+          item_id: line.item_id,
+          quantity: line.quantity,
+        }));
+
+        const nextQuote = await quoteOrder(
+          session.session_id,
+          itemsForQuote,
+          resolvedScope,
+        );
         if (!cancelled) {
           setQuote(nextQuote);
         }
@@ -101,7 +143,7 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [session?.session_id, lines, scope, i18n.language]);
+  }, [session?.session_id, session?.group_mode, lines, requestedScope, i18n.language]);
 
   if (!loadingScope && displayLines.length === 0 && lines.length === 0 && !placed) {
     return <Navigate to={`/t/${qrToken}/cart`} replace />;
@@ -110,7 +152,8 @@ export default function CheckoutPage() {
   async function submit() {
     setPlacing(true);
     try {
-      const itemsToSend = (lines.length > 0 ? lines : displayLines).map((line) => ({
+      const sourceLines = displayLines.length > 0 ? displayLines : lines;
+      const itemsToSend = sourceLines.map((line) => ({
         item_id: line.item_id,
         quantity: line.quantity,
       }));
@@ -120,7 +163,7 @@ export default function CheckoutPage() {
         payment_method: method,
         language: i18n.language,
         origin_url: window.location.origin,
-        checkout_scope: scope,
+        checkout_scope: activeScope,
       });
       setPlaced(true);
       completed?.('place');
@@ -156,9 +199,9 @@ export default function CheckoutPage() {
     <main className="customer-page">
       <div className="customer-page-head">
         <h1>
-          {scope === 'table'
+          {activeScope === 'table'
             ? `${t('checkout.title')} · Entire Table`
-            : scope === 'split'
+            : activeScope === 'split'
               ? `${t('checkout.title')} · My Share`
               : t('checkout.title')}
         </h1>

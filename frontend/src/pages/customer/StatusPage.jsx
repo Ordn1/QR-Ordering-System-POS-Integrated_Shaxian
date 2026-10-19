@@ -6,7 +6,6 @@ import {
   CreditCard,
   Receipt,
   ShoppingBag,
-  Smartphone,
   Sparkles,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -69,9 +68,9 @@ export default function StatusPage() {
       ) : null}
 
       {orders.map((order) => {
-        const isSplit = order.shares_total > 1;
         const allPaid = order.payment_status === 'paid';
-        const awaitingSplitPayment = isSplit && !allPaid;
+        const isGroupOrSplit = session?.group_mode || order.shares_total > 1;
+        const awaitingPayment = !allPaid;
         const shares = order.shares ?? [];
 
         return (
@@ -85,37 +84,51 @@ export default function StatusPage() {
               ) : null}
               <span className="status-hero-eyebrow">{t('receipt.queueNumber')}</span>
               <h2 className="status-hero-number numeric">{queueLabel(order.queue_number)}</h2>
-              <Badge value={order.status} />
+              <Badge
+                value={awaitingPayment ? 'pending' : order.status}
+                domain={awaitingPayment ? 'payment' : undefined}
+                label={
+                  awaitingPayment
+                    ? isGroupOrSplit
+                      ? `Awaiting Payment (${order.shares_paid}/${order.shares_total} paid)`
+                      : 'Awaiting Payment'
+                    : undefined
+                }
+              />
             </div>
 
-            {awaitingSplitPayment ? (
+            {awaitingPayment ? (
               <div className="status-split-warning">
                 <div className="status-split-warning-header">
                   <AlertTriangle size={18} strokeWidth={2} />
                   <span className="status-split-warning-title">
-                    Awaiting Split Payment ({order.shares_paid}/{order.shares_total} paid)
+                    {isGroupOrSplit
+                      ? `Order Held — Split Payment (${order.shares_paid}/${order.shares_total} settled)`
+                      : 'Order Held — Awaiting Payment Settlement'}
                   </span>
                 </div>
 
-                <ul className="status-split-share-list">
-                  {shares.map((share) => (
-                    <li key={share.payment_id} className="status-split-share-row">
-                      <span className="status-split-share-name">
-                        {share.is_host
-                          ? t('split.deviceHost', { number: share.device_number })
-                          : t('split.device', { number: share.device_number })}
-                        {share.is_me ? ' (You)' : ''}
-                      </span>
-                      <Badge value={share.status} domain="payment" />
-                      <span className="status-split-share-amount numeric">
-                        {peso(share.amount)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {shares.length > 0 ? (
+                  <ul className="status-split-share-list">
+                    {shares.map((share) => (
+                      <li key={share.payment_id} className="status-split-share-row">
+                        <span className="status-split-share-name">
+                          {share.is_host
+                            ? t('split.deviceHost', { number: share.device_number })
+                            : t('split.device', { number: share.device_number })}
+                          {share.is_me ? ' (You)' : ''}
+                        </span>
+                        <Badge value={share.status} domain="payment" />
+                        <span className="status-split-share-amount numeric">
+                          {peso(share.amount)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
                 <p className="status-split-warning-note">
-                  Order is held and will not enter kitchen preparation until all split shares are paid.
+                  Order is blocked from kitchen preparation until all payment shares are settled online or confirmed by the cashier.
                 </p>
 
                 <div className="status-split-actions">
@@ -132,7 +145,7 @@ export default function StatusPage() {
                       Pay my share · {peso(order.my_share_amount)}
                     </Button>
                   ) : null}
-                  {Number(order.unpaid_amount) > 0 ? (
+                  {Number(order.unpaid_amount) > 0 && isGroupOrSplit ? (
                     <Button
                       variant="secondary"
                       onClick={() =>
@@ -187,7 +200,7 @@ export default function StatusPage() {
                 <dt>{t('checkout.net')}</dt>
                 <dd className="numeric">{peso(order.net_amount)}</dd>
               </div>
-              {order.queue_position !== null && !awaitingSplitPayment ? (
+              {order.queue_position !== null && allPaid ? (
                 <div className="status-meta-row">
                   <dt>{t('status.position')}</dt>
                   <dd className="numeric">{order.queue_position}</dd>

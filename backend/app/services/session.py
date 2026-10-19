@@ -225,6 +225,10 @@ def update_device_cart(
         _TABLE_CARTS[session_id].pop(device_id, None)
 
 
+def get_device_cart_lines(session_id: int, device_id: int) -> list[tuple[str, int]]:
+    return list(_TABLE_CARTS.get(session_id, {}).get(device_id, []))
+
+
 def clear_device_cart(session_id: int, device_id: int) -> None:
     if session_id in _TABLE_CARTS:
         _TABLE_CARTS[session_id].pop(device_id, None)
@@ -266,6 +270,21 @@ async def get_table_cart(
             "bis": item.name_bis,
         }.get(language, item.name_en)
 
+    session_carts = _TABLE_CARTS.get(session_id, {})
+    live_item_ids = {
+        item_id
+        for dev_lines in session_carts.values()
+        for item_id, _ in dev_lines
+    }
+    items_by_id: dict[str, MenuItem] = {}
+    if live_item_ids:
+        items_by_id = {
+            item.item_id: item
+            for item in await db.scalars(
+                select(MenuItem).where(MenuItem.item_id.in_(live_item_ids))
+            )
+        }
+
     txns = list(
         await db.scalars(
             select(Transaction)
@@ -276,90 +295,100 @@ async def get_table_cart(
             .order_by(Transaction.placed_at.desc())
         )
     )
+    active_open_txn: Transaction | None = None
+    active_payments: list[Payment] = []
     for txn in txns:
         payments = list(
             await db.scalars(select(Payment).where(Payment.txn_id == txn.txn_id))
         )
-        if len(payments) > 1 and any(p.status != PaymentStatus.PAID for p in payments):
-            rows = await db.execute(
-                select(TransactionItem, MenuItem)
-                .join(MenuItem, MenuItem.item_id == TransactionItem.item_id)
-                .where(TransactionItem.txn_id == txn.txn_id)
-                .order_by(TransactionItem.txi_id)
-            )
-            tx_items = rows.all()
-            pay_by_dev = {p.device_id: p for p in payments if p.device_id is not None}
+        if any(p.status != PaymentStatus.PAID for p in payments) or live_item_ids:
+            active_open_txn = txn
+            active_payments = payments
+            break
 
-            shares: list[DeviceShareRead] = []
-            table_total = Decimal("0.00")
-            my_share_total = Decimal("0.00")
-            unpaid_total = Decimal("0.00")
+    if active_open_txn is not None:
+        rows = await db.execute(
+            select(TransactionItem, MenuItem)
+            .join(MenuItem, MenuItem.item_id == TransactionItem.item_id)
+            .where(TransactionItem.txn_id == active_open_txn.txn_id)
+            .order_by(TransactionItem.txi_id)
+        )
+        tx_items = rows.all()
+        pay_by_dev = {p.device_id: p for p in active_payments if p.device_id is not None}
 
-            for index, dev in enumerate(devices, start=1):
-                dev_pay = pay_by_dev.get(dev.device_id)
-                share_lines: list[DeviceCartLineRead] = []
-                for line, menu_item in tx_items:
-                    if line.device_id == dev.device_id:
+        shares: list[DeviceShareRead] = []
+        table_total = Decimal("0.00")
+        my_share_total = Decimal("0.00")
+        unpaid_total = Decimal("0.00")
+
+        for index, dev in enumerate(devices, start=1):
+            dev_pay = pay_by_dev.get(dev.device_id)
+            share_lines: list[DeviceCartLineRead] = []
+            for line, menu_item in tx_items:
+                if line.device_id == dev.device_id:
+                    share_lines.append(
+                        DeviceCartLineRead(
+                            item_id=menu_item.item_id,
+                            name=item_name(menu_item),
+                            quantity=line.quantity,
+                            unit_price=line.unit_price,
+                            subtotal=line.subtotal,
+                        )
+                    )
+
+            raw_live_lines = session_carts.get(dev.device_id, [])
+            if raw_live_lines and (dev_pay is None or dev_pay.status != PaymentStatus.PAID):
+                if not share_lines:
+                    for item_id, qty in raw_live_lines:
+                        menu_item = items_by_id.get(item_id)
+                        if menu_item is None:
+                            continue
+                        line_sub = _money(menu_item.price * qty)
                         share_lines.append(
                             DeviceCartLineRead(
                                 item_id=menu_item.item_id,
                                 name=item_name(menu_item),
-                                quantity=line.quantity,
-                                unit_price=line.unit_price,
-                                subtotal=line.subtotal,
+                                quantity=qty,
+                                unit_price=menu_item.price,
+                                subtotal=line_sub,
                             )
                         )
-                share_sub = (
-                    dev_pay.amount
-                    if dev_pay is not None
-                    else sum((l.subtotal for l in share_lines), Decimal("0.00"))
+
+            if dev_pay is not None:
+                share_sub = dev_pay.amount
+                pay_status = dev_pay.status
+            else:
+                share_sub = sum((l.subtotal for l in share_lines), Decimal("0.00"))
+                pay_status = PaymentStatus.PENDING if share_sub > Decimal("0.00") else None
+
+            is_me = dev.device_id == current_device_id
+            table_total += share_sub
+            if pay_status != PaymentStatus.PAID:
+                unpaid_total += share_sub
+            if is_me and pay_status != PaymentStatus.PAID:
+                my_share_total = share_sub
+
+            shares.append(
+                DeviceShareRead(
+                    device_id=dev.device_id,
+                    device_number=index,
+                    is_host=dev.is_host,
+                    is_me=is_me,
+                    subtotal=share_sub,
+                    payment_status=pay_status,
+                    lines=share_lines,
                 )
-                pay_status = dev_pay.status if dev_pay is not None else None
-                is_me = dev.device_id == current_device_id
-
-                table_total += share_sub
-                if pay_status != PaymentStatus.PAID:
-                    unpaid_total += share_sub
-                if is_me and pay_status != PaymentStatus.PAID:
-                    my_share_total = share_sub
-
-                shares.append(
-                    DeviceShareRead(
-                        device_id=dev.device_id,
-                        device_number=index,
-                        is_host=dev.is_host,
-                        is_me=is_me,
-                        subtotal=share_sub,
-                        payment_status=pay_status,
-                        lines=share_lines,
-                    )
-                )
-
-            return TableCartRead(
-                session_id=session_id,
-                device_count=len(devices),
-                table_total=table_total,
-                my_share_total=my_share_total,
-                unpaid_total=unpaid_total,
-                active_txn_id=txn.txn_id,
-                shares=shares,
             )
 
-    session_carts = _TABLE_CARTS.get(session_id, {})
-    all_item_ids = {
-        item_id
-        for dev_lines in session_carts.values()
-        for item_id, _ in dev_lines
-    }
-
-    items_by_id: dict[str, MenuItem] = {}
-    if all_item_ids:
-        items_by_id = {
-            item.item_id: item
-            for item in await db.scalars(
-                select(MenuItem).where(MenuItem.item_id.in_(all_item_ids))
-            )
-        }
+        return TableCartRead(
+            session_id=session_id,
+            device_count=len(devices),
+            table_total=table_total,
+            my_share_total=my_share_total,
+            unpaid_total=unpaid_total,
+            active_txn_id=active_open_txn.txn_id,
+            shares=shares,
+        )
 
     shares = []
     table_total = Decimal("0.00")
