@@ -26,7 +26,7 @@ function recall(qrToken) {
     if (map && map[qrToken]) {
       return map[qrToken];
     }
-  } catch {}
+  } catch { }
 
   try {
     const legacy = JSON.parse(localStorage.getItem('shaxian.device'));
@@ -34,7 +34,7 @@ function recall(qrToken) {
       remember(qrToken, legacy.deviceToken);
       return legacy.deviceToken;
     }
-  } catch {}
+  } catch { }
 
   return null;
 }
@@ -102,8 +102,12 @@ export const useSessionStore = create((set, get) => ({
     }
   },
 
-  declare: async (status) => {
-    const session = await sessionApi.declarePriority(get().session.session_id, status);
+  declare: async (status, details = {}) => {
+    const session = await sessionApi.declarePriority(
+      get().session.session_id,
+      status,
+      details,
+    );
     applySession(session);
     set({ session });
     return session;

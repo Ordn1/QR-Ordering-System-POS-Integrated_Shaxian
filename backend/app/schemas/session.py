@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import Language, PaymentStatus, PriorityStatus, SessionType, UiMode
-from app.schemas.fields import SmallPositive
+from app.schemas.fields import ALPHA, NUMERIC, SmallPositive, sized
 
 
 class SessionOpen(BaseModel):
@@ -14,6 +14,23 @@ class SessionOpen(BaseModel):
 
 class DeclarationWrite(BaseModel):
     declared_priority_status: PriorityStatus
+    id_last4: sized(4, r"^[0-9]{4}$") | None = None
+    cardholder_name: sized(80, ALPHA) | None = None
+    issuing_lgu: sized(50, ALPHA) | None = None
+
+
+class IdScanRequest(BaseModel):
+    declared_priority_status: PriorityStatus = PriorityStatus.SENIOR
+    image_base64: str = Field(min_length=20)
+
+
+class IdScanRead(BaseModel):
+    detected_status: PriorityStatus
+    id_last4: str
+    cardholder_name: str
+    issuing_lgu: str
+    engine: str
+    confidence_note: str
 
 
 class PreferencesWrite(BaseModel):

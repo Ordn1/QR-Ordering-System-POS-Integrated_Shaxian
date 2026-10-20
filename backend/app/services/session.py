@@ -28,6 +28,7 @@ from app.models.enums import (
     UiMode,
 )
 from app.schemas.session import DeviceCartLineRead, DeviceShareRead, TableCartRead
+from app.services.id_scanner import scan_priority_id_image
 
 DISCOUNTABLE = (PriorityStatus.SENIOR, PriorityStatus.PWD)
 CENTAVO = Decimal("0.01")
@@ -136,9 +137,14 @@ async def get_session(db: AsyncSession, session_id: int) -> Session:
 
 
 async def declare_priority(
-    db: AsyncSession, session_id: int, declared: PriorityStatus
+    db: AsyncSession,
+    session_id: int,
+    declared: PriorityStatus,
+    id_last4: str | None = None,
+    cardholder_name: str | None = None,
+    issuing_lgu: str | None = None,
 ) -> Session:
-    """Record a self-declared priority status. Only an explicit customer tap reaches here."""
+    """Record a self-declared priority status and optional Senior/PWD ID metadata."""
     session = await get_session(db, session_id)
     if session.ended_at is not None:
         raise BusinessRuleError("That table session has ended. Scan the QR code again.")
@@ -161,17 +167,29 @@ async def declare_priority(
             await db.delete(existing)
     else:
         eligible = declared in DISCOUNTABLE
+        clean_last4 = id_last4 if eligible else None
+        clean_holder = cardholder_name if eligible else None
+        clean_lgu = issuing_lgu if eligible else None
+        presented = bool(clean_last4)
+
         if existing is None:
             db.add(
                 PriorityVerificationLog(
                     session_id=session_id,
                     declared_status=declared,
-                    id_presented=False,
+                    id_presented=presented,
+                    id_last4=clean_last4,
+                    cardholder_name=clean_holder,
+                    issuing_lgu=clean_lgu,
                     discount_eligible=eligible,
                 )
             )
         else:
             existing.declared_status = declared
+            existing.id_presented = presented
+            existing.id_last4 = clean_last4
+            existing.cardholder_name = clean_holder
+            existing.issuing_lgu = clean_lgu
             existing.discount_eligible = eligible
 
     await db.commit()

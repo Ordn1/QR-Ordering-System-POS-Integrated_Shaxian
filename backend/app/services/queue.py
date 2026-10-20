@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.exceptions import BusinessRuleError, NotFoundError
-from app.models import KitchenQueue, Payment, Session, Transaction
+from app.models import (
+    KitchenQueue,
+    Payment,
+    PriorityVerificationLog,
+    Session,
+    Transaction,
+)
 from app.models.enums import PaymentStatus, PrintStatus, TxnStatus
 
 QUEUE_LOCK_SQL = text("SELECT pg_advisory_xact_lock(hashtext('kitchen_queue'))")
@@ -94,6 +100,21 @@ async def list_queue(db: AsyncSession) -> list[tuple[KitchenQueue, Transaction, 
     return [(slot, txn, session) for slot, txn, session in rows]
 
 
+async def _stamp_priority_verification(
+    db: AsyncSession, session_id: int, staff_id: str, now: datetime
+) -> None:
+    verif = await db.scalar(
+        select(PriorityVerificationLog).where(
+            PriorityVerificationLog.session_id == session_id
+        )
+    )
+    if verif is not None and verif.verified_by is None:
+        verif.verified_by = staff_id
+        verif.verified_at = now
+        if verif.id_last4:
+            verif.id_presented = True
+
+
 async def advance_status(
     db: AsyncSession, txn_id: int, target: TxnStatus, staff_id: str
 ) -> Transaction:
@@ -136,6 +157,8 @@ async def advance_status(
         elif target is TxnStatus.COMPLETED:
             slot.completed_at = now
 
+    await _stamp_priority_verification(db, transaction.session_id, staff_id, now)
+
     await db.commit()
     await db.refresh(transaction)
     return transaction
@@ -165,18 +188,11 @@ async def confirm_cash_payment(db: AsyncSession, txn_id: int, staff_id: str) -> 
         payment.paid_at = now
         payment.print_status = PrintStatus.SUCCESS
 
-    # Update
-    existing_slot = await db.scalar(
-        select(KitchenQueue).where(KitchenQueue.txn_id == txn_id)
-    )
-    if existing_slot is None:
-        await place_in_queue(db, transaction)
-        existing_slot = await db.scalar(
-            select(KitchenQueue).where(KitchenQueue.txn_id == txn_id)
-        )
+    slot = await db.scalar(select(KitchenQueue).where(KitchenQueue.txn_id == txn_id))
+    if slot is not None:
+        slot.updated_by = staff_id
 
-    if existing_slot is not None:
-        existing_slot.updated_by = staff_id
+    await _stamp_priority_verification(db, transaction.session_id, staff_id, now)
 
     await db.commit()
     await db.refresh(transaction)
