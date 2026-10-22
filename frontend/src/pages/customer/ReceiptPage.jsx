@@ -1,4 +1,4 @@
-import { CheckCircle2, CreditCard, Receipt, Smartphone } from 'lucide-react';
+import { CheckCircle2, CreditCard, Receipt, ShieldCheck, Smartphone } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -134,6 +134,7 @@ export default function ReceiptPage() {
   const hasMultipleShares = shares.length > 1;
   const myShare = shares.find((s) => s.is_me);
   const isCashierOrder = receipt.payment_method === 'cashier' || receipt.fallback_to_cashier;
+  const hasPriorityDiscount = Number(receipt.discount_amount) > 0;
 
   return (
     <main className="customer-page">
@@ -152,13 +153,34 @@ export default function ReceiptPage() {
             ? t('receipt.paidOnline')
             : isCashierOrder && !hasMultipleShares
               ? t('receipt.payAtCounter', {
-                  defaultValue: 'Pay at the counter when your number is called.',
-                })
+                defaultValue: 'Pay at the counter when your number is called.',
+              })
               : hasMultipleShares
                 ? 'Kitchen preparation begins once all payment shares are settled.'
                 : t('receipt.payAtCounter')}
         </p>
       </section>
+
+      {hasPriorityDiscount ? (
+        <section
+          className="receipt-card"
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 'var(--space-3)',
+          }}
+        >
+          <ShieldCheck size={22} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <h2 style={{ fontSize: 'var(--text-base)', margin: '0 0 var(--space-1) 0' }}>
+              Senior / PWD ID Verification Reminder
+            </h2>
+            <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+              Please have your physical OSCA or PWD ID card ready. Our staff will verify it when serving your meal or when you settle at the counter.
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {hasMultipleShares ? (
         <section className="receipt-card">

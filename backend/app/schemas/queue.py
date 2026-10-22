@@ -10,6 +10,7 @@ from app.models.enums import (
     SessionType,
     TxnStatus,
 )
+from app.schemas.fields import ALPHA, sized
 
 
 class QueueEntryRead(BaseModel):
@@ -21,6 +22,10 @@ class QueueEntryRead(BaseModel):
     priority_skips_used: int
     is_priority: bool
     declared_priority_status: PriorityStatus
+    id_verified: bool = False
+    id_last4: str | None = None
+    cardholder_name: str | None = None
+    issuing_lgu: str | None = None
     session_type: SessionType
     table_number: int
     status: TxnStatus
@@ -37,6 +42,12 @@ class QueueEntryRead(BaseModel):
 
 class StatusWrite(BaseModel):
     status: TxnStatus
+
+
+class PriorityVerifyWrite(BaseModel):
+    id_last4: sized(4, r"^[0-9]{4}$")
+    cardholder_name: sized(80, ALPHA)
+    issuing_lgu: sized(50, ALPHA)
 
 
 class PaymentShareStatusRead(BaseModel):

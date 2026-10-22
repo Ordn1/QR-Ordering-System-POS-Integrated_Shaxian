@@ -40,7 +40,6 @@ class Settings(BaseSettings):
     MENU_IMAGE_DIR: str = "menu"
     FRONTEND_BASE_URL: str = "http://localhost:5173"
     PAYMONGO_SECRET_KEY: str = ""
-    GEMINI_API_KEY: str = ""
 
     # The register the POS bridge transmits to. Points at this server's own
     # simulated terminal; a real deployment repoints it at the counter's register.
@@ -52,13 +51,6 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
-
-    @field_validator("GEMINI_API_KEY", mode="before")
-    @classmethod
-    def clean_api_key(cls, value: str | None) -> str:
-        if not value:
-            return ""
-        return str(value).strip().strip('"').strip("'")
 
 
 settings = Settings()

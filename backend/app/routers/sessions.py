@@ -6,8 +6,6 @@ from app.models import Session, SessionDevice, Table
 from app.models.enums import Language
 from app.schemas.session import (
     DeclarationWrite,
-    IdScanRead,
-    IdScanRequest,
     PreferencesWrite,
     SessionCartWrite,
     SessionOpen,
@@ -61,27 +59,12 @@ async def read_session(session_id: int, db: DbSession, device: CurrentDevice) ->
     return await to_read(db, session, device, table)
 
 
-@router.post("/{session_id}/scan-id", response_model=IdScanRead)
-async def scan_priority_id(
-    session_id: int, payload: IdScanRequest, db: DbSession, device: CurrentDevice
-) -> IdScanRead:
-    await session_service.get_session(db, session_id)
-    return await session_service.scan_priority_id_image(
-        payload.declared_priority_status, payload.image_base64
-    )
-
-
 @router.patch("/{session_id}/declaration", response_model=SessionRead)
 async def declare(
     session_id: int, payload: DeclarationWrite, db: DbSession, device: CurrentDevice
 ) -> SessionRead:
     session = await session_service.declare_priority(
-        db,
-        session_id,
-        payload.declared_priority_status,
-        id_last4=payload.id_last4,
-        cardholder_name=payload.cardholder_name,
-        issuing_lgu=payload.issuing_lgu,
+        db, session_id, payload.declared_priority_status
     )
     table = await db.get(Table, session.table_id)
     read_model = await to_read(db, session, device, table)
