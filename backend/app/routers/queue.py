@@ -5,9 +5,14 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.core.deps import AnyStaff, DbSession
-from app.models import KitchenQueue, Payment, Table, Transaction
+from app.models import KitchenQueue, Payment, PriorityVerificationLog, Table, Transaction
 from app.models.enums import PaymentMethod, PaymentStatus
-from app.schemas.queue import OrderStatusRead, QueueEntryRead, StatusWrite
+from app.schemas.queue import (
+    OrderStatusRead,
+    PriorityVerifyWrite,
+    QueueEntryRead,
+    StatusWrite,
+)
 from app.services import order as order_service
 from app.services import pos as pos_service
 from app.services import queue as queue_service
@@ -47,9 +52,20 @@ async def read_queue(db: DbSession, staff: AnyStaff) -> list[QueueEntryRead]:
     for p in all_payments:
         payments_by_txn.setdefault(p.txn_id, []).append(p)
 
+    session_ids = [session.session_id for _, _, session in rows]
+    verifs = list(
+        await db.scalars(
+            select(PriorityVerificationLog).where(
+                PriorityVerificationLog.session_id.in_(session_ids)
+            )
+        )
+    )
+    verif_by_session = {v.session_id: v for v in verifs}
+
     result: list[QueueEntryRead] = []
     for slot, txn, session in rows:
         method, status = _summary_method_and_status(payments_by_txn.get(txn.txn_id, []))
+        verif = verif_by_session.get(session.session_id)
         result.append(
             QueueEntryRead(
                 txn_id=txn.txn_id,
@@ -58,6 +74,10 @@ async def read_queue(db: DbSession, staff: AnyStaff) -> list[QueueEntryRead]:
                 priority_skips_used=slot.priority_skips_used,
                 is_priority=txn.is_priority,
                 declared_priority_status=session.declared_priority_status,
+                id_verified=bool(verif and verif.verified_by is not None and verif.id_presented),
+                id_last4=verif.id_last4 if verif else None,
+                cardholder_name=verif.cardholder_name if verif else None,
+                issuing_lgu=verif.issuing_lgu if verif else None,
                 session_type=session.session_type,
                 table_number=tables[session.table_id],
                 status=txn.status,
@@ -84,9 +104,37 @@ async def update_status(
     return await order_status(db, transaction)
 
 
+@router.post("/{txn_id}/verify-id", response_model=OrderStatusRead)
+async def verify_id(
+    txn_id: int, payload: PriorityVerifyWrite, db: DbSession, staff: AnyStaff
+) -> OrderStatusRead:
+    transaction = await queue_service.verify_priority_id(
+        db,
+        txn_id,
+        id_last4=payload.id_last4,
+        cardholder_name=payload.cardholder_name,
+        issuing_lgu=payload.issuing_lgu,
+        staff_id=staff.staff_id,
+    )
+    return await order_status(db, transaction)
+
+
+@router.post("/{txn_id}/revoke-discount", response_model=OrderStatusRead)
+async def revoke_discount(
+    txn_id: int, db: DbSession, staff: AnyStaff
+) -> OrderStatusRead:
+    transaction = await queue_service.revoke_priority_discount(
+        db, txn_id, staff_id=staff.staff_id
+    )
+    await events.publish_status(transaction)
+    await events.publish_session_changed(transaction.session_id)
+    await events.publish_cart_changed(transaction.session_id)
+    return await order_status(db, transaction)
+
+
 @router.post("/{txn_id}/payment", response_model=OrderStatusRead)
 async def confirm_payment(txn_id: int, db: DbSession, staff: AnyStaff) -> OrderStatusRead:
-    transaction = await queue_service.confirm_cash_payment(db, txn_id, staff.staff_id)
+    transaction = await queue_service.confirm_cash_payment(db, txn_id, staff_id=staff.staff_id)
     await events.publish_status(transaction)
     await events.publish_cart_changed(transaction.session_id)
 

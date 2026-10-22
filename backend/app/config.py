@@ -5,10 +5,13 @@ from typing import Annotated
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+_ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
+_BACKEND_ENV = Path(__file__).resolve().parents[1] / ".env"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file=(str(_ROOT_ENV), str(_BACKEND_ENV), ".env"),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",

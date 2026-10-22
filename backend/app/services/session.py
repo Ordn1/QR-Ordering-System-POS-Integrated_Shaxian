@@ -138,7 +138,7 @@ async def get_session(db: AsyncSession, session_id: int) -> Session:
 async def declare_priority(
     db: AsyncSession, session_id: int, declared: PriorityStatus
 ) -> Session:
-    """Record a self-declared priority status. Only an explicit customer tap reaches here."""
+    """Record a self-declared priority status and its verification-log entry."""
     session = await get_session(db, session_id)
     if session.ended_at is not None:
         raise BusinessRuleError("That table session has ended. Scan the QR code again.")

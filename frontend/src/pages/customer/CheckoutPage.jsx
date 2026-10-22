@@ -1,4 +1,4 @@
-import { Check, CreditCard, Receipt, Store } from 'lucide-react';
+import { Check, CreditCard, Receipt, ShieldCheck, Store } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -268,7 +268,23 @@ export default function CheckoutPage() {
         ) : null}
 
         {quote?.discount_applied ? (
-          <p className="checkout-discount-note">{t('priority.discountNote')}</p>
+          <div className="checkout-discount-note">
+            <p style={{ margin: 0 }}>{t('priority.discountNote')}</p>
+            <p
+              style={{
+                margin: 'var(--space-2) 0 0 0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                fontWeight: 600,
+              }}
+            >
+              <ShieldCheck size={16} style={{ flexShrink: 0 }} />
+              <span>
+                Please have your physical OSCA / PWD ID card ready—our staff will verify it when serving your order or at the cashier.
+              </span>
+            </p>
+          </div>
         ) : null}
       </section>
 

@@ -7,4 +7,10 @@ export const advanceStatus = (txnId, status) =>
 
 export const confirmPayment = (txnId) => api.post(`/queue/${txnId}/payment`);
 
+export const verifyPriorityId = (txnId, payload) =>
+  api.post(`/queue/${txnId}/verify-id`, payload);
+
+export const revokePriorityDiscount = (txnId) =>
+  api.post(`/queue/${txnId}/revoke-discount`);
+
 export const latestOrders = (sessionId) => api.get(`/orders/${sessionId}/latest`);

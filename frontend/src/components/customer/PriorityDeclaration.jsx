@@ -1,3 +1,4 @@
+import { ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,12 +16,20 @@ export default function PriorityDeclaration({ onClose }) {
   const [choice, setChoice] = useState(session.declared_priority_status);
   const [saving, setSaving] = useState(false);
 
+  const isDiscountable = choice === 'senior' || choice === 'pwd';
+
   async function confirm() {
     setSaving(true);
     try {
       await declare(choice);
       onClose();
-      toast.success(t('priority.saved'));
+      if (isDiscountable) {
+        toast.success(
+          'Priority discount applied! Please have your physical ID ready for staff verification later.',
+        );
+      } else {
+        toast.success(t('priority.saved'));
+      }
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -59,6 +68,26 @@ export default function PriorityDeclaration({ onClose }) {
           </label>
         ))}
       </div>
+
+      {isDiscountable ? (
+        <div
+          style={{
+            marginTop: 'var(--space-4)',
+            padding: 'var(--space-3)',
+            border: '1px solid var(--color-border, #d6d3cd)',
+            background: 'var(--color-surface-subtle, #f7f5f0)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 'var(--space-2)',
+          }}
+        >
+          <ShieldCheck size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            <strong>Staff ID Verification:</strong> No form needed on your phone. Please have your physical OSCA or PWD ID card ready—our staff will verify it later when serving your order or at the counter.
+          </p>
+        </div>
+      ) : null}
+
       <p className="declaration-note">
         {choice === 'pregnant' ? t('priority.pregnantNote') : t('priority.discountNote')}
       </p>

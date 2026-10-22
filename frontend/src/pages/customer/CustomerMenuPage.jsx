@@ -31,6 +31,19 @@ export default function CustomerMenuPage() {
   const session = useSessionStore((state) => state.session);
 
   useEffect(() => {
+    if (!session?.session_id) {
+      return;
+    }
+    const key = `shaxian.declared_prompt.${session.session_id}`;
+    try {
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        setDeclaring(true);
+      }
+    } catch { }
+  }, [session?.session_id]);
+
+  useEffect(() => {
     let cancelled = false;
 
     Promise.all([listCategories(), listItems()])
@@ -124,7 +137,6 @@ export default function CustomerMenuPage() {
           onClose={() => setViewing(null)}
         />
       ) : null}
-
     </main>
   );
 }
