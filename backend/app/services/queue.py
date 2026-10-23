@@ -61,6 +61,31 @@ async def lock_queue(db: AsyncSession) -> None:
     await db.execute(QUEUE_LOCK_SQL)
 
 
+# Update
+async def ensure_unique_queue_numbers(db: AsyncSession) -> None:
+    """Repair any duplicate queue_number rows across transactions so every order has a unique Q-XXX."""
+    txns = list(
+        await db.scalars(select(Transaction).order_by(Transaction.txn_id.asc()))
+    )
+    if not txns:
+        return
+
+    unique_numbers = {t.queue_number for t in txns}
+    if len(unique_numbers) == len(txns):
+        return
+
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('queue_number'))")
+    )
+    for idx, txn in enumerate(txns, start=1):
+        txn.queue_number = 10000 + idx
+    await db.flush()
+
+    for idx, txn in enumerate(txns, start=1):
+        txn.queue_number = idx
+    await db.commit()
+
+
 async def pending_entries(db: AsyncSession) -> list[QueueEntry]:
     rows = await db.execute(
         select(KitchenQueue, Transaction)
@@ -103,6 +128,7 @@ async def place_in_queue(db: AsyncSession, transaction: Transaction) -> KitchenQ
 
 
 async def list_queue(db: AsyncSession) -> list[tuple[KitchenQueue, Transaction, Session]]:
+    await ensure_unique_queue_numbers(db)
     rows = await db.execute(
         select(KitchenQueue, Transaction, Session)
         .join(Transaction, Transaction.txn_id == KitchenQueue.txn_id)

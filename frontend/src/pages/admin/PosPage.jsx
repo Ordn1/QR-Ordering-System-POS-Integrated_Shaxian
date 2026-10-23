@@ -38,10 +38,10 @@ import { toast } from '../../store/toastStore';
 
 const BILLS = [100, 200, 500, 1000];
 const PRIORITY_OPTIONS = [
-  { value: 'standard', label: 'Standard Customer (12% VAT)' },
-  { value: 'senior', label: 'Senior Citizen (20% Off + VAT Exempt)' },
-  { value: 'pwd', label: 'PWD (20% Off + VAT Exempt)' },
-  { value: 'pregnant', label: 'Pregnant (Priority Queue)' },
+  { value: 'standard', label: 'Standard (12% VAT)' },
+  { value: 'senior', label: 'Senior (20% Off + Exempt)' },
+  { value: 'pwd', label: 'PWD (20% Off + Exempt)' },
+  { value: 'pregnant', label: 'Pregnant (Priority)' },
 ];
 
 function roundCentavo(val) {
@@ -122,7 +122,10 @@ export default function PosPage() {
   useWebSocket('/ws/kitchen', load);
 
   const pendingQrOrders = useMemo(
-    () => queueEntries.filter((entry) => entry.payment_status !== 'paid'),
+    () =>
+      queueEntries
+        .filter((entry) => entry.payment_status !== 'paid')
+        .sort((a, b) => Number(a.queue_number) - Number(b.queue_number)),
     [queueEntries],
   );
 
@@ -156,13 +159,19 @@ export default function PosPage() {
       toast.error('Enter a valid Queue Number (for example: Q-049 or 49).');
       return;
     }
-    const match = queueEntries.find((entry) => Number(entry.queue_number) === targetNum);
+    const matches = queueEntries.filter(
+      (entry) => Number(entry.queue_number) === targetNum,
+    );
+    const match =
+      matches.find((entry) => entry.payment_status !== 'paid') ?? matches[0];
     if (!match) {
       toast.error(`Queue order ${queueLabel(targetNum)} was not found in the active queue.`);
       return;
     }
     selectRecalledOrder(match);
-    toast.success(`Loaded QR Order ${queueLabel(match.queue_number)} (Table ${match.table_number}) into POS Register.`);
+    toast.success(
+      `Loaded QR Order ${queueLabel(match.queue_number)} (Table ${match.table_number}) into POS Register.`,
+    );
   }
 
   function switchToWalkInMode() {
@@ -228,7 +237,7 @@ export default function PosPage() {
   function addToPosCart(item) {
     if (recalledOrder) {
       toast.error(
-        `POS is currently showing Recalled QR Order ${queueLabel(recalledOrder.queue_number)}. Click "Switch to Walk-In Order" first to ring up a new counter order.`,
+        `POS is showing Recalled QR Order ${queueLabel(recalledOrder.queue_number)}. Click "Walk-In Mode" first to ring up a counter order.`,
       );
       return;
     }
@@ -306,7 +315,9 @@ export default function PosPage() {
 
     if (needsIdVerification) {
       if (!/^[0-9]{4}$/.test(idLast4.trim())) {
-        toast.error('Enter the last 4 digits of the presented Senior/PWD ID card (or click "No Valid ID Presented").');
+        toast.error(
+          'Enter the last 4 digits of the presented Senior/PWD ID card (or click "No Valid ID Presented").',
+        );
         return;
       }
       if (cardholderName.trim().length < 2) {
@@ -536,15 +547,30 @@ export default function PosPage() {
   const latest = rows.find((row) => row.status === 'acknowledged') ?? null;
 
   return (
-    <main className="content-area">
-      <header className="page-header">
-        <h1>Cashier POS Register</h1>
+    <main
+      className="content-area"
+      style={{
+        maxWidth: '100%',
+        width: '100%',
+        padding: 'var(--space-4) var(--space-5)',
+      }}
+    >
+      <header
+        className="page-header"
+        style={{ marginBottom: 'var(--space-3)' }}
+      >
+        <div>
+          <h1 style={{ margin: 0 }}>Cashier POS Register</h1>
+          <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
+            Unified Counter Terminal · Walk-In Orders & QR Queue Recall
+          </span>
+        </div>
         <div className="page-header-actions">
           <Button
             variant={activeTab === 'register' ? 'primary' : 'secondary'}
             onClick={() => setActiveTab('register')}
           >
-            POS Register ({pendingQrOrders.length} QR Waiting)
+            POS Terminal ({pendingQrOrders.length} QR Unpaid)
           </Button>
           <Button
             variant={activeTab === 'log' ? 'primary' : 'secondary'}
@@ -560,26 +586,38 @@ export default function PosPage() {
 
       {activeTab === 'register' ? (
         <div className="stack-4">
-          <Card title="Recall Customer QR Order by Queue Code (or Tap Waiting Ticket)">
-            <div className="stack-3">
-              <form
-                onSubmit={handleRecallSubmit}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(220px, 340px) auto auto 1fr',
-                  gap: 'var(--space-2)',
-                  alignItems: 'end',
-                }}
+          <section
+            style={{
+              background: 'var(--surface, #ffffff)',
+              border: '1px solid var(--border-strong, #c9c4bc)',
+              padding: 'var(--space-3) var(--space-4)',
+              display: 'grid',
+              gridTemplateColumns: 'minmax(320px, 460px) 1fr',
+              gap: 'var(--space-4)',
+              alignItems: 'center',
+            }}
+          >
+            <form onSubmit={handleRecallSubmit}>
+              <label
+                htmlFor="pos-qr-recall-input"
+                className="eyebrow"
+                style={{ display: 'block', marginBottom: '6px' }}
               >
-                <TextInput
-                  label="Enter QR Queue # (e.g. Q-049 or 49)"
-                  inputClass="freetext"
+                Recall Customer QR Order by Queue Code
+              </label>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'stretch' }}>
+                <input
+                  id="pos-qr-recall-input"
+                  type="text"
+                  className="text-input"
+                  placeholder="Type Q-049 or 49…"
                   maxLength={12}
                   value={queueCodeInput}
                   onChange={(event) => setQueueCodeInput(event.target.value)}
+                  style={{ flex: 1, minWidth: '140px' }}
                 />
                 <Button type="submit" variant="primary" icon={Search}>
-                  Recall QR Order
+                  Recall QR
                 </Button>
                 {recalledOrder ? (
                   <Button
@@ -588,25 +626,37 @@ export default function PosPage() {
                     icon={RotateCcw}
                     onClick={switchToWalkInMode}
                   >
-                    Switch to Walk-In Order
+                    Walk-In Mode
                   </Button>
                 ) : null}
-              </form>
+              </div>
+            </form>
 
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '6px',
+                }}
+              >
+                <span className="eyebrow">
+                  Waiting Unpaid QR Orders at Counter ({pendingQrOrders.length}) — Tap to Ring Up
+                </span>
+              </div>
               <div
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
-                  alignItems: 'center',
                   gap: 'var(--space-2)',
+                  maxHeight: '88px',
+                  overflowY: 'auto',
                 }}
               >
-                <span className="eyebrow" style={{ marginRight: 'var(--space-1)' }}>
-                  Unpaid QR Orders at Counter ({pendingQrOrders.length}):
-                </span>
                 {pendingQrOrders.length === 0 ? (
-                  <span style={{ fontSize: 'var(--text-sm)', opacity: 0.75 }}>
-                    No unpaid QR orders right now — tap dishes below for a walk-in order or enter any active queue code.
+                  <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>
+                    No unpaid QR orders waiting right now. Tap any dish below to punch a walk-in counter order.
                   </span>
                 ) : (
                   pendingQrOrders.map((entry) => {
@@ -622,93 +672,102 @@ export default function PosPage() {
                         icon={QrCode}
                         onClick={() => selectRecalledOrder(entry)}
                       >
-                        {queueLabel(entry.queue_number)} · Table {entry.table_number} · {peso(due)}
+                        {queueLabel(entry.queue_number)} · T{entry.table_number} · {peso(due)}
                       </Button>
                     );
                   })
                 )}
               </div>
             </div>
-          </Card>
+          </section>
 
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1.5fr) minmax(360px, 1fr)',
+              gridTemplateColumns: 'minmax(0, 1fr) 460px',
               gap: 'var(--space-4)',
               alignItems: 'start',
             }}
           >
-            <Card title="Menu Grid (Tap Dishes for Walk-In / Counter Order)">
+            <Card title={`POS Menu Catalog (${filteredMenu.length} dishes)`}>
               {recalledOrder ? (
                 <div
                   style={{
                     padding: 'var(--space-3)',
                     marginBottom: 'var(--space-3)',
-                    border: '2px solid var(--color-primary, #9e1b1b)',
-                    background: 'var(--color-surface-subtle, #f7f5f0)',
+                    border: '2px solid var(--red-primary, #9e1b1b)',
+                    background: 'var(--cream, #f7f3eb)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    gap: 'var(--space-2)',
+                    gap: 'var(--space-3)',
                   }}
                 >
                   <div>
                     <strong>
-                      Register is currently settling QR Order {queueLabel(recalledOrder.queue_number)} (Table {recalledOrder.table_number})
+                      Settling Recalled QR Order {queueLabel(recalledOrder.queue_number)} · Table {recalledOrder.table_number}
                     </strong>
-                    <p style={{ margin: '2px 0 0', fontSize: 'var(--text-sm)' }}>
-                      Complete payment on the right, or switch back to Walk-In Mode to punch a new counter order.
+                    <p style={{ margin: '2px 0 0', fontSize: 'var(--font-sm)' }}>
+                      Collect cash on the right register panel, or switch to Walk-In Mode to punch a new counter order.
                     </p>
                   </div>
-                  <Button variant="secondary" onClick={switchToWalkInMode}>
-                    New Walk-In
+                  <Button variant="secondary" icon={RotateCcw} onClick={switchToWalkInMode}>
+                    Switch to Walk-In
                   </Button>
                 </div>
               ) : null}
 
-              <div style={{ marginBottom: 'var(--space-3)' }}>
-                <TextInput
-                  label="Search dish or item code (e.g. Wonton, MNU-0001)"
-                  inputClass="freetext"
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(220px, 320px) 1fr',
+                  gap: 'var(--space-3)',
+                  alignItems: 'center',
+                  marginBottom: 'var(--space-3)',
+                }}
+              >
+                <input
+                  type="text"
+                  className="text-input"
+                  placeholder="Search dish or code (Wonton, MNU-0001)…"
                   maxLength={60}
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
-              </div>
 
-              <div
-                className="menu-category-tabs"
-                role="tablist"
-                style={{ marginBottom: 'var(--space-3)' }}
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  className="menu-category-tab"
-                  aria-selected={selectedCat === 'ALL'}
-                  onClick={() => setSelectedCat('ALL')}
+                <div
+                  className="menu-category-tabs"
+                  role="tablist"
+                  style={{ margin: 0 }}
                 >
-                  All Dishes ({menuItems.length})
-                </button>
-                {categories.map((cat) => (
                   <button
-                    key={cat.cat_id}
                     type="button"
                     role="tab"
                     className="menu-category-tab"
-                    aria-selected={selectedCat === cat.cat_id}
-                    onClick={() => setSelectedCat(cat.cat_id)}
+                    aria-selected={selectedCat === 'ALL'}
+                    onClick={() => setSelectedCat('ALL')}
                   >
-                    {cat.name_en}
+                    All ({menuItems.length})
                   </button>
-                ))}
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.cat_id}
+                      type="button"
+                      role="tab"
+                      className="menu-category-tab"
+                      aria-selected={selectedCat === cat.cat_id}
+                      onClick={() => setSelectedCat(cat.cat_id)}
+                    >
+                      {cat.name_en}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(185px, 1fr))',
                   gap: 'var(--space-3)',
                 }}
               >
@@ -724,21 +783,21 @@ export default function PosPage() {
                         display: 'flex',
                         flexDirection: 'column',
                         textAlign: 'left',
-                        padding: 'var(--space-3)',
+                        padding: 'var(--space-2)',
                         border: inTicket
-                          ? '2px solid var(--color-primary, #9e1b1b)'
-                          : '1px solid var(--color-border, #d6d3cd)',
-                        background: 'var(--color-surface, #ffffff)',
+                          ? '2px solid var(--red-primary, #9e1b1b)'
+                          : '1px solid var(--border, #d6d3cd)',
+                        background: 'var(--surface, #ffffff)',
                         cursor: 'pointer',
-                        gap: 'var(--space-2)',
-                        opacity: recalledOrder ? 0.65 : 1,
+                        gap: '6px',
+                        opacity: recalledOrder ? 0.6 : 1,
                       }}
                     >
                       <div
                         style={{
                           width: '100%',
-                          height: '92px',
-                          background: 'var(--color-surface-subtle, #f7f5f0)',
+                          height: '110px',
+                          background: 'var(--cream, #f7f3eb)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -755,13 +814,28 @@ export default function PosPage() {
                           <UtensilsCrossed size={24} />
                         )}
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          width: '100%',
+                        }}
+                      >
                         <span className="eyebrow numeric">{item.item_id}</span>
                         {inTicket ? (
                           <Badge value="available" label={`${inTicket.quantity}×`} />
                         ) : null}
                       </div>
-                      <strong style={{ fontSize: 'var(--text-sm)' }}>{item.name_en}</strong>
+                      <strong
+                        style={{
+                          fontSize: 'var(--font-sm)',
+                          lineHeight: 1.25,
+                          minHeight: '2.5em',
+                        }}
+                      >
+                        {item.name_en}
+                      </strong>
                       <span className="numeric font-bold">{peso(item.price)}</span>
                     </button>
                   );
@@ -769,80 +843,331 @@ export default function PosPage() {
               </div>
             </Card>
 
-            <Card
-              title={
-                recalledOrder
-                  ? `POS Register · QR Order ${queueLabel(recalledOrder.queue_number)}`
-                  : 'POS Register · Walk-In / Counter Order'
-              }
-            >
-              {recalledOrder ? (
-                <div className="stack-3">
-                  <div
-                    style={{
-                      padding: 'var(--space-3)',
-                      border: '2px solid var(--color-primary, #9e1b1b)',
-                      background: 'var(--color-surface-subtle, #f7f5f0)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 'var(--space-2)',
-                    }}
-                  >
-                    <div>
-                      <span className="eyebrow">Recalled QR Table Order</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: '4px' }}>
-                        <strong className="numeric" style={{ fontSize: 'var(--text-lg)' }}>
-                          {queueLabel(recalledOrder.queue_number)}
-                        </strong>
-                        <span>· Table {recalledOrder.table_number}</span>
-                        <Badge value={recalledOrder.declared_priority_status} />
-                        <Badge value={recalledOrder.payment_status} />
-                      </div>
-                    </div>
-                    <Button variant="secondary" onClick={switchToWalkInMode}>
-                      Clear
-                    </Button>
-                  </div>
-
-                  {recalledOrder.declared_priority_status !== 'standard' ? (
+            <div style={{ position: 'sticky', top: 'calc(var(--h-navbar, 64px) + var(--space-3))' }}>
+              <Card
+                title={
+                  recalledOrder
+                    ? `Active Ticket · QR Order ${queueLabel(recalledOrder.queue_number)}`
+                    : 'Active Ticket · Walk-In Counter Order'
+                }
+              >
+                {recalledOrder ? (
+                  <div className="stack-3">
                     <div
-                      className="stack-3"
                       style={{
                         padding: 'var(--space-3)',
-                        border: '1px solid var(--color-border, #d6d3cd)',
-                        background: 'var(--color-surface-subtle, #f7f5f0)',
+                        border: '2px solid var(--red-primary, #9e1b1b)',
+                        background: 'var(--cream, #f7f3eb)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 'var(--space-2)',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <strong style={{ fontSize: 'var(--text-sm)' }}>
-                          Priority / Senior / PWD ID Verification ({recalledOrder.declared_priority_status.toUpperCase()})
-                        </strong>
-                        {recalledOrder.id_verified ? (
-                          <Badge value="paid" label={`Verified (•••• ${recalledOrder.id_last4})`} />
-                        ) : (
-                          <Badge value="pending" label="Inspect Physical ID" />
-                        )}
+                      <div>
+                        <span className="eyebrow">Recalled QR Table Order</span>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 'var(--space-2)',
+                            marginTop: '4px',
+                          }}
+                        >
+                          <strong className="numeric" style={{ fontSize: 'var(--font-lg)' }}>
+                            {queueLabel(recalledOrder.queue_number)}
+                          </strong>
+                          <span>· Table {recalledOrder.table_number}</span>
+                          <Badge value={recalledOrder.declared_priority_status} />
+                          <Badge value={recalledOrder.payment_status} />
+                        </div>
                       </div>
+                      <Button variant="secondary" onClick={switchToWalkInMode}>
+                        Clear
+                      </Button>
+                    </div>
 
-                      {!recalledOrder.id_verified ? (
+                    {recalledOrder.declared_priority_status !== 'standard' ? (
+                      <div
+                        className="stack-2"
+                        style={{
+                          padding: 'var(--space-3)',
+                          border: '1px solid var(--border, #d6d3cd)',
+                          background: 'var(--cream, #f7f3eb)',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <strong style={{ fontSize: 'var(--font-sm)' }}>
+                            Senior / PWD ID ({recalledOrder.declared_priority_status.toUpperCase()})
+                          </strong>
+                          {recalledOrder.id_verified ? (
+                            <Badge value="paid" label={`Verified (•••• ${recalledOrder.id_last4})`} />
+                          ) : (
+                            <Badge value="pending" label="Inspect Physical ID" />
+                          )}
+                        </div>
+
+                        {!recalledOrder.id_verified ? (
+                          <>
+                            <div
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: '120px 1fr',
+                                gap: 'var(--space-2)',
+                              }}
+                            >
+                              <TextInput
+                                label="ID Last 4"
+                                required
+                                inputClass="numeric"
+                                inputMode="numeric"
+                                maxLength={4}
+                                value={idLast4}
+                                onChange={(event) => setIdLast4(event.target.value)}
+                              />
+                              <TextInput
+                                label="Issuing LGU"
+                                required
+                                inputClass="alpha"
+                                maxLength={50}
+                                value={issuingLgu}
+                                onChange={(event) => setIssuingLgu(event.target.value)}
+                              />
+                            </div>
+                            <TextInput
+                              label="Cardholder Full Name"
+                              required
+                              inputClass="alpha"
+                              maxLength={80}
+                              value={cardholderName}
+                              onChange={(event) => setCardholderName(event.target.value)}
+                            />
+                            <Button
+                              variant="secondary"
+                              loading={revokingDiscount}
+                              onClick={handleRevokeRecalledDiscount}
+                            >
+                              No Valid ID Presented — Revert to Standard Price
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <div
+                      style={{
+                        borderTop: '1px solid var(--border, #d6d3cd)',
+                        paddingTop: 'var(--space-2)',
+                      }}
+                    >
+                      <strong style={{ display: 'block', marginBottom: 'var(--space-2)' }}>
+                        QR Order Items ({recalledOrder.item_count})
+                      </strong>
+                      <ul
+                        className="receipt-item-list"
+                        style={{ maxHeight: '220px', overflowY: 'auto' }}
+                      >
+                        {(recalledOrder.items || []).map((item, idx) => (
+                          <li key={idx} className="receipt-item-row">
+                            <span className="receipt-item-qty numeric">{item.qty}×</span>
+                            <span className="receipt-item-name">{item.name}</span>
+                            <span className="receipt-item-price numeric">
+                              {peso(item.subtotal ?? item.unit_price * item.qty)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <dl className="receipt-totals">
+                      <div className="receipt-total-row">
+                        <dt>{t('checkout.gross')}</dt>
+                        <dd className="numeric">{peso(recalledOrder.gross_amount)}</dd>
+                      </div>
+                      {Number(recalledOrder.discount_amount) > 0 ? (
                         <>
+                          {Number(recalledOrder.vat_exempt_sales) > 0 ? (
+                            <div className="receipt-total-row">
+                              <dt>{t('checkout.vatExempt')}</dt>
+                              <dd className="numeric">{peso(recalledOrder.vat_exempt_sales)}</dd>
+                            </div>
+                          ) : null}
+                          <div className="receipt-total-row receipt-discount-row">
+                            <dt>{t('checkout.discount')}</dt>
+                            <dd className="numeric">−{peso(recalledOrder.discount_amount)}</dd>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {Number(recalledOrder.vatable_sales) > 0 ? (
+                            <div className="receipt-total-row">
+                              <dt>{t('checkout.vatable')}</dt>
+                              <dd className="numeric">{peso(recalledOrder.vatable_sales)}</dd>
+                            </div>
+                          ) : null}
+                          <div className="receipt-total-row">
+                            <dt>{t('checkout.vat')}</dt>
+                            <dd className="numeric">{peso(recalledOrder.vat_amount)}</dd>
+                          </div>
+                        </>
+                      )}
+                      <div className="receipt-total-row receipt-net-row">
+                        <dt className="receipt-net">Order Total</dt>
+                        <dd className="receipt-net numeric">{peso(recalledOrder.net_amount)}</dd>
+                      </div>
+                      {Number(recalledOrder.unpaid_amount) > 0 &&
+                        Number(recalledOrder.unpaid_amount) < Number(recalledOrder.net_amount) ? (
+                        <div className="receipt-total-row receipt-net-row">
+                          <dt className="receipt-net">Balance Due Now</dt>
+                          <dd className="receipt-net numeric">{peso(recalledOrder.unpaid_amount)}</dd>
+                        </div>
+                      ) : null}
+                    </dl>
+
+                    {recalledOrder.payment_status === 'paid' ? (
+                      <div
+                        style={{
+                          padding: 'var(--space-3)',
+                          border: '1px solid var(--border, #d6d3cd)',
+                          background: 'var(--cream, #f7f3eb)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 'var(--space-2)',
+                        }}
+                      >
+                        <CheckCircle2 size={20} className="text-green" />
+                        <strong>This QR order is already Paid in full.</strong>
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: 'var(--space-2)',
+                            alignItems: 'end',
+                          }}
+                        >
                           <TextInput
-                            label="Last 4 digits of ID"
+                            label="Cash Tendered (₱)"
+                            required
+                            inputClass="currency"
+                            inputMode="decimal"
+                            maxLength={9}
+                            value={cashTendered}
+                            onChange={(event) => setCashTendered(event.target.value)}
+                          />
+                          <div
+                            style={{
+                              padding: '10px var(--space-3)',
+                              border: '1px solid var(--border-strong, #c9c4bc)',
+                              background: 'var(--cream, #f7f3eb)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <span className="eyebrow" style={{ margin: 0 }}>
+                              Change Due
+                            </span>
+                            <strong className="numeric" style={{ fontSize: 'var(--font-md)' }}>
+                              {validTender ? peso(changeDue) : '—'}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          <Button
+                            variant="secondary"
+                            onClick={() => setCashTendered(activeAmountDue.toFixed(2))}
+                          >
+                            Exact ({peso(activeAmountDue)})
+                          </Button>
+                          {BILLS.filter((bill) => bill >= activeAmountDue).map((bill) => (
+                            <Button
+                              key={bill}
+                              variant="secondary"
+                              onClick={() => setCashTendered(bill.toFixed(2))}
+                            >
+                              ₱{bill}
+                            </Button>
+                          ))}
+                        </div>
+
+                        <Button
+                          variant="checkout"
+                          icon={ShoppingBag}
+                          loading={submittingOrder}
+                          disabled={!validTender}
+                          onClick={handleCompleteRecalledQrSale}
+                        >
+                          Complete QR Payment & Print OR · {peso(activeAmountDue)}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="stack-3">
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 'var(--space-2)',
+                      }}
+                    >
+                      <SelectField
+                        label="Table"
+                        required
+                        value={tableId}
+                        onChange={(event) => setTableId(event.target.value)}
+                        options={tables.map((tbl) => ({
+                          value: tbl.table_id,
+                          label: `Table ${tbl.table_number} (${tbl.occupancy_status})`,
+                        }))}
+                      />
+
+                      <SelectField
+                        label="Customer Type"
+                        required
+                        value={priorityStatus}
+                        onChange={(event) => setPriorityStatus(event.target.value)}
+                        options={PRIORITY_OPTIONS}
+                      />
+                    </div>
+
+                    {walkInDiscounted ? (
+                      <div
+                        className="stack-2"
+                        style={{
+                          padding: 'var(--space-3)',
+                          border: '1px solid var(--border, #d6d3cd)',
+                          background: 'var(--cream, #f7f3eb)',
+                        }}
+                      >
+                        <strong style={{ fontSize: 'var(--font-sm)' }}>
+                          Physical OSCA / PWD ID Verification (20% Off + VAT Exempt)
+                        </strong>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '110px 1fr',
+                            gap: 'var(--space-2)',
+                          }}
+                        >
+                          <TextInput
+                            label="ID Last 4"
                             required
                             inputClass="numeric"
                             inputMode="numeric"
                             maxLength={4}
                             value={idLast4}
                             onChange={(event) => setIdLast4(event.target.value)}
-                          />
-                          <TextInput
-                            label="Cardholder Full Name"
-                            required
-                            inputClass="alpha"
-                            maxLength={80}
-                            value={cardholderName}
-                            onChange={(event) => setCardholderName(event.target.value)}
                           />
                           <TextInput
                             label="Issuing LGU"
@@ -852,101 +1177,133 @@ export default function PosPage() {
                             value={issuingLgu}
                             onChange={(event) => setIssuingLgu(event.target.value)}
                           />
-                          <Button
-                            variant="secondary"
-                            loading={revokingDiscount}
-                            onClick={handleRevokeRecalledDiscount}
-                          >
-                            No Valid ID Presented — Revert to Standard Price
-                          </Button>
-                        </>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  <div
-                    style={{
-                      borderTop: '1px solid var(--color-border, #d6d3cd)',
-                      paddingTop: 'var(--space-3)',
-                    }}
-                  >
-                    <strong style={{ display: 'block', marginBottom: 'var(--space-2)' }}>
-                      QR Order Items ({recalledOrder.item_count})
-                    </strong>
-                    <ul className="receipt-item-list">
-                      {(recalledOrder.items || []).map((item, idx) => (
-                        <li key={idx} className="receipt-item-row">
-                          <span className="receipt-item-qty numeric">{item.qty}×</span>
-                          <span className="receipt-item-name">{item.name}</span>
-                          <span className="receipt-item-price numeric">
-                            {peso(item.subtotal ?? item.unit_price * item.qty)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <dl className="receipt-totals">
-                    <div className="receipt-total-row">
-                      <dt>{t('checkout.gross')}</dt>
-                      <dd className="numeric">{peso(recalledOrder.gross_amount)}</dd>
-                    </div>
-                    {Number(recalledOrder.discount_amount) > 0 ? (
-                      <>
-                        {Number(recalledOrder.vat_exempt_sales) > 0 ? (
-                          <div className="receipt-total-row">
-                            <dt>{t('checkout.vatExempt')}</dt>
-                            <dd className="numeric">{peso(recalledOrder.vat_exempt_sales)}</dd>
-                          </div>
-                        ) : null}
-                        <div className="receipt-total-row receipt-discount-row">
-                          <dt>{t('checkout.discount')}</dt>
-                          <dd className="numeric">−{peso(recalledOrder.discount_amount)}</dd>
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        {Number(recalledOrder.vatable_sales) > 0 ? (
-                          <div className="receipt-total-row">
-                            <dt>{t('checkout.vatable')}</dt>
-                            <dd className="numeric">{peso(recalledOrder.vatable_sales)}</dd>
-                          </div>
-                        ) : null}
-                        <div className="receipt-total-row">
-                          <dt>{t('checkout.vat')}</dt>
-                          <dd className="numeric">{peso(recalledOrder.vat_amount)}</dd>
-                        </div>
-                      </>
-                    )}
-                    <div className="receipt-total-row receipt-net-row">
-                      <dt className="receipt-net">Order Total</dt>
-                      <dd className="receipt-net numeric">{peso(recalledOrder.net_amount)}</dd>
-                    </div>
-                    {Number(recalledOrder.unpaid_amount) > 0 &&
-                      Number(recalledOrder.unpaid_amount) < Number(recalledOrder.net_amount) ? (
-                      <div className="receipt-total-row receipt-net-row">
-                        <dt className="receipt-net">Remaining Balance Due at Counter</dt>
-                        <dd className="receipt-net numeric">{peso(recalledOrder.unpaid_amount)}</dd>
+                        <TextInput
+                          label="Cardholder Full Name"
+                          required
+                          inputClass="alpha"
+                          maxLength={80}
+                          value={cardholderName}
+                          onChange={(event) => setCardholderName(event.target.value)}
+                        />
                       </div>
                     ) : null}
-                  </dl>
 
-                  {recalledOrder.payment_status === 'paid' ? (
                     <div
                       style={{
-                        padding: 'var(--space-3)',
-                        border: '1px solid var(--color-border, #d6d3cd)',
-                        background: 'var(--color-surface-subtle, #f7f5f0)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--space-2)',
+                        borderTop: '1px solid var(--border, #d6d3cd)',
+                        paddingTop: 'var(--space-2)',
                       }}
                     >
-                      <CheckCircle2 size={20} className="text-green" />
-                      <strong>This QR order is already Paid in full.</strong>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: 'var(--space-2)',
+                        }}
+                      >
+                        <strong>Ticket Items ({walkInTotals.count})</strong>
+                        {posCart.length > 0 ? (
+                          <Button variant="ghost" icon={Trash2} onClick={clearPosTicket}>
+                            Clear
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      {posCart.length === 0 ? (
+                        <p className="verifications-note" style={{ margin: 'var(--space-2) 0' }}>
+                          Tap dishes on the left to build a walk-in order, or recall a QR Queue # above.
+                        </p>
+                      ) : (
+                        <ul
+                          className="receipt-item-list"
+                          style={{ maxHeight: '220px', overflowY: 'auto' }}
+                        >
+                          {posCart.map((line) => (
+                            <li
+                              key={line.item_id}
+                              className="receipt-item-row"
+                              style={{ alignItems: 'center' }}
+                            >
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                }}
+                              >
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => updatePosQty(line.item_id, -1)}
+                                >
+                                  −
+                                </Button>
+                                <span className="numeric font-bold">{line.quantity}×</span>
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => updatePosQty(line.item_id, 1)}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                              <span
+                                className="receipt-item-name"
+                                style={{ marginLeft: 'var(--space-2)' }}
+                              >
+                                {line.name}
+                              </span>
+                              <span className="receipt-item-price numeric">
+                                {peso(line.price * line.quantity)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                  ) : (
-                    <>
+
+                    <dl className="receipt-totals">
+                      <div className="receipt-total-row">
+                        <dt>{t('checkout.gross')}</dt>
+                        <dd className="numeric">{peso(walkInTotals.gross)}</dd>
+                      </div>
+                      {walkInDiscounted ? (
+                        <>
+                          <div className="receipt-total-row">
+                            <dt>{t('checkout.vatExempt')}</dt>
+                            <dd className="numeric">{peso(walkInTotals.vatExempt)}</dd>
+                          </div>
+                          <div className="receipt-total-row receipt-discount-row">
+                            <dt>{t('checkout.discount')}</dt>
+                            <dd className="numeric">−{peso(walkInTotals.discount)}</dd>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="receipt-total-row">
+                            <dt>{t('checkout.vatable')}</dt>
+                            <dd className="numeric">{peso(walkInTotals.vatable)}</dd>
+                          </div>
+                          <div className="receipt-total-row">
+                            <dt>{t('checkout.vat')}</dt>
+                            <dd className="numeric">{peso(walkInTotals.vat)}</dd>
+                          </div>
+                        </>
+                      )}
+                      <div className="receipt-total-row receipt-net-row">
+                        <dt className="receipt-net">{t('checkout.net')}</dt>
+                        <dd className="numeric receipt-net">{peso(walkInTotals.net)}</dd>
+                      </div>
+                    </dl>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 'var(--space-2)',
+                        alignItems: 'end',
+                      }}
+                    >
                       <TextInput
                         label="Cash Tendered (₱)"
                         required
@@ -955,17 +1312,35 @@ export default function PosPage() {
                         maxLength={9}
                         value={cashTendered}
                         onChange={(event) => setCashTendered(event.target.value)}
-                        hint={`Minimum ${peso(activeAmountDue)}`}
                       />
+                      <div
+                        style={{
+                          padding: '10px var(--space-3)',
+                          border: '1px solid var(--border-strong, #c9c4bc)',
+                          background: 'var(--cream, #f7f3eb)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <span className="eyebrow" style={{ margin: 0 }}>
+                          Change Due
+                        </span>
+                        <strong className="numeric" style={{ fontSize: 'var(--font-md)' }}>
+                          {validTender ? peso(changeDue) : '—'}
+                        </strong>
+                      </div>
+                    </div>
 
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                    {walkInTotals.net > 0 ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         <Button
                           variant="secondary"
-                          onClick={() => setCashTendered(activeAmountDue.toFixed(2))}
+                          onClick={() => setCashTendered(walkInTotals.net.toFixed(2))}
                         >
-                          Exact ({peso(activeAmountDue)})
+                          Exact ({peso(walkInTotals.net)})
                         </Button>
-                        {BILLS.filter((bill) => bill >= activeAmountDue).map((bill) => (
+                        {BILLS.filter((bill) => bill >= walkInTotals.net).map((bill) => (
                           <Button
                             key={bill}
                             variant="secondary"
@@ -975,258 +1350,21 @@ export default function PosPage() {
                           </Button>
                         ))}
                       </div>
+                    ) : null}
 
-                      <div
-                        style={{
-                          padding: 'var(--space-3)',
-                          border: '1px solid var(--color-border, #d6d3cd)',
-                          background: 'var(--color-surface-subtle, #f7f5f0)',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <span className="eyebrow" style={{ margin: 0 }}>
-                          Change Due
-                        </span>
-                        <strong className="numeric" style={{ fontSize: 'var(--text-lg)' }}>
-                          {validTender ? peso(changeDue) : 'Enter cash tendered'}
-                        </strong>
-                      </div>
-
-                      <Button
-                        variant="checkout"
-                        icon={ShoppingBag}
-                        loading={submittingOrder}
-                        disabled={!validTender}
-                        onClick={handleCompleteRecalledQrSale}
-                      >
-                        Complete QR Payment & Issue Official Receipt · {peso(activeAmountDue)}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="stack-3">
-                  <SelectField
-                    label="Assign to Table"
-                    required
-                    value={tableId}
-                    onChange={(event) => setTableId(event.target.value)}
-                    options={tables.map((tbl) => ({
-                      value: tbl.table_id,
-                      label: `Table ${tbl.table_number} (${tbl.table_id}) · ${tbl.occupancy_status.toUpperCase()}`,
-                    }))}
-                  />
-
-                  <SelectField
-                    label="Customer Priority / Discount Status"
-                    required
-                    value={priorityStatus}
-                    onChange={(event) => setPriorityStatus(event.target.value)}
-                    options={PRIORITY_OPTIONS}
-                  />
-
-                  {walkInDiscounted ? (
-                    <div
-                      className="stack-3"
-                      style={{
-                        padding: 'var(--space-3)',
-                        border: '1px solid var(--color-border, #d6d3cd)',
-                        background: 'var(--color-surface-subtle, #f7f5f0)',
-                      }}
+                    <Button
+                      variant="checkout"
+                      icon={ShoppingBag}
+                      loading={submittingOrder}
+                      disabled={posCart.length === 0 || !validTender}
+                      onClick={handlePunchCounterOrder}
                     >
-                      <strong style={{ fontSize: 'var(--text-sm)' }}>
-                        Physical OSCA / PWD ID Verification (Required for 20% Discount)
-                      </strong>
-                      <TextInput
-                        label="Last 4 digits of ID"
-                        required
-                        inputClass="numeric"
-                        inputMode="numeric"
-                        maxLength={4}
-                        value={idLast4}
-                        onChange={(event) => setIdLast4(event.target.value)}
-                      />
-                      <TextInput
-                        label="Cardholder Full Name"
-                        required
-                        inputClass="alpha"
-                        maxLength={80}
-                        value={cardholderName}
-                        onChange={(event) => setCardholderName(event.target.value)}
-                      />
-                      <TextInput
-                        label="Issuing LGU"
-                        required
-                        inputClass="alpha"
-                        maxLength={50}
-                        value={issuingLgu}
-                        onChange={(event) => setIssuingLgu(event.target.value)}
-                      />
-                    </div>
-                  ) : null}
-
-                  <div
-                    style={{
-                      borderTop: '1px solid var(--color-border, #d6d3cd)',
-                      paddingTop: 'var(--space-3)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: 'var(--space-2)',
-                      }}
-                    >
-                      <strong>Walk-In Order Items ({walkInTotals.count})</strong>
-                      {posCart.length > 0 ? (
-                        <Button variant="ghost" icon={Trash2} onClick={clearPosTicket}>
-                          Clear
-                        </Button>
-                      ) : null}
-                    </div>
-
-                    {posCart.length === 0 ? (
-                      <p className="verifications-note">
-                        Tap any dish on the left for a walk-in order, or enter a QR Queue # at the top to recall a phone order.
-                      </p>
-                    ) : (
-                      <ul className="receipt-item-list">
-                        {posCart.map((line) => (
-                          <li
-                            key={line.item_id}
-                            className="receipt-item-row"
-                            style={{ alignItems: 'center' }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                              <Button
-                                variant="secondary"
-                                onClick={() => updatePosQty(line.item_id, -1)}
-                              >
-                                −
-                              </Button>
-                              <span className="numeric font-bold">{line.quantity}×</span>
-                              <Button
-                                variant="secondary"
-                                onClick={() => updatePosQty(line.item_id, 1)}
-                              >
-                                +
-                              </Button>
-                            </div>
-                            <span className="receipt-item-name" style={{ marginLeft: 'var(--space-2)' }}>
-                              {line.name}
-                            </span>
-                            <span className="receipt-item-price numeric">
-                              {peso(line.price * line.quantity)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                      Punch Order & Print Official Receipt · {peso(walkInTotals.net)}
+                    </Button>
                   </div>
-
-                  <dl className="receipt-totals">
-                    <div className="receipt-total-row">
-                      <dt>{t('checkout.gross')}</dt>
-                      <dd className="numeric">{peso(walkInTotals.gross)}</dd>
-                    </div>
-                    {walkInDiscounted ? (
-                      <>
-                        <div className="receipt-total-row">
-                          <dt>{t('checkout.vatExempt')}</dt>
-                          <dd className="numeric">{peso(walkInTotals.vatExempt)}</dd>
-                        </div>
-                        <div className="receipt-total-row receipt-discount-row">
-                          <dt>{t('checkout.discount')}</dt>
-                          <dd className="numeric">−{peso(walkInTotals.discount)}</dd>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="receipt-total-row">
-                          <dt>{t('checkout.vatable')}</dt>
-                          <dd className="numeric">{peso(walkInTotals.vatable)}</dd>
-                        </div>
-                        <div className="receipt-total-row">
-                          <dt>{t('checkout.vat')}</dt>
-                          <dd className="numeric">{peso(walkInTotals.vat)}</dd>
-                        </div>
-                      </>
-                    )}
-                    <div className="receipt-total-row receipt-net-row">
-                      <dt className="receipt-net">{t('checkout.net')}</dt>
-                      <dd className="numeric receipt-net">{peso(walkInTotals.net)}</dd>
-                    </div>
-                  </dl>
-
-                  <TextInput
-                    label="Cash Tendered (₱)"
-                    required
-                    inputClass="currency"
-                    inputMode="decimal"
-                    maxLength={9}
-                    value={cashTendered}
-                    onChange={(event) => setCashTendered(event.target.value)}
-                    hint={walkInTotals.net > 0 ? `Minimum ${peso(walkInTotals.net)}` : '0.00'}
-                  />
-
-                  {walkInTotals.net > 0 ? (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-                      <Button
-                        variant="secondary"
-                        onClick={() => setCashTendered(walkInTotals.net.toFixed(2))}
-                      >
-                        Exact ({peso(walkInTotals.net)})
-                      </Button>
-                      {BILLS.filter((bill) => bill >= walkInTotals.net).map((bill) => (
-                        <Button
-                          key={bill}
-                          variant="secondary"
-                          onClick={() => setCashTendered(bill.toFixed(2))}
-                        >
-                          ₱{bill}
-                        </Button>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <div
-                    style={{
-                      padding: 'var(--space-3)',
-                      border: '1px solid var(--color-border, #d6d3cd)',
-                      background: 'var(--color-surface-subtle, #f7f5f0)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span className="eyebrow" style={{ margin: 0 }}>
-                      Change Due
-                    </span>
-                    <strong className="numeric" style={{ fontSize: 'var(--text-lg)' }}>
-                      {validTender
-                        ? peso(changeDue)
-                        : walkInTotals.net > 0
-                          ? 'Enter cash tendered'
-                          : peso(0)}
-                    </strong>
-                  </div>
-
-                  <Button
-                    variant="checkout"
-                    icon={ShoppingBag}
-                    loading={submittingOrder}
-                    disabled={posCart.length === 0 || !validTender}
-                    onClick={handlePunchCounterOrder}
-                  >
-                    Punch Order & Issue Official Receipt · {peso(walkInTotals.net)}
-                  </Button>
-                </div>
-              )}
-            </Card>
+                )}
+              </Card>
+            </div>
           </div>
         </div>
       ) : null}

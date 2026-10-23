@@ -83,7 +83,6 @@ PLAN: tuple[tuple[SessionType, PriorityStatus], ...] = (
 
 VOID_AT = (17, 34)
 
-# Names on the presented OSCA / PWD cards. Invented for the seed, never real people.
 CARDHOLDERS = (
     "Rosario A. Villanueva",
     "Eduardo B. Sarmiento",
@@ -159,10 +158,6 @@ async def seed_history(
 
             discount_applies = declared in (PriorityStatus.SENIOR, PriorityStatus.PWD)
             if declared is not PriorityStatus.STANDARD:
-                # Entitlement follows the declaration, exactly as services/session.py
-                # does it live — the discount is applied inside the ordering session.
-                # Presenting an ID at the counter is a separate audit fact, recorded
-                # here for the BIR trail, and only seniors and PWDs carry a card.
                 presented = declared is not PriorityStatus.PREGNANT and rng.random() < 0.7
                 session.add(
                     PriorityVerificationLog(
@@ -209,7 +204,7 @@ async def seed_history(
                 item_count=priced.item_count,
                 is_priority=declared is not PriorityStatus.STANDARD,
                 queue_date=queue_date,
-                queue_number=slot + 1,
+                queue_number=index + 1,
                 status=TxnStatus.VOIDED if voided else TxnStatus.COMPLETED,
                 voided_by=admin.staff_id if voided else None,
                 void_reason="Customer cancelled before preparation." if voided else None,
