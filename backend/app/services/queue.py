@@ -61,6 +61,31 @@ async def lock_queue(db: AsyncSession) -> None:
     await db.execute(QUEUE_LOCK_SQL)
 
 
+# Update
+async def ensure_unique_queue_numbers(db: AsyncSession) -> None:
+    """Repair any duplicate queue_number rows across transactions so every order has a unique Q-XXX."""
+    txns = list(
+        await db.scalars(select(Transaction).order_by(Transaction.txn_id.asc()))
+    )
+    if not txns:
+        return
+
+    unique_numbers = {t.queue_number for t in txns}
+    if len(unique_numbers) == len(txns):
+        return
+
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('queue_number'))")
+    )
+    for idx, txn in enumerate(txns, start=1):
+        txn.queue_number = 10000 + idx
+    await db.flush()
+
+    for idx, txn in enumerate(txns, start=1):
+        txn.queue_number = idx
+    await db.commit()
+
+
 async def pending_entries(db: AsyncSession) -> list[QueueEntry]:
     rows = await db.execute(
         select(KitchenQueue, Transaction)
@@ -103,6 +128,7 @@ async def place_in_queue(db: AsyncSession, transaction: Transaction) -> KitchenQ
 
 
 async def list_queue(db: AsyncSession) -> list[tuple[KitchenQueue, Transaction, Session]]:
+    await ensure_unique_queue_numbers(db)
     rows = await db.execute(
         select(KitchenQueue, Transaction, Session)
         .join(Transaction, Transaction.txn_id == KitchenQueue.txn_id)
@@ -295,17 +321,24 @@ async def advance_status(
             f"not {target.value}."
         )
 
-    if target is TxnStatus.PREPARING:
-        payments = list(
-            await db.scalars(select(Payment).where(Payment.txn_id == txn_id))
+    payments = list(
+        await db.scalars(select(Payment).where(Payment.txn_id == txn_id))
+    )
+    unpaid = [p for p in payments if p.status != PaymentStatus.PAID]
+
+    if target is TxnStatus.PREPARING and len(payments) > 1 and unpaid:
+        remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
+        raise BusinessRuleError(
+            f"Split order Q-{transaction.queue_number:03d} cannot be prepared yet — "
+            f"{len(unpaid)} split share(s) (₱{remaining:.2f}) are still unpaid."
         )
-        unpaid = [p for p in payments if p.status != PaymentStatus.PAID]
-        if unpaid:
-            remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
-            raise BusinessRuleError(
-                f"Order Q-{transaction.queue_number:03d} cannot be prepared yet — "
-                f"{len(unpaid)} payment share(s) (₱{remaining:.2f}) are still unpaid."
-            )
+
+    if target is TxnStatus.COMPLETED and unpaid:
+        remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
+        raise BusinessRuleError(
+            f"Order Q-{transaction.queue_number:03d} still has ₱{remaining:.2f} unpaid. "
+            "Please click 'Confirm cash' first before marking it completed."
+        )
 
     if target is TxnStatus.COMPLETED and transaction.discount_amount > Decimal("0.00"):
         verif = await db.scalar(

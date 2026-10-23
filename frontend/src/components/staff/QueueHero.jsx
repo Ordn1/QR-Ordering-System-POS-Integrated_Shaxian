@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChefHat, Clock, CheckCircle2, CreditCard, ShieldCheck } from 'lucide-react';
+import { Ban, ChefHat, Clock, CheckCircle2, CreditCard, ShieldCheck } from 'lucide-react';
 
 import * as queueApi from '../../api/queue';
+import { voidTransaction } from '../../api/transactions';
 import { peso, queueLabel } from '../../lib/format';
 import { toast } from '../../store/toastStore';
 import Badge from '../shared/Badge';
@@ -40,6 +41,9 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
   const [savingVerif, setSavingVerif] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [localVerified, setLocalVerified] = useState(false);
+  const [voiding, setVoiding] = useState(false);
+  const [voidReason, setVoidReason] = useState('Customer cancelled before preparation.');
+  const [voidBusy, setVoidBusy] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -132,6 +136,24 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
     }
   }
 
+  async function handleVoidOrder() {
+    if (!voidReason.trim()) {
+      toast.error('Please enter a reason for voiding this order.');
+      return;
+    }
+    setVoidBusy(true);
+    try {
+      await voidTransaction(entry.txn_id, voidReason.trim());
+      setVoiding(false);
+      toast.success(`Voided ${queueLabel(entry.queue_number)}.`);
+      window.location.reload();
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setVoidBusy(false);
+    }
+  }
+
   return (
     <section className="queue-hero">
       <div className="queue-hero-eyebrow">
@@ -202,6 +224,12 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
             {localVerified ? 'Update Verified ID' : 'Verify Senior / PWD ID'}
           </Button>
         ) : null}
+        {entry.status === 'pending' ? (
+          <Button variant="ghost" onClick={() => setVoiding(true)}>
+            <Ban size={16} />
+            Void Order
+          </Button>
+        ) : null}
       </div>
 
       {verifying ? (
@@ -256,6 +284,34 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
               onChange={(event) => setIssuingLgu(event.target.value)}
             />
           </div>
+        </Modal>
+      ) : null}
+
+      {voiding ? (
+        <Modal
+          title={`Void ${queueLabel(entry.queue_number)} · Table ${entry.table_number}`}
+          size="small"
+          destructive
+          onClose={() => setVoiding(false)}
+          footer={
+            <>
+              <Button variant="wide-delete" loading={voidBusy} onClick={handleVoidOrder}>
+                Confirm Void
+              </Button>
+              <Button variant="secondary" data-modal-cancel="true" onClick={() => setVoiding(false)}>
+                {t('common.cancel')}
+              </Button>
+            </>
+          }
+        >
+          <TextInput
+            label="Reason for voiding"
+            required
+            inputClass="freetext"
+            maxLength={120}
+            value={voidReason}
+            onChange={(event) => setVoidReason(event.target.value)}
+          />
         </Modal>
       ) : null}
     </section>

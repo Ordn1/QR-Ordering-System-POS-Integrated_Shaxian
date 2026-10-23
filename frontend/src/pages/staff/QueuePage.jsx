@@ -71,8 +71,8 @@ export default function QueuePage() {
 
   const servingMinutes = now
     ? rows
-        .filter((row) => row.prep_started_at)
-        .map((row) => (now - new Date(row.prep_started_at).getTime()) / 60000)
+      .filter((row) => row.prep_started_at)
+      .map((row) => (now - new Date(row.prep_started_at).getTime()) / 60000)
     : [];
   const averageWait = servingMinutes.length
     ? Math.round(servingMinutes.reduce((total, value) => total + value, 0) / servingMinutes.length)
@@ -91,15 +91,16 @@ export default function QueuePage() {
     }
   }
 
-  async function confirmPayment(entry) {
+  async function confirmPayment(entry, cashTendered) {
     setBusy(true);
     try {
-      await queueApi.confirmPayment(entry.txn_id);
+      const result = await queueApi.confirmPayment(entry.txn_id, cashTendered);
       await load();
-      setSettling(null);
       toast.success(t('staff.markedPaid', { queue: queueLabel(entry.queue_number) }));
+      return result;
     } catch (error) {
       toast.error(error.message);
+      return null;
     } finally {
       setBusy(false);
     }

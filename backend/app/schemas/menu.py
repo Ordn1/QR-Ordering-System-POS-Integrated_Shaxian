@@ -37,6 +37,10 @@ class CategoryRead(BaseModel):
     is_active: bool
 
 
+class MenuItemAvailabilityWrite(BaseModel):
+    is_available: bool
+
+
 class MenuItemWrite(BaseModel):
     cat_id: str
     name_en: ItemName

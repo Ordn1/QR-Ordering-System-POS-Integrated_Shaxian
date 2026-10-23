@@ -2,10 +2,10 @@ from fastapi import APIRouter, Query
 from sqlalchemy import select
 
 from app.core.customer import CurrentDevice
-from app.core.deps import AdminStaff, DbSession
+from app.core.deps import AdminStaff, AnyStaff, DbSession
 from app.core.exceptions import PermissionError
-from app.models import SessionDevice
-from app.models.enums import Language, PaymentMethod
+from app.models import Session, SessionDevice, Table
+from app.models.enums import Language, PaymentMethod, PaymentStatus
 from app.schemas.checkout import (
     OrderCreate,
     PaymentShareRead,
@@ -14,7 +14,12 @@ from app.schemas.checkout import (
     ReceiptLine,
     ReceiptRead,
 )
-from app.schemas.order import TransactionRead
+from app.schemas.order import (
+    TransactionDetailRead,
+    TransactionItemDetailRead,
+    TransactionRead,
+    TransactionVoidWrite,
+)
 from app.schemas.queue import OrderStatusRead, PaymentShareStatusRead
 from app.services import order as order_service
 from app.services import payment as payment_service
@@ -234,7 +239,82 @@ async def list_transactions(db: DbSession, staff: AdminStaff) -> list[Transactio
     rows = await order_service.list_transactions(db)
     return [
         TransactionRead.model_validate(
-            {**transaction.__dict__, "session_type": session_type}
+            {
+                **transaction.__dict__,
+                "table_number": table_number,
+                "session_type": ordering_session.session_type,
+                "declared_priority_status": ordering_session.declared_priority_status,
+            }
         )
-        for transaction, session_type in rows
+        for transaction, ordering_session, table_number in rows
     ]
+
+
+@router.get("/{txn_id}", response_model=TransactionDetailRead)
+async def get_transaction_detail(
+    txn_id: int, db: DbSession, staff: AnyStaff
+) -> TransactionDetailRead:
+    transaction, rows, payments = await order_service.get_receipt(db, txn_id)
+    ordering_session = await db.get(Session, transaction.session_id)
+    table = await db.get(Table, ordering_session.table_id) if ordering_session else None
+    overall_status = order_service.aggregate_payment_status(payments)
+    method = (
+        PaymentMethod.ONLINE
+        if any(p.method is PaymentMethod.ONLINE for p in payments)
+        else PaymentMethod.CASHIER
+    )
+    return TransactionDetailRead(
+        txn_id=transaction.txn_id,
+        placed_at=transaction.placed_at,
+        queue_date=transaction.queue_date,
+        queue_number=transaction.queue_number,
+        table_number=table.table_number if table else None,
+        session_type=ordering_session.session_type,
+        declared_priority_status=ordering_session.declared_priority_status,
+        status=transaction.status,
+        is_priority=transaction.is_priority,
+        item_count=transaction.item_count,
+        gross_amount=transaction.gross_amount,
+        vatable_sales=transaction.vatable_sales,
+        vat_exempt_sales=transaction.vat_exempt_sales,
+        vat_amount=transaction.vat_amount,
+        discount_amount=transaction.discount_amount,
+        net_amount=transaction.net_amount,
+        voided_by=transaction.voided_by,
+        void_reason=transaction.void_reason,
+        voided_at=transaction.voided_at,
+        payment_method=method,
+        payment_status=overall_status if payments else PaymentStatus.PENDING,
+        lines=[
+            TransactionItemDetailRead(
+                item_id=line.item_id,
+                name=item.name_en,
+                quantity=line.quantity,
+                unit_price=line.unit_price,
+                subtotal=line.subtotal,
+                is_discounted=line.is_discounted,
+                discount_amount=line.discount_amount,
+            )
+            for line, item in rows
+        ],
+    )
+
+
+@router.post("/{txn_id}/void", response_model=TransactionRead)
+async def void_transaction(
+    txn_id: int, payload: TransactionVoidWrite, db: DbSession, staff: AnyStaff
+) -> TransactionRead:
+    transaction = await order_service.void_transaction(
+        db, txn_id, payload.reason, staff.staff_id
+    )
+    ordering_session = await db.get(Session, transaction.session_id)
+    table = await db.get(Table, ordering_session.table_id) if ordering_session else None
+    await events.publish_status(transaction)
+    return TransactionRead.model_validate(
+        {
+            **transaction.__dict__,
+            "table_number": table.table_number if table else None,
+            "session_type": ordering_session.session_type,
+            "declared_priority_status": ordering_session.declared_priority_status,
+        }
+    )
