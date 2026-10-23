@@ -254,7 +254,7 @@ async def get_table_cart(
     current_device_id: int,
     language: str = "en",
 ) -> TableCartRead:
-    await get_session(db, session_id)
+    ordering_session = await get_session(db, session_id)
     devices = list(
         await db.scalars(
             select(SessionDevice)
@@ -285,26 +285,35 @@ async def get_table_cart(
             )
         }
 
-    txns = list(
-        await db.scalars(
-            select(Transaction)
-            .where(
-                Transaction.session_id == session_id,
-                Transaction.status == TxnStatus.PENDING,
-            )
-            .order_by(Transaction.placed_at.desc())
-        )
-    )
     active_open_txn: Transaction | None = None
     active_payments: list[Payment] = []
-    for txn in txns:
-        payments = list(
-            await db.scalars(select(Payment).where(Payment.txn_id == txn.txn_id))
+
+    if ordering_session.group_mode:
+        txns = list(
+            await db.scalars(
+                select(Transaction)
+                .where(
+                    Transaction.session_id == session_id,
+                    Transaction.status == TxnStatus.PENDING,
+                )
+                .order_by(Transaction.placed_at.desc())
+            )
         )
-        if any(p.status != PaymentStatus.PAID for p in payments) or live_item_ids:
-            active_open_txn = txn
-            active_payments = payments
-            break
+        for txn in txns:
+            payments = list(
+                await db.scalars(select(Payment).where(Payment.txn_id == txn.txn_id))
+            )
+            has_unsettled_split = len(payments) > 1 and any(
+                p.status != PaymentStatus.PAID for p in payments
+            )
+            has_awaiting_choice = any(
+                p.aggregator_ref == "AWAITING-CHOICE" and p.status != PaymentStatus.PAID
+                for p in payments
+            )
+            if has_unsettled_split or has_awaiting_choice:
+                active_open_txn = txn
+                active_payments = payments
+                break
 
     if active_open_txn is not None:
         rows = await db.execute(

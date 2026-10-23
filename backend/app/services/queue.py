@@ -295,17 +295,24 @@ async def advance_status(
             f"not {target.value}."
         )
 
-    if target is TxnStatus.PREPARING:
-        payments = list(
-            await db.scalars(select(Payment).where(Payment.txn_id == txn_id))
+    payments = list(
+        await db.scalars(select(Payment).where(Payment.txn_id == txn_id))
+    )
+    unpaid = [p for p in payments if p.status != PaymentStatus.PAID]
+
+    if target is TxnStatus.PREPARING and len(payments) > 1 and unpaid:
+        remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
+        raise BusinessRuleError(
+            f"Split order Q-{transaction.queue_number:03d} cannot be prepared yet — "
+            f"{len(unpaid)} split share(s) (₱{remaining:.2f}) are still unpaid."
         )
-        unpaid = [p for p in payments if p.status != PaymentStatus.PAID]
-        if unpaid:
-            remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
-            raise BusinessRuleError(
-                f"Order Q-{transaction.queue_number:03d} cannot be prepared yet — "
-                f"{len(unpaid)} payment share(s) (₱{remaining:.2f}) are still unpaid."
-            )
+
+    if target is TxnStatus.COMPLETED and unpaid:
+        remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
+        raise BusinessRuleError(
+            f"Order Q-{transaction.queue_number:03d} still has ₱{remaining:.2f} unpaid. "
+            "Please click 'Confirm cash' first before marking it completed."
+        )
 
     if target is TxnStatus.COMPLETED and transaction.discount_amount > Decimal("0.00"):
         verif = await db.scalar(

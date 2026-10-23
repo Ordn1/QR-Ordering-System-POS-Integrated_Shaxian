@@ -69,8 +69,7 @@ export default function StatusPage() {
 
       {orders.map((order) => {
         const allPaid = order.payment_status === 'paid';
-        const isGroupOrSplit = session?.group_mode || order.shares_total > 1;
-        const awaitingPayment = !allPaid;
+        const isHeldSplit = !allPaid && order.shares_total > 1;
         const shares = order.shares ?? [];
 
         return (
@@ -85,26 +84,22 @@ export default function StatusPage() {
               <span className="status-hero-eyebrow">{t('receipt.queueNumber')}</span>
               <h2 className="status-hero-number numeric">{queueLabel(order.queue_number)}</h2>
               <Badge
-                value={awaitingPayment ? 'pending' : order.status}
-                domain={awaitingPayment ? 'payment' : undefined}
+                value={isHeldSplit ? 'pending' : order.status}
+                domain={isHeldSplit ? 'payment' : undefined}
                 label={
-                  awaitingPayment
-                    ? isGroupOrSplit
-                      ? `Awaiting Payment (${order.shares_paid}/${order.shares_total} paid)`
-                      : 'Awaiting Payment'
+                  isHeldSplit
+                    ? `Awaiting Split Payment (${order.shares_paid}/${order.shares_total} paid)`
                     : undefined
                 }
               />
             </div>
 
-            {awaitingPayment ? (
+            {isHeldSplit ? (
               <div className="status-split-warning">
                 <div className="status-split-warning-header">
                   <AlertTriangle size={18} strokeWidth={2} />
                   <span className="status-split-warning-title">
-                    {isGroupOrSplit
-                      ? `Order Held — Split Payment (${order.shares_paid}/${order.shares_total} settled)`
-                      : 'Order Held — Awaiting Payment Settlement'}
+                    Order Held — Split Payment ({order.shares_paid}/{order.shares_total} settled)
                   </span>
                 </div>
 
@@ -128,7 +123,7 @@ export default function StatusPage() {
                 ) : null}
 
                 <p className="status-split-warning-note">
-                  Order is blocked from kitchen preparation until all payment shares are settled online or confirmed by the cashier.
+                  Order is held and will not enter kitchen preparation until all split payment shares are settled.
                 </p>
 
                 <div className="status-split-actions">
@@ -145,7 +140,7 @@ export default function StatusPage() {
                       Pay my share · {peso(order.my_share_amount)}
                     </Button>
                   ) : null}
-                  {Number(order.unpaid_amount) > 0 && isGroupOrSplit ? (
+                  {Number(order.unpaid_amount) > 0 ? (
                     <Button
                       variant="secondary"
                       onClick={() =>
@@ -200,7 +195,7 @@ export default function StatusPage() {
                 <dt>{t('checkout.net')}</dt>
                 <dd className="numeric">{peso(order.net_amount)}</dd>
               </div>
-              {order.queue_position !== null && allPaid ? (
+              {order.queue_position !== null && !isHeldSplit ? (
                 <div className="status-meta-row">
                   <dt>{t('status.position')}</dt>
                   <dd className="numeric">{order.queue_position}</dd>
@@ -211,6 +206,20 @@ export default function StatusPage() {
                 <dd>{t(`status.pay_${order.payment_status}`)}</dd>
               </div>
             </dl>
+
+            {!isHeldSplit ? (
+              <div style={{ marginTop: 'var(--space-3)' }}>
+                <Button
+                  variant="secondary"
+                  icon={Receipt}
+                  onClick={() =>
+                    navigate(`/t/${qrToken}/receipt?txn_id=${order.txn_id}`)
+                  }
+                >
+                  View Receipt
+                </Button>
+              </div>
+            ) : null}
           </section>
         );
       })}

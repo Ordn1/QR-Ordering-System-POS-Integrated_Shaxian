@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select, text
@@ -7,11 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.models import (
+    AuditLog,
     KitchenQueue,
     MenuItem,
     Payment,
     Session,
     SessionDevice,
+    Table,
     Transaction,
     TransactionItem,
 )
@@ -755,6 +758,8 @@ async def session_order_status(
             for p in txn_payments
         ]
 
+        is_held_split = shares_total > 1 and overall_status is not PaymentStatus.PAID
+
         result.append(
             {
                 "txn_id": txn.txn_id,
@@ -765,7 +770,7 @@ async def session_order_status(
                     slots[txn.txn_id].queue_position
                     if txn.txn_id in slots
                     and slots[txn.txn_id].completed_at is None
-                    and overall_status is PaymentStatus.PAID
+                    and not is_held_split
                     else None
                 ),
                 "net_amount": txn.net_amount,
@@ -782,12 +787,63 @@ async def session_order_status(
     return result
 
 
-async def list_transactions(db: AsyncSession, limit: int = 100) -> list[tuple[Transaction, str]]:
-    """List recent transactions with each one's Apriori segment, newest first."""
+# Read
+async def list_transactions(
+    db: AsyncSession, limit: int = 100
+) -> list[tuple[Transaction, Session, int]]:
+    """List recent transactions with session metadata and table number, newest first."""
     rows = await db.execute(
-        select(Transaction, Session.session_type)
+        select(Transaction, Session, Table.table_number)
         .join(Session, Session.session_id == Transaction.session_id)
+        .join(Table, Table.table_id == Session.table_id)
         .order_by(Transaction.placed_at.desc())
         .limit(limit)
     )
-    return [(transaction, session_type) for transaction, session_type in rows]
+    return [(transaction, session, table_number) for transaction, session, table_number in rows]
+
+
+# Update
+async def void_transaction(
+    db: AsyncSession, txn_id: int, reason: str, staff_id: str
+) -> Transaction:
+    """Void a transaction, remove it from active kitchen queue, and append to audit_log."""
+    transaction = await db.get(Transaction, txn_id)
+    if transaction is None:
+        raise NotFoundError("That transaction no longer exists.")
+
+    if transaction.status is TxnStatus.VOIDED:
+        raise BusinessRuleError(
+            f"Order Q-{transaction.queue_number:03d} is already voided."
+        )
+
+    previous_status = transaction.status.value
+    now = datetime.now(UTC)
+
+    transaction.status = TxnStatus.VOIDED
+    transaction.voided_by = staff_id
+    transaction.void_reason = reason.strip()
+    transaction.voided_at = now
+
+    slot = await db.scalar(select(KitchenQueue).where(KitchenQueue.txn_id == txn_id))
+    if slot is not None and slot.completed_at is None:
+        slot.completed_at = now
+        slot.updated_by = staff_id
+
+    db.add(
+        AuditLog(
+            staff_id=staff_id,
+            action="txn_void",
+            entity_type="transaction",
+            entity_id=str(txn_id),
+            before_state={"status": previous_status},
+            after_state={
+                "status": TxnStatus.VOIDED.value,
+                "void_reason": transaction.void_reason,
+                "voided_by": staff_id,
+            },
+        )
+    )
+
+    await db.commit()
+    await db.refresh(transaction)
+    return transaction

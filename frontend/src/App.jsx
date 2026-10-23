@@ -35,6 +35,7 @@ const ADMIN_LINKS = [
 
 const STAFF_LINKS = [
   { to: '/staff/queue', labelKey: 'staff.queueTitle' },
+  { to: '/staff/pos', labelKey: 'admin.posTitle' },
   { to: '/staff/tables', labelKey: 'admin.tablesTitle' },
 ];
 
@@ -84,6 +85,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="/staff/queue" replace />} />
             <Route path="queue" element={<QueuePage />} />
+            <Route path="pos" element={<PosPage />} />
             <Route path="tables" element={<TablesPage />} />
             <Route path="account" element={<SignedInPage />} />
           </Route>
