@@ -1,8 +1,10 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
 from app.models.enums import OccupancyStatus, SessionType
+from app.schemas.fields import SmallPositive
 
 
 class TableRead(BaseModel):
@@ -12,9 +14,23 @@ class TableRead(BaseModel):
     table_number: int
     qr_token: UUID
     occupancy_status: OccupancyStatus
+    is_active: bool = True
+    created_at: datetime | None = None
     device_count: int = 0
     session_type: SessionType | None = None
     group_mode: bool = False
+
+
+class TableCreate(BaseModel):
+    table_number: SmallPositive
+    occupancy_status: OccupancyStatus = OccupancyStatus.VACANT
+    is_active: bool = True
+
+
+class TableUpdate(BaseModel):
+    table_number: SmallPositive
+    occupancy_status: OccupancyStatus = OccupancyStatus.VACANT
+    is_active: bool = True
 
 
 class TableCatalogRead(BaseModel):

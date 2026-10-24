@@ -21,11 +21,15 @@ const TONE_BY_VALUE = {
   priority: 'violet',
   group: 'blue',
   success: 'green',
+  admin: 'violet',
+  service_crew: 'blue',
 };
 
 const LABELS = {
   pwd: 'PWD',
   'sold out': 'Sold out',
+  admin: 'Admin',
+  service_crew: 'Service crew',
 };
 
 function toneFor(value, domain) {

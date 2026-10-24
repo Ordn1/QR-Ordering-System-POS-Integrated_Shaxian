@@ -16,6 +16,7 @@ from app.routers import (
     recommendations,
     sessions,
     tables,
+    webhooks,
 )
 
 app = FastAPI(title="Shaxian QR Table Ordering")
@@ -37,6 +38,7 @@ app.include_router(tables.router)
 app.include_router(queue.router)
 app.include_router(recommendations.router)
 app.include_router(pos.router)
+app.include_router(webhooks.router)
 app.include_router(realtime.router)
 
 
