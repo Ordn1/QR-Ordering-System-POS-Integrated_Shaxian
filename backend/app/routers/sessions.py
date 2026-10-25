@@ -6,6 +6,7 @@ from app.models import Session, SessionDevice, Table
 from app.models.enums import Language
 from app.schemas.session import (
     DeclarationWrite,
+    DeviceProfileWrite,
     PreferencesWrite,
     SessionCartWrite,
     SessionOpen,
@@ -27,7 +28,9 @@ async def to_read(
         session_id=session.session_id,
         table_id=session.table_id,
         table_number=table.table_number,
+        device_id=device.device_id,
         device_token=device.device_token,
+        display_name=device.display_name,
         is_host=device.is_host,
         device_count=await session_service.device_count(db, session.session_id),
         declared_priority_status=session.declared_priority_status,
@@ -81,6 +84,38 @@ async def preferences(
     )
     table = await db.get(Table, session.table_id)
     return await to_read(db, session, device, table)
+
+
+@router.patch("/{session_id}/device", response_model=SessionRead)
+async def update_device_profile(
+    session_id: int, payload: DeviceProfileWrite, db: DbSession, device: CurrentDevice
+) -> SessionRead:
+    updated_device = await session_service.update_device_profile(
+        db, session_id, device, payload.display_name
+    )
+    session = await session_service.get_session(db, session_id)
+    table = await db.get(Table, session.table_id)
+    read_model = await to_read(db, session, updated_device, table)
+    await events.publish_session_changed(session_id)
+    await events.publish_cart_changed(session_id)
+    return read_model
+
+
+@router.delete("/{session_id}/devices/{target_device_id}", response_model=SessionRead)
+async def remove_device(
+    session_id: int,
+    target_device_id: int,
+    db: DbSession,
+    device: CurrentDevice,
+) -> SessionRead:
+    session = await session_service.remove_session_device(
+        db, session_id, device, target_device_id
+    )
+    table = await db.get(Table, session.table_id)
+    read_model = await to_read(db, session, device, table)
+    await events.publish_session_changed(session_id)
+    await events.publish_cart_changed(session_id)
+    return read_model
 
 
 @router.get("/{session_id}/cart", response_model=TableCartRead)

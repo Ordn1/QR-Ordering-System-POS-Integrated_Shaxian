@@ -38,6 +38,7 @@ export function useConfusionSignals({
   const active = useRef(new Map());
   const dwelt = useRef(new Set());
   const backCount = useRef(0);
+  const backFired = useRef(false);
   const visited = useRef(new Set());
   const lastCategory = useRef(null);
   const armedAt = useRef(null);
@@ -54,7 +55,10 @@ export function useConfusionSignals({
 
   const log = useCallback(
     (payload) => {
-      recordEvent(sessionId, payload).catch(() => {});
+      if (!sessionId) {
+        return;
+      }
+      recordEvent(sessionId, payload).catch(() => { });
     },
     [sessionId],
   );
@@ -98,18 +102,13 @@ export function useConfusionSignals({
             signals: firing,
           });
         })
-        .catch(() => {});
+        .catch(() => { });
     },
     [language, log, sessionId],
   );
 
-  // fireOnce: guards against the same signal type being added to the active
-  // window more than once while it is already live. Repeatable signals like
-  // 'scroll' bypass this and call evaluate() directly so two distinct
-  // category-revisit events can accumulate to REQUIRED_SIGNALS.
   const fireOnce = useCallback(
     (name, detail) => {
-      // Already active in the current window — skip duplicate
       if (active.current.has(name)) {
         return;
       }
@@ -118,29 +117,23 @@ export function useConfusionSignals({
     [evaluate],
   );
 
-  // evaluateRepeatable: used for signals that should contribute every time
-  // they fire (e.g. scroll reversal / category revisit). Unlike fireOnce it
-  // does NOT skip if the same type is already in the active window — each
-  // new occurrence extends the window timestamp and may push size to REQUIRED.
-  const evaluateRepeatable = useCallback(
-    (name, detail) => {
-      evaluate(name, detail);
-    },
-    [evaluate],
-  );
+  const recordBack = useCallback(() => {
+    backCount.current += 1;
+    if (backCount.current >= BACKNAV_THRESHOLD && !backFired.current) {
+      backFired.current = true;
+      fireOnce('back', {});
+    }
+  }, [fireOnce]);
 
-  const fireRef = useRef(evaluateRepeatable);
+  const recordBackRef = useRef(recordBack);
 
   useEffect(() => {
-    fireRef.current = evaluateRepeatable;
-  }, [evaluateRepeatable]);
+    recordBackRef.current = recordBack;
+  }, [recordBack]);
 
   useEffect(() => {
     function onPopState() {
-      backCount.current += 1;
-      if (backCount.current >= BACKNAV_THRESHOLD) {
-        fireRef.current('back', {});
-      }
+      recordBackRef.current();
     }
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -175,10 +168,9 @@ export function useConfusionSignals({
       fireOnce('abandon', {});
     }
     if (returning) {
-      // scroll reversal is repeatable — each revisit is a fresh confusion signal
-      evaluateRepeatable('scroll', {});
+      fireOnce('scroll', {});
     }
-  }, [activeCategory, fireOnce, evaluateRepeatable]);
+  }, [activeCategory, fireOnce]);
 
   const observeItem = useCallback(
     (element) => {
@@ -244,5 +236,5 @@ export function useConfusionSignals({
     setSuggestions(null);
   }, [log]);
 
-  return { suggestions, observeItem, accept, dismiss };
+  return { suggestions, observeItem, recordBack, accept, dismiss };
 }

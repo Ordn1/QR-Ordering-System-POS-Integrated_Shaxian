@@ -4,7 +4,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import Language, PaymentStatus, PriorityStatus, SessionType, UiMode
-from app.schemas.fields import SmallPositive
+from app.schemas.fields import ALPHANUMERIC, SmallPositive, sized
+
+DisplayName = sized(30, ALPHANUMERIC)
 
 
 class SessionOpen(BaseModel):
@@ -19,6 +21,10 @@ class DeclarationWrite(BaseModel):
 class PreferencesWrite(BaseModel):
     language_used: Language | None = None
     ui_mode_used: UiMode | None = None
+
+
+class DeviceProfileWrite(BaseModel):
+    display_name: DisplayName | None = None
 
 
 class SessionCartLineWrite(BaseModel):
@@ -42,6 +48,7 @@ class DeviceCartLineRead(BaseModel):
 class DeviceShareRead(BaseModel):
     device_id: int
     device_number: int
+    display_name: str | None = None
     is_host: bool
     is_me: bool
     subtotal: Decimal
@@ -65,7 +72,9 @@ class SessionRead(BaseModel):
     session_id: int
     table_id: str
     table_number: int
+    device_id: int
     device_token: UUID
+    display_name: str | None = None
     is_host: bool
     device_count: int
     declared_priority_status: PriorityStatus

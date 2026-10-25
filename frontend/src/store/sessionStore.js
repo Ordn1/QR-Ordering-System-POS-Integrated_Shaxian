@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { setDeviceToken } from '../api/client';
 import * as sessionApi from '../api/sessions';
 import i18n from '../lib/i18n';
+import { toast } from './toastStore';
 import { useUiStore } from './uiStore';
 
 const STORAGE_KEY = 'shaxian.devices';
@@ -94,10 +95,19 @@ export const useSessionStore = create((set, get) => ({
     }
     try {
       const next = await sessionApi.readSession(current.session_id);
+      if (current.is_host && next.device_count > current.device_count) {
+        toast.info(
+          i18n.t('group.deviceJoinedToast', {
+            count: next.device_count,
+            defaultValue: `A new phone joined Table ${next.table_number} (${next.device_count} phones connected).`,
+          }),
+        );
+      }
       applySession(next);
       set({ session: next });
       return next;
     } catch {
+      set({ session: null, status: 'failed' });
       return null;
     }
   },
@@ -124,5 +134,33 @@ export const useSessionStore = create((set, get) => ({
       language_used: language,
     });
     set({ session });
+  },
+
+  setDisplayName: async (displayName) => {
+    const current = get().session;
+    if (!current) {
+      return null;
+    }
+    const session = await sessionApi.updateDeviceProfile(
+      current.session_id,
+      displayName,
+    );
+    applySession(session);
+    set({ session });
+    return session;
+  },
+
+  removeDevice: async (targetDeviceId) => {
+    const current = get().session;
+    if (!current) {
+      return null;
+    }
+    const session = await sessionApi.removeSessionDevice(
+      current.session_id,
+      targetDeviceId,
+    );
+    applySession(session);
+    set({ session });
+    return session;
   },
 }));
