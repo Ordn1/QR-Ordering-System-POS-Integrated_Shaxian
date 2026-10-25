@@ -1,23 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { fetchVerifications } from '../../api/analytics';
+import { fetchVerificationDetail, fetchVerifications } from '../../api/analytics';
 import Badge from '../../components/shared/Badge';
+import Button from '../../components/shared/Button';
 import DataTable from '../../components/shared/DataTable';
-import { shortDate } from '../../lib/format';
-import { toast } from '../../store/toastStore';
+import IconButton from '../../components/shared/IconButton';
+import Modal from '../../components/shared/Modal';
 import Pagination from '../../components/shared/Pagination';
 import usePagination from '../../hooks/usePagination';
+import { shortDate } from '../../lib/format';
+import { toast } from '../../store/toastStore';
 
-/**
- * The priority-declaration audit trail required by RA 9994 / RA 10754 record-keeping.
- * Only the last four digits of a presented ID are stored, so nothing here identifies
- * a cardholder on its own.
- */
 export default function VerificationsPage() {
   const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewing, setViewing] = useState(null);
+  const [loadingDetailId, setLoadingDetailId] = useState(null);
   const paged = usePagination(rows);
 
   useEffect(() => {
@@ -26,6 +26,18 @@ export default function VerificationsPage() {
       .catch((error) => toast.error(error.message))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleInspect(row) {
+    setLoadingDetailId(row.log_id);
+    try {
+      const detail = await fetchVerificationDetail(row.log_id);
+      setViewing(detail);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoadingDetailId(null);
+    }
+  }
 
   const columns = [
     {
@@ -46,12 +58,12 @@ export default function VerificationsPage() {
     {
       key: 'last4',
       header: t('admin.colIdLast4'),
-      render: (row) => (row.id_last4 ? `•••• ${row.id_last4}` : '—'),
+      render: (row) => (row.id_last4 ? <span className="numeric">{`•••• ${row.id_last4}`}</span> : '—'),
     },
     {
       key: 'cardholder',
       header: t('admin.colCardholder'),
-      render: (row) => row.cardholder_name ?? '—',
+      render: (row) => (row.cardholder_name ? <span className="numeric">{row.cardholder_name}</span> : '—'),
     },
     { key: 'lgu', header: t('admin.colIssuingLgu'), render: (row) => row.issuing_lgu ?? '—' },
     { key: 'by', header: t('admin.colVerifiedBy'), render: (row) => row.verified_by ?? '—' },
@@ -62,6 +74,18 @@ export default function VerificationsPage() {
         <Badge
           value={row.discount_eligible ? 'available' : 'sold out'}
           label={row.discount_eligible ? t('common.yes') : t('common.no')}
+        />
+      ),
+    },
+    {
+      key: 'actions',
+      header: t('common.actions'),
+      render: (row) => (
+        <IconButton
+          variant="view"
+          label={`${t('common.view')} #${row.log_id}`}
+          disabled={loadingDetailId === row.log_id}
+          onClick={() => handleInspect(row)}
         />
       ),
     },
@@ -96,6 +120,49 @@ export default function VerificationsPage() {
           onChange={paged.setPage}
         />
       )}
+
+      {viewing ? (
+        <Modal
+          title={`${t('admin.verificationsTitle')} · #${viewing.log_id}`}
+          size="small"
+          onClose={() => setViewing(null)}
+          footer={
+            <Button
+              variant="primary"
+              data-modal-cancel="true"
+              onClick={() => setViewing(null)}
+            >
+              {t('common.close')}
+            </Button>
+          }
+        >
+          <dl className="detail-list">
+            <dt className="eyebrow">{t('admin.colDeclared')}</dt>
+            <dd>
+              <Badge value={viewing.declared_status} />
+            </dd>
+            <dt className="eyebrow">{t('admin.colDeclaredAt')}</dt>
+            <dd>{shortDate(viewing.declared_at)}</dd>
+            <dt className="eyebrow">{t('admin.colIdPresented')}</dt>
+            <dd>{viewing.id_presented ? t('common.yes') : t('common.no')}</dd>
+            <dt className="eyebrow">{t('admin.colIdLast4')}</dt>
+            <dd className="numeric">{viewing.id_last4 ? `•••• ${viewing.id_last4}` : '—'}</dd>
+            <dt className="eyebrow">{t('admin.colCardholder')}</dt>
+            <dd>{viewing.cardholder_name ?? '—'}</dd>
+            <dt className="eyebrow">{t('admin.colIssuingLgu')}</dt>
+            <dd>{viewing.issuing_lgu ?? '—'}</dd>
+            <dt className="eyebrow">{t('admin.colVerifiedBy')}</dt>
+            <dd>{viewing.verified_by ?? '—'}</dd>
+            <dt className="eyebrow">{t('admin.colDiscountEligible')}</dt>
+            <dd>
+              <Badge
+                value={viewing.discount_eligible ? 'available' : 'sold out'}
+                label={viewing.discount_eligible ? t('common.yes') : t('common.no')}
+              />
+            </dd>
+          </dl>
+        </Modal>
+      ) : null}
     </main>
   );
 }

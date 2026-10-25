@@ -1,3 +1,10 @@
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+import logging
+from zoneinfo import ZoneInfo
+
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +13,7 @@ from starlette.requests import Request
 
 from app.config import settings
 from app.core.exceptions import AppError, handle_app_error, handle_unexpected_error
+from app.database import SessionFactory
 from app.routers import (
     auth,
     menu,
@@ -18,8 +26,45 @@ from app.routers import (
     tables,
     webhooks,
 )
+from app.services import apriori as apriori_service
 
-app = FastAPI(title="Shaxian QR Table Ordering")
+logger = logging.getLogger("shaxian")
+MANILA = ZoneInfo("Asia/Manila")
+
+
+async def _nightly_apriori_loop() -> None:
+    while True:
+        now = datetime.now(MANILA)
+        next_midnight = (now + timedelta(days=1)).replace(
+            hour=0, minute=0, second=5, microsecond=0
+        )
+        sleep_seconds = max(60.0, (next_midnight - now).total_seconds())
+        try:
+            await asyncio.sleep(sleep_seconds)
+            async with SessionFactory() as session:
+                reports = await apriori_service.generate(session, staff_id=None)
+            total = sum(r.rules for r in reports)
+            logger.info("Nightly Apriori batch job completed: %s rules generated", total)
+        except asyncio.CancelledError:
+            break
+        except Exception:  # noqa: BLE001
+            logger.exception("Nightly Apriori batch job failed")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    task = asyncio.create_task(_nightly_apriori_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(title="Shaxian QR Table Ordering", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

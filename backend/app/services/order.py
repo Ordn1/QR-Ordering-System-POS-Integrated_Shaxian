@@ -148,13 +148,15 @@ def assert_reconciles(order: PricedOrder) -> None:
 
 
 async def next_queue_number(db: AsyncSession) -> int:
-    """Reserve the next unique queue number under an advisory lock held to commit."""
+    """Reserve the next unique daily rolling queue number under an advisory lock held to commit."""
     await queue_service.ensure_unique_queue_numbers(db)
     await db.execute(
         text("SELECT pg_advisory_xact_lock(hashtext('queue_number'))")
     )
     highest = await db.scalar(
-        select(func.coalesce(func.max(Transaction.queue_number), 0))
+        select(func.coalesce(func.max(Transaction.queue_number), 0)).where(
+            Transaction.queue_date == func.current_date()
+        )
     )
     return highest + 1
 

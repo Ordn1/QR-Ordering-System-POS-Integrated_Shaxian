@@ -56,7 +56,7 @@ async def analytics_summary(db: DbSession, staff: AdminStaff) -> AnalyticsSummar
 @router.post("/analytics/apriori/run", response_model=AprioriRunRead)
 async def run_apriori(db: DbSession, staff: AdminStaff) -> AprioriRunRead:
     """Run the Apriori batch job on demand — the same routine as `python -m jobs.apriori`."""
-    reports = await apriori_service.generate(db)
+    reports = await apriori_service.generate(db, staff_id=staff.staff_id)
     return AprioriRunRead(
         min_support=apriori_service.MIN_SUPPORT,
         min_lift=apriori_service.MIN_LIFT,
@@ -67,8 +67,19 @@ async def run_apriori(db: DbSession, staff: AdminStaff) -> AprioriRunRead:
 
 @router.get("/analytics/verifications", response_model=list[VerificationRow])
 async def verification_audit(db: DbSession, staff: AdminStaff) -> list[VerificationRow]:
-    """The priority-declaration audit trail. Admin only, per Security.md §5.7."""
+    """The priority-declaration audit trail (masked by default). Admin only, per Security.md §5.7."""
     return await analytics_service.verification_log(db)
+
+
+@router.get("/analytics/verifications/{log_id}", response_model=VerificationRow)
+async def verification_detail(
+    log_id: int, db: DbSession, staff: AdminStaff
+) -> VerificationRow:
+    """Unmasked verification detail view; writes an audit_log entry on every access per Security.md §5.4."""
+    row = await analytics_service.get_unmasked_verification(
+        db, log_id, staff_id=staff.staff_id
+    )
+    return VerificationRow(**row)
 
 
 @router.post("/analytics/{session_id}/events", status_code=204)

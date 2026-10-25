@@ -1,5 +1,6 @@
+from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import select, text
@@ -63,26 +64,40 @@ async def lock_queue(db: AsyncSession) -> None:
 
 # Update
 async def ensure_unique_queue_numbers(db: AsyncSession) -> None:
-    """Repair any duplicate queue_number rows across transactions so every order has a unique Q-XXX."""
+    """Repair any duplicate queue_number rows within the same business day (queue_date)."""
     txns = list(
-        await db.scalars(select(Transaction).order_by(Transaction.txn_id.asc()))
+        await db.scalars(
+            select(Transaction).order_by(
+                Transaction.queue_date.asc(), Transaction.txn_id.asc()
+            )
+        )
     )
     if not txns:
         return
 
-    unique_numbers = {t.queue_number for t in txns}
-    if len(unique_numbers) == len(txns):
+    by_date: dict[date, list[Transaction]] = defaultdict(list)
+    for txn in txns:
+        by_date[txn.queue_date].append(txn)
+
+    dirty_days = [
+        day_txns
+        for day_txns in by_date.values()
+        if len({t.queue_number for t in day_txns}) != len(day_txns)
+    ]
+    if not dirty_days:
         return
 
     await db.execute(
         text("SELECT pg_advisory_xact_lock(hashtext('queue_number'))")
     )
-    for idx, txn in enumerate(txns, start=1):
-        txn.queue_number = 10000 + idx
+    for day_txns in dirty_days:
+        for idx, txn in enumerate(day_txns, start=1):
+            txn.queue_number = 10000 + idx
     await db.flush()
 
-    for idx, txn in enumerate(txns, start=1):
-        txn.queue_number = idx
+    for day_txns in dirty_days:
+        for idx, txn in enumerate(day_txns, start=1):
+            txn.queue_number = idx
     await db.commit()
 
 
