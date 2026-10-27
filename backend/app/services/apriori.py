@@ -17,7 +17,7 @@ from app.models import (
 )
 from app.models.enums import SessionType, TxnStatus
 
-MIN_SUPPORT = 0.15
+MIN_SUPPORT = 0.08
 MIN_LIFT = 1.05
 MAX_RULES_PER_SEGMENT = 12
 QUANTISE = Decimal("0.0001")
