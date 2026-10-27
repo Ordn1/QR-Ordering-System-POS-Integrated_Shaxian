@@ -50,6 +50,7 @@ async def analytics_summary(db: DbSession, staff: AdminStaff) -> AnalyticsSummar
         segment_mix=await analytics_service.segment_mix(db),
         priority_mix=await analytics_service.priority_mix(db),
         recommendation_funnel=await analytics_service.recommendation_funnel(db),
+        apriori_rules=await analytics_service.apriori_rules_list(db),
     )
 
 

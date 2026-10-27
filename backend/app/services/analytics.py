@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.models import (
     AnalyticsEvent,
+    AprioriRule,
     AuditLog,
     MenuItem,
     PriorityVerificationLog,
@@ -119,6 +120,36 @@ async def priority_mix(db: AsyncSession) -> list[dict[str, Any]]:
     return [
         {"status": status.value, "sessions": tally.get(status.value, 0)}
         for status in PriorityStatus
+    ]
+
+
+# Read
+async def apriori_rules_list(db: AsyncSession) -> list[dict[str, Any]]:
+    """Return all stored Apriori rules with item_id arrays resolved to dish names."""
+    items_by_id = {
+        item.item_id: item.name_en
+        for item in await db.scalars(select(MenuItem))
+    }
+    rules = list(
+        await db.scalars(
+            select(AprioriRule).order_by(
+                AprioriRule.session_type.asc(),
+                AprioriRule.lift.desc(),
+            )
+        )
+    )
+    return [
+        {
+            "rule_id": rule.rule_id,
+            "session_type": rule.session_type.value,
+            "antecedents": [items_by_id.get(item_id, item_id) for item_id in rule.antecedents],
+            "consequents": [items_by_id.get(item_id, item_id) for item_id in rule.consequents],
+            "support": float(rule.support),
+            "confidence": float(rule.confidence),
+            "lift": float(rule.lift),
+            "generated_at": rule.generated_at.isoformat(),
+        }
+        for rule in rules
     ]
 
 
