@@ -1,5 +1,5 @@
 import { HelpCircle, Search } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
@@ -43,6 +43,7 @@ export default function CustomerShell() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
   const [allItems, setAllItems] = useState([]);
+  const prevPathRef = useRef(pathname);
 
   const totalCount = lines.reduce((total, line) => total + line.quantity, 0);
   const totalSubtotal = lines.reduce(
@@ -89,7 +90,7 @@ export default function CustomerShell() {
     handleSocketMessage,
   );
 
-  const { suggestions, observeItem, accept, dismiss } = useConfusionSignals({
+  const { suggestions, observeItem, recordBack, accept, dismiss } = useConfusionSignals({
     sessionId: session?.session_id,
     language: i18n.language,
     cart: lines.map((line) => line.item_id),
@@ -97,6 +98,14 @@ export default function CustomerShell() {
     triggerCount: session?.trigger_count,
     lastTriggerAt: session?.last_trigger_at,
   });
+
+  useEffect(() => {
+    const prev = prevPathRef.current;
+    if (prev !== pathname && !prev.endsWith('/menu') && pathname.endsWith('/menu')) {
+      recordBack();
+    }
+    prevPathRef.current = pathname;
+  }, [pathname, recordBack]);
 
   const guidance = useNavGuidance({
     route: routeOf(pathname),
@@ -139,6 +148,7 @@ export default function CustomerShell() {
       <Outlet
         context={{
           observeItem,
+          recordBack,
           activeCategory,
           setActiveCategory,
           trackControl: guidance.trackControl,

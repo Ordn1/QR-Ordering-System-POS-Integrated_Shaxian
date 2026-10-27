@@ -1,6 +1,14 @@
 import { api } from './client';
 
-export const listTables = () => api.get('/tables');
+export const listTables = (includeInactive = false) =>
+  api.get(`/tables${includeInactive ? '?include_inactive=true' : ''}`);
+
+export const createTable = (payload) => api.post('/tables', payload);
+
+export const updateTable = (tableId, payload) =>
+  api.patch(`/tables/${tableId}`, payload);
+
+export const deleteTable = (tableId) => api.delete(`/tables/${tableId}`);
 
 export const resetTable = (tableId) => api.post(`/tables/${tableId}/reset`);
 

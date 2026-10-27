@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     MENU_IMAGE_DIR: str = "menu"
     FRONTEND_BASE_URL: str = "http://localhost:5173"
     PAYMONGO_SECRET_KEY: str = ""
+    PAYMONGO_WEBHOOK_SECRET: str = ""
 
     # The register the POS bridge transmits to. Points at this server's own
     # simulated terminal; a real deployment repoints it at the counter's register.

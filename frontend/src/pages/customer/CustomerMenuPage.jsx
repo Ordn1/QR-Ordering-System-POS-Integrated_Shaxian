@@ -21,8 +21,14 @@ const DESCRIPTION_BY_LANGUAGE = {
 
 export default function CustomerMenuPage() {
   const { t, i18n } = useTranslation();
-  const { observeItem, activeCategory, setActiveCategory, trackControl, completed } =
-    useOutletContext();
+  const {
+    observeItem,
+    recordBack,
+    activeCategory,
+    setActiveCategory,
+    trackControl,
+    completed,
+  } = useOutletContext();
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
   const [declaring, setDeclaring] = useState(false);
@@ -134,7 +140,10 @@ export default function CustomerMenuPage() {
             onAdd(item, qty);
             setViewing(null);
           }}
-          onClose={() => setViewing(null)}
+          onClose={() => {
+            setViewing(null);
+            recordBack?.();
+          }}
         />
       ) : null}
     </main>

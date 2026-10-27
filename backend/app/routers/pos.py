@@ -1,10 +1,12 @@
 from typing import Any
 
 from fastapi import APIRouter
+from sqlalchemy import select
 
 from app.config import settings
 from app.core.deps import AnyStaff, CurrentStaff, DbSession
 from app.core.exceptions import BusinessRuleError
+from app.models import AuditLog
 from app.schemas.pos import (
     BridgeStatus,
     PosOrderCreate,
@@ -20,6 +22,37 @@ router = APIRouter(prefix="/api/v1/pos", tags=["pos"])
 _REGISTER: dict[int, dict[str, Any]] = {}
 
 
+async def _lookup_persisted_register(
+    db: DbSession, txn_id: int
+) -> dict[str, Any] | None:
+    if txn_id in _REGISTER:
+        return _REGISTER[txn_id]
+
+    entry = await db.scalar(
+        select(AuditLog)
+        .where(
+            AuditLog.action == pos_service.ACTION,
+            AuditLog.entity_id == str(txn_id),
+        )
+        .order_by(AuditLog.audit_id.desc())
+    )
+    if entry is None or not entry.after_state:
+        return None
+
+    state = entry.after_state
+    if state.get("status") != "acknowledged" or not state.get("receipt_no"):
+        return None
+
+    payload = state.get("payload") or {}
+    record = {
+        "receipt_no": state["receipt_no"],
+        "idempotency_key": payload.get("idempotency_key"),
+        "payload": payload,
+    }
+    _REGISTER[txn_id] = record
+    return record
+
+
 @router.post("/orders", response_model=TransmitResult, status_code=201)
 async def create_pos_order(
     payload: PosOrderCreate, db: DbSession, staff: AnyStaff
@@ -32,7 +65,7 @@ async def create_pos_order(
 
 
 @router.post("/register/inbox", response_model=RegisterAck)
-async def register_inbox(payload: dict[str, Any]) -> RegisterAck:
+async def register_inbox(payload: dict[str, Any], db: DbSession) -> RegisterAck:
     required = ("store_code", "txn_id", "queue_number", "lines", "totals", "idempotency_key")
     missing = [field for field in required if field not in payload]
     if missing:
@@ -41,8 +74,8 @@ async def register_inbox(payload: dict[str, Any]) -> RegisterAck:
         raise BusinessRuleError("Register rejected the payload. Unknown store code.")
 
     txn_id = int(payload["txn_id"])
-    existing = _REGISTER.get(txn_id)
-    if existing and existing["idempotency_key"] == payload["idempotency_key"]:
+    existing = await _lookup_persisted_register(db, txn_id)
+    if existing and existing.get("idempotency_key") == payload["idempotency_key"]:
         _REGISTER[txn_id]["payload"] = payload
         return RegisterAck(receipt_no=existing["receipt_no"], duplicate=True)
 
@@ -56,8 +89,8 @@ async def register_inbox(payload: dict[str, Any]) -> RegisterAck:
 
 
 @router.get("/register/{txn_id}")
-async def register_record(txn_id: int, staff: CurrentStaff) -> dict[str, Any]:
-    held = _REGISTER.get(txn_id)
+async def register_record(txn_id: int, db: DbSession, staff: CurrentStaff) -> dict[str, Any]:
+    held = await _lookup_persisted_register(db, txn_id)
     if held is None:
         return {"held": False}
     return {"held": True, "receipt_no": held["receipt_no"], "payload": held["payload"]}
