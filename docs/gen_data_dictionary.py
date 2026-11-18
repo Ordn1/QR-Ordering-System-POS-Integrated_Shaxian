@@ -26,11 +26,11 @@ PURPOSE = {
  "session_devices":"Every phone that joins a table session. A Standard or single-device Priority session has one row; a Group session has two or more, enabling split-bill attribution.",
  "transactions":"Every placed order with its full tax and discount breakdown. Parent of transaction_items, payments and kitchen_queue, and the source read by the Apriori batch job.",
  "transaction_items":"Line items per transaction. The direct source of the market baskets used in Apriori computation.",
- "kitchen_queue":"Operationalises the fairness-bounded priority queue: live position plus the count of Standard orders a Priority order has advanced ahead of.",
+ "kitchen_queue":"Operationalises the fairness-bounded priority queue: live position plus, on each Standard order, how many Priority orders have been placed ahead of it. Once that count reaches the cap the order cannot be passed again.",
  "payments":"One or more payment records per transaction, supporting both single-payer orders and split Group sessions.",
- "apriori_rules":"Association rules produced by the Apriori batch job, segmented by session_type and read at recommendation time.",
- "analytics_events":"Every interaction event from the React client. Primary source for the confusion-trigger and recommendation-acceptance rates.",
- "priority_verification_log":"Audit trail of every priority declaration. Stores only the last four digits of a presented ID; contains no image or biometric data.",
+ "apriori_rules":"Association rules mined by the Apriori batch job from completed transactions, segmented by session_type and read at recommendation time.",
+ "analytics_events":"Every interaction event from the React client. Primary source for the confusion-trigger and recommendation-acceptance rates. Not seeded: rows come only from real sessions.",
+ "priority_verification_log":"One row per phone that declares priority status. A senior or PWD discount stays provisional until the cashier checks the ID: a verified check records the last four digits, cardholder and issuing LGU; a rejected check clears discount_eligible. Contains no image or biometric data.",
  "audit_log":"System action trail — staff record changes and outbound POS transmissions, with before/after state captured as JSON.",
 }
 

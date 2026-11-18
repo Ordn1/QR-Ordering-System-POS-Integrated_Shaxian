@@ -175,7 +175,7 @@ Check constraints:
 
 ## Table 17. Kitchen_queue
 
-Operationalises the fairness-bounded priority queue: live position plus the count of Standard orders a Priority order has advanced ahead of.
+Operationalises the fairness-bounded priority queue: live position plus, on each Standard order, how many Priority orders have been placed ahead of it. Once that count reaches the cap the order cannot be passed again.
 
 | Field Name | Data Type | Null | Default | Constraint |
 |---|---|---|---|---|
@@ -216,7 +216,7 @@ Check constraints:
 
 ## Table 19. Apriori_rules
 
-Association rules produced by the Apriori batch job, segmented by session_type and read at recommendation time.
+Association rules mined by the Apriori batch job from completed transactions, segmented by session_type and read at recommendation time.
 
 | Field Name | Data Type | Null | Default | Constraint |
 |---|---|---|---|---|
@@ -238,25 +238,25 @@ Check constraints:
 
 ## Table 20. Analytics_events
 
-Every interaction event from the React client. Primary source for the confusion-trigger and recommendation-acceptance rates.
+Every interaction event from the React client. Primary source for the confusion-trigger and recommendation-acceptance rates. Not seeded: rows come only from real sessions.
 
 | Field Name | Data Type | Null | Default | Constraint |
 |---|---|---|---|---|
 | `event_id` | BIGINT | No | — | PK |
 | `session_id` | BIGINT | No | — | FK → sessions |
-| `event_type` | ENUM (dwell_timeout / back_navigation / cart_abandon / scroll_reversal / recommendation_shown / recommendation_accepted / recommendation_dismissed) | No | — | — |
+| `event_type` | ENUM (dwell_timeout / back_navigation / cart_abandon / category_revisit / recommendation_shown / recommendation_accepted / recommendation_dismissed) | No | — | — |
 | `screen_id` | VARCHAR(40) | Yes | — | — |
 | `occurred_at` | TIMESTAMPTZ | No | now() | — |
 | `metadata` | JSONB | Yes | — | — |
 
 ## Table 21. Priority_verification_log
 
-Audit trail of every priority declaration. Stores only the last four digits of a presented ID; contains no image or biometric data.
+One row per phone that declares priority status. A senior or PWD discount stays provisional until the cashier checks the ID: a verified check records the last four digits, cardholder and issuing LGU; a rejected check clears discount_eligible. Contains no image or biometric data.
 
 | Field Name | Data Type | Null | Default | Constraint |
 |---|---|---|---|---|
 | `log_id` | BIGINT | No | — | PK |
-| `session_id` | BIGINT | No | — | FK → sessions |
+| `session_id` | BIGINT | No | — | FK → sessions, UNIQUE (session_id, device_id) |
 | `declared_status` | ENUM (standard / senior / pwd / pregnant) | No | — | — |
 | `id_presented` | BOOLEAN | No | false | — |
 | `id_last4` | CHAR(4) | Yes | — | — |
@@ -265,6 +265,7 @@ Audit trail of every priority declaration. Stores only the last four digits of a
 | `verified_by` | VARCHAR(8) | Yes | — | FK → staff_accounts |
 | `verified_at` | TIMESTAMPTZ | Yes | — | — |
 | `discount_eligible` | BOOLEAN | No | false | — |
+| `device_id` | BIGINT | No | — | FK → session_devices, UNIQUE (session_id, device_id) |
 
 Check constraints:
 
@@ -293,7 +294,7 @@ All status columns are PostgreSQL enum types, not free-text VARCHAR.
 
 | Type | Values |
 |---|---|
-| `event_type_enum` | dwell_timeout / back_navigation / cart_abandon / scroll_reversal / recommendation_shown / recommendation_accepted / recommendation_dismissed |
+| `event_type_enum` | dwell_timeout / back_navigation / cart_abandon / category_revisit / recommendation_shown / recommendation_accepted / recommendation_dismissed |
 | `language_enum` | en / fil / bis |
 | `occupancy_status_enum` | vacant / occupied / reserved |
 | `payment_method_enum` | online / cashier |

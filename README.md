@@ -38,7 +38,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 alembic upgrade head        # build the schema
-Í        # populate demo data, prints table QR URLs
+python -m seeds.run         # populate demo data, prints table QR URLs
 
 uvicorn app.main:app --reload --port 8001
 ```
@@ -48,6 +48,35 @@ To rebuild the schema from empty:
 ```bash
 alembic downgrade base && alembic upgrade head && python -m seeds.run
 ```
+
+### What the seed contains
+
+- **Generated order history**: 48 orders over the 16 days before you seed,
+  drawn from a fixed random seed. These are not real diners. They exist so
+  the Apriori job has baskets to mine.
+- **Apriori rules mined from that history** by the same job the admin
+  dashboard runs (`python -m jobs.apriori`). None are typed in.
+- **No analytics events.** The dashboard's recommendation funnel fills only
+  from real sessions.
+- **Senior and PWD declarations with the ID check already settled.** A
+  verified check keeps the discount; a rejected one is charged full VAT.
+
+Reseeding reproduces the same orders, amounts and rules. Only the dates, which
+are relative to the day you seed, and the table QR tokens change.
+
+### Senior and PWD discount
+
+A declaration belongs to the phone that made it, so in a group only that
+phone's items are discounted. The discount stays provisional until the crew
+checks the ID in the cash confirmation dialog:
+
+- **ID verified**: records the last four digits, the cardholder and the
+  issuing LGU, and keeps the discount.
+- **No valid ID**: re-prices that phone's items at full VAT.
+
+Discounted shares are paid at the cashier, and cash cannot be confirmed
+while a check is still pending. Pregnant diners get queue priority without
+a discount, so they skip the check.
 
 ## Frontend
 
