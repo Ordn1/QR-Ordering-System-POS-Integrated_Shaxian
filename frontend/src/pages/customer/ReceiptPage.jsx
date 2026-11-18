@@ -10,12 +10,15 @@ import {
 } from 'react-router-dom';
 
 import { fetchReceipt, verifyOrderPayment } from '../../api/orders';
+import OrderProgress from '../../components/customer/progress/OrderProgress';
 import Badge from '../../components/shared/Badge';
 import Button from '../../components/shared/Button';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { peso, queueLabel } from '../../lib/format';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
+
+const JUST_PLACED_MS = 5000;
 
 export default function ReceiptPage() {
   const { t, i18n } = useTranslation();
@@ -26,6 +29,9 @@ export default function ReceiptPage() {
   const session = useSessionStore((state) => state.session);
 
   const initialReceipt = location.state?.receipt ?? null;
+  const [justPlaced] = useState(
+    () => Date.now() - (location.state?.placedAt ?? 0) < JUST_PLACED_MS,
+  );
   const txnIdParam = searchParams.get('txn_id');
   const shouldVerify = searchParams.get('verify') === '1';
   const wasCancelled = searchParams.get('cancelled') === '1';
@@ -141,7 +147,13 @@ export default function ReceiptPage() {
         <h1>{t('receipt.title')}</h1>
       </div>
 
-      <section className="receipt-hero-card">
+      <OrderProgress
+        stage={receipt.payment_status === 'paid' ? 'pending' : 'unpaid'}
+        live={justPlaced}
+        queueLabel={queueLabel(receipt.queue_number)}
+      />
+
+      <section className={`receipt-hero-card${justPlaced ? ' stamped' : ''}`}>
         <div className="receipt-hero-badge">
           <CheckCircle2 size={36} strokeWidth={2} className="text-green" />
         </div>

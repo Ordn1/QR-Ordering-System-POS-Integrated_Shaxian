@@ -37,12 +37,14 @@ Those two facts set the whole direction:
 
 Shaxian's poster carries a red seal stamp — the small square chop in the corner. That square is this system's recurring mark: **a solid red square, 6×6px, sharp-cornered.**
 
-It appears in exactly four places and nowhere else:
+It appears in exactly six places and nowhere else:
 
 - Under the active navbar item, as a 3px red bar
+- Under the active customer category tab, as the same 3px bar, which slides between tabs
 - Before a section heading, as a 6px square
 - In a modal header, before the title
 - As the required-field marker on forms
+- On the order-status stepper, marking each reached step; a step reached by a live update is *stamped* in (§14)
 
 It is never decorative. It always marks *this one, here*. Used more freely it becomes wallpaper and stops meaning anything.
 
@@ -56,6 +58,37 @@ The reference screenshots are anti-examples as much as examples. Explicitly reje
 - Full-width colored hero bars
 - Emoji anywhere in the interface
 - Decorative illustration in working screens
+
+### 1.3 The showcase layer
+
+On the customer ordering screens, and only there, the dishes themselves are shown in 3D. This is not decoration: the food is the content, and a diner deciding what to eat is helped by seeing it in relief. The layer never carries text, controls or information that is not also in the flat interface beneath it.
+
+| Screen | Showcase |
+|---|---|
+| Menu | Each card's photo becomes a depth-mapped relief that tilts with scroll and drag; hot dishes steam. The real photo stays the first thing a diner sees |
+| Item sheet | The dish's 3D model on a turntable, spun by drag, with a Photo / 3D switch back to the real photo |
+| Cart | A red-lacquer tray holding the cart's 3D dishes; bowls stack with quantity |
+| Receipt and status | None — the order's progress is drawn flat by the stage illustrations (§1.4) |
+
+**The dish kit.** Every menu item has a 3D model built in code from the house tableware — the gold speckled calligraphy bowl, the rounded-square plate, the porcelain rice bowl, the steel steamer, the clay jar — and its toppings. Nothing is downloaded or licensed. Each model is tuned side by side with its photo at `/dev/dishes`. A menu item's `model_filename` names its built-in recipe (`wonton`); an unknown name falls back to the relief.
+
+It is a progressive upgrade. The flat photo renders first and stays underneath, and the 3D fades in over it once loaded. It is off in accessibility mode, with reduced motion, without WebGL2, on devices reporting under 4 GB of memory, and for the rest of the session once the frame rate stays low. Staff and admin screens never use it.
+
+### 1.4 Stage illustrations
+
+The receipt and order-status screens show where the order is with one illustration per stage. They are the only illustrations in the product, and they carry information: each picture is the order's state, the same fact as the caption under it and the stepper below it. §1.2's ban on decorative illustration therefore does not reach them, and nothing else may borrow the exception. They are flat SVG with CSS motion, so they show on every phone, in both modes, with no 3D.
+
+**Style: soft-shaded flat.** Rounded shapes in token colors only (`--illo-*`, `--dish-*`, `--red`, `--green`, `--cream`); one darker shade on the side away from the light and one white highlight toward it; light from the top left; every object stands on a soft ground shadow. No outlines, no gradients, and no text except the queue number on the ticket. Each is drawn on a 200×160 grid on `--cream`, at most `--illo-width` wide, and scales as one image: its colors and label size come from `--illo-*` tokens, so accessibility mode does not thicken or enlarge the drawing. The seal pressed on the ticket is a drawing of the chop the brand's square comes from, not the 6px mark of §1.1.
+
+| Order state | Illustration | Idle loop | Arrival (live update only) | Tap |
+|---|---|---|---|---|
+| Waiting for payment | A receipt printer with its ticket out, a peso coin above | The coin bobs and flips; the ticket sways; the status light blinks | The ticket feeds out line by line while the printer shudders; the coin pops in | The coin flips |
+| Received | The order's ticket on a rail, after the tickets of the orders still ahead | The tickets sway | A rubber stamp drops, presses the red seal on with an ink ring and lifts away. When an order ahead is served, its ticket slides off and ours moves up | Stamps again |
+| In the kitchen | A wok over the burner | Flames flicker out of step; the wok tosses and noodles, greens, carrot and meat arc out and back; steam; sparks | The burner ignites from the middle outward, then the food drops in | The flames flare |
+| Ready for pickup | A brass service bell beside a steaming bowl | Every few seconds the bell is pressed, rocks, and rings arcs out | It rings with a burst of sparkles; the phone vibrates | Rings |
+| Completed | The house bowl of wonton soup on a red lacquer tray, chopsticks beside it | Steam rises; a sparkle now and then | The bowl lands, a green check pops and draws its tick, confetti bursts | Confetti again |
+
+The illustration sits straight on the page's `--cream`, with no box, border, rule or clipping edge around it. Under it, one line names the stage with a sentence under it (how many orders are ahead while the order waits), announced to screen readers, and the sound switch. The illustration itself is hidden from screen readers; the caption says the same thing. Tapping the illustration makes it react; nothing tapped changes the order. Sound is off until the diner turns it on. A page load shows the current stage settled; only a live update plays its arrival.
 
 ---
 
@@ -491,6 +524,8 @@ backdrop: 150ms opacity
 
 No scale, no bounce, no spring. Focus traps inside the modal and returns to the trigger on close.
 
+**Customer item sheet** (`<Modal sheet>`): anchors to the bottom edge, its photo morphs from the tapped card (§14 shared-element morph), and it can be dragged down to dismiss — a fourth dismissal path beside Esc, backdrop and the footer action. Same fade as every modal; a short drag settles back without overshoot.
+
 ---
 
 ## 11. Shell — navbar and layout
@@ -556,15 +591,34 @@ Recharts. The brand's one saturated moment.
 
 ## 14. Motion
 
-Three effects exist. There is no fourth.
+Every animation explains a state change: where something went, or what just changed. Nothing moves to decorate. These ten effects exist. There is no eleventh.
 
 | Effect | Duration | Easing | Applies to |
 |---|---|---|---|
 | Hover | 120ms | `ease-out` | Color, background, border, shadow |
 | Glow | 160ms | `ease-out` | Focus and hover rings |
 | Modal fade | 150ms in / 120ms out | `ease-out` / `ease-in` | Modals, toasts, the recommendation overlay |
+| Press | 80ms | `--ease-press` | Buttons and tabs scale to `--press-scale`; steppers, the add button and bottom-bar items to `--press-scale-sm` |
+| Tab slide | 240ms | `--ease-out` | The active category tab's 3px `--red` bar slides to the new tab; the menu grid enters from that side |
+| Fly-to-bag | 450ms | `--ease-out` | The added dish's photo arcs into the Cart tab, then the count bumps |
+| Shared-element morph | 240ms | `--ease-out` | A menu card's photo grows into the item sheet and back; accessibility mode reflows in place |
+| Number roll | 240ms | `--ease-out` | Cart count, cart, split-bill and checkout amounts — digits roll to the new value (`<Money>`) |
+| Layout reorder | 240ms | `--ease-out` | Staff queue rows slide to their new position when the queue re-sorts |
+| Seal stamp | `--duration-seal` press + `--duration-stamp` ink | `--ease-press` then `--ease-out` | The order-status step reached by a live update, and a just-placed receipt, stamp in red (see §1.1) |
 
-Banned: page transitions, skeleton shimmer, bounce, spring, parallax, scroll-triggered reveals, animated numbers, spinners on anything but in-flight buttons.
+CSS tokens (`base.css`): `--ease-out` `cubic-bezier(0.22,1,0.36,1)`, `--ease-press` `cubic-bezier(0.55,0,1,0.45)`, `--duration-press` 80ms, `--duration-seal` 180ms, `--duration-move` 240ms, `--duration-stamp` 320ms, `--press-scale` 0.97, `--press-scale-sm` 0.92, `--stamp-scale` 1.6, `--stamp-tilt` −8deg, `--ink-spread` 1.8, `--motion-offset` −8px.
+
+JS values (`src/lib/motion.js`) are the only motion numbers in components: easing, durations (including fly-to-bag 450ms), offsets, fly-to-bag sizes, and the sheet's drag-dismiss thresholds.
+
+Rules:
+
+- Transform and opacity only. Layout moves go through FLIP (Motion `layout`) or View Transitions. One exception: checkout total rows open with a height reveal (`.checkout-reveal`) so the amount below slides instead of jumping.
+- No overshoot. Every curve settles without passing its target.
+- Effects replay only on a real change. A page load or refresh renders the settled state.
+  One deliberate exception: at checkout, a statutory Senior/PWD discount is shown being deducted once — the total reads the gross amount, then rolls down to the net as the discount rows open. It explains where the 20% went.
+- Accessibility mode keeps every effect but drops positional offsets on content swaps (opacity only): `accessibility.css` sets `--motion-offset: 0`, and the menu grid swap reads `uiMode`.
+
+Banned: bounce, overshoot springs, full-page route transitions, skeleton shimmer, parallax, scroll-triggered reveals, decorative loops, spinners on anything but in-flight buttons. The stage illustrations (below) are the only exception, and only inside their own area.
 
 ```css
 @media (prefers-reduced-motion: reduce) {
@@ -572,11 +626,19 @@ Banned: page transitions, skeleton shimmer, bounce, spring, parallax, scroll-tri
 }
 ```
 
+Motion components additionally sit under `<MotionConfig reducedMotion="user">`, and fly-to-bag and View Transitions are skipped outright.
+
+**Showcase motion** (§1.3) follows the same no-overshoot rule, using critically damped easing: relief rises over 0.9s; a dish drops onto the tray over 0.55s and lifts away over 0.4s; the item sheet's model makes one 360° reveal over 1.4s, then turns slowly until touched. Idle sway stays under 2°. Steam is the one continuous effect, and only on dishes marked hot.
+
+**The stage illustrations** (§1.4) are the one place continuous loops, overshoot and squash-and-stretch are allowed, and only inside the illustration area, where they show work happening. They use transform and opacity only, and pause while the card is scrolled off screen. Timing tokens (`base.css`): `--illo-flicker` 0.5s (flames), `--illo-beat` 1.5s (wok toss, hops, sparks), `--illo-drift` 2.6s (steam), `--illo-breath` 3.4s (sway, coin, bell), `--illo-ring` 1.2s (a ring, a coin flip), `--illo-enter` 1.3s (ticket feed, stamp), `--illo-pop` 0.5s, `--illo-burst` 1.6s (sparkles, confetti), `--illo-stagger` 70ms between pieces; `--ease-pop` overshoots, `--ease-swing` drives the loops and `--ease-slam` the stamp's fall. Arrival beats: the ticket feeds in four steps and the coin pops at 1.1s; the stamp lands at 0.42s, the seal appears under it and its ink ring spreads to `--ink-spread`; the flames ignite before the food drops in; the bell rings at once; the check pops as the bowl lands, its tick draws, then confetti. A new stage replaces the old one with a fade and scale (`SWAP` in `lib/motion.js`); sounds and the ready vibration are timed to the hit (`CUES` in `lib/progress.js`). Reduced motion and accessibility mode show every illustration settled, with no loops.
+
 ---
 
 ## 15. Accessibility mode
 
 Set `data-ui-mode="accessible"` on `<html>`. Every shared atom rescales automatically because every atom is built from tokens. See `CodeStructure.md` §5.5.
+
+The showcase layer (§1.3) is off in this mode: the flat photos are what a low-vision reader needs.
 
 ### 15.1 Token overrides
 
@@ -646,11 +708,12 @@ Shared tokens, separate components. A diner's phone is not an admin console: no 
 | Layout | Single column, phone-first, 100% width to 480px |
 | Navigation | Fixed bottom bar — Menu · Cart · Status |
 | Brand | Leans further in — `--cream` page background, `--red` category markers |
-| Menu item | Full-width row: image left, name and price right-aligned, `.add-to-cart-btn` |
+| Menu item | Two-column card; the photo is a showcase relief (§1.3), flat in accessible mode |
+| Item sheet | Bottom sheet; the photo morphs from the card, then the showcase stage takes over |
 | Category tabs | Horizontal scroll, active tab carries the 3px `--red` bar |
-| Cart | Line rows with `.qty-stepper` and `.remove-btn` |
+| Cart | Showcase tray above line rows with `.qty-stepper` and `.remove-btn` |
 | Recommendation overlay | Bottom sheet, sharp top edge, three items maximum, dismissible |
-| Order status | Vertical stepper, current step marked by the `--red` seal square |
+| Order status | The stage illustration card (§1.4) above a vertical stepper, current step marked by the `--red` seal square |
 | Tap targets | 48px minimum, 60px accessible |
 
 The customer surface is the one place cream may serve as a page background — a menu should feel like a menu. Working surfaces stay white.
@@ -727,7 +790,7 @@ Before any screen is considered done:
 - [ ] Table has no vertical rules and no outer border
 - [ ] KPI text right-aligned; watermark present, uncontained
 - [ ] Modal has no X; Esc and backdrop both work
-- [ ] Only the three permitted animations
+- [ ] Only the §14 effects; none plays on a plain page load, except the stage illustrations' idle loops
 - [ ] Brand red used as identity, never as a button fill
 - [ ] Every icon-only control has `aria-label`
 - [ ] Focus visible on every interactive element

@@ -16,6 +16,7 @@ Description = freetext(160)
 Allergens = freetext(120)
 DietaryFlags = freetext(60)
 ImageFilename = freetext(80)
+ModelFilename = freetext(80)
 
 
 class CategoryWrite(BaseModel):
@@ -50,8 +51,10 @@ class MenuItemWrite(BaseModel):
     allergens: Allergens | None = None
     dietary_flags: DietaryFlags | None = None
     image_filename: ImageFilename | None = None
+    model_filename: ModelFilename | None = None
     is_available: bool = True
     is_featured: bool = False
+    is_hot: bool = False
 
 
 class MenuItemRead(BaseModel):
@@ -70,5 +73,7 @@ class MenuItemRead(BaseModel):
     allergens: str | None
     dietary_flags: str | None
     image_filename: str | None
+    model_filename: str | None
     is_available: bool
     is_featured: bool
+    is_hot: bool

@@ -24,6 +24,41 @@
   animation: modal-enter var(--duration-enter) ease-out;
 }
 
+.modal-backdrop-sheet {
+  align-items: flex-end;
+  padding: 0;
+  animation: none;
+}
+
+.modal-sheet {
+  width: 100%;
+  max-width: var(--phone-max);
+  border-top: var(--rule-heavy) solid var(--border-strong);
+  animation: none;
+}
+
+.modal-sheet-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--space-5);
+  background: var(--cream);
+  cursor: grab;
+  touch-action: none;
+}
+
+.modal-sheet-handle::before {
+  content: '';
+  width: var(--space-6);
+  height: var(--space-1);
+  background: var(--border-strong);
+}
+
+.modal-sheet .modal-header {
+  cursor: grab;
+  touch-action: none;
+}
+
 .modal-small {
   width: 480px;
 }
@@ -152,7 +187,7 @@
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.18);
   padding: var(--space-4) var(--space-5) var(--space-6);
   z-index: 150;
-  animation: rec-sheet-enter 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: rec-sheet-enter var(--duration-move) var(--ease-out);
   max-height: 80vh;
   overflow-y: auto;
 }

@@ -90,6 +90,60 @@
   --chart-5: #B57614;
   --chart-6: #1E7B4D;
 
+  --dish-ceramic: #E2C27E;
+  --dish-speckle: #A8741F;
+  --dish-ink: #2B2118;
+  --dish-porcelain: #F4F1EC;
+  --dish-steel: #C9CDD2;
+  --dish-clay: #7A4A2C;
+  --dish-slate: #2F2A27;
+  --dish-redware: #A3311F;
+  --dish-broth: #D9D58A;
+  --dish-broth-dark: #6A3B1A;
+  --dish-chili-oil: #86341A;
+  --dish-wrapper: #EFE2C4;
+  --dish-pork: #C4A6A0;
+  --dish-bun: #F7F2E8;
+  --dish-fried: #C98A33;
+  --dish-noodle: #E7C26A;
+  --dish-soy-noodle: #B98A4E;
+  --dish-bihon: #CFB07C;
+  --dish-leaf: #3F7F2A;
+  --dish-stem: #D9EBC0;
+  --dish-scallion: #3E8A2E;
+  --dish-fat: #F2D9B8;
+  --dish-meat: #A3452A;
+  --dish-glaze: #7A2E14;
+  --dish-beef: #5B3A25;
+  --dish-roast: #A85A22;
+  --dish-bone: #F2E9D8;
+  --dish-egg-shell: #6E4424;
+  --dish-egg-white: #F5EEDD;
+  --dish-yolk: #E3A23A;
+  --dish-rice: #EEE8DA;
+  --dish-lemon: #F3D34A;
+  --dish-chili: #C0261B;
+  --dish-carrot: #E07A2E;
+  --dish-cabbage: #E3ECC6;
+  --dish-peanut: #B8762F;
+  --dish-cordyceps: #E68A2B;
+  --dish-mustard: #3F4A22;
+  --dish-feet: #E8893F;
+
+  --illo-gold: #D9A63C;
+  --illo-gold-deep: #A8741F;
+  --illo-iron: #2E2C2B;
+  --illo-iron-light: #5A5552;
+  --illo-flame: #FF8A1F;
+  --illo-flame-core: #FFD45A;
+  --illo-wood: #A8784B;
+  --illo-faint: #D1D5DB;
+  --illo-shadow-opacity: 0.12;
+  --illo-shade-opacity: 0.14;
+  --illo-gloss-opacity: 0.22;
+  --illo-shine-opacity: 0.6;
+  --illo-steam-opacity: 0.75;
+
   --font-xl: 28px;
   --font-lg: 20px;
   --font-md: 16px;
@@ -147,6 +201,8 @@
   --control-box: 18px;
   --spinner: 14px;
   --content-max: 1080px;
+  --phone-max: 480px;
+  --rule-heavy: 2px;
   --tile-min: 220px;
 
   --icon-sm: 16px;
@@ -160,6 +216,34 @@
   --duration-glow: 160ms;
   --duration-enter: 150ms;
   --duration-exit: 120ms;
+  --duration-press: 80ms;
+  --duration-seal: 180ms;
+  --duration-move: 240ms;
+  --duration-stamp: 320ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-press: cubic-bezier(0.55, 0, 1, 0.45);
+  --press-scale: 0.97;
+  --press-scale-sm: 0.92;
+  --stamp-scale: 1.6;
+  --stamp-tilt: -8deg;
+  --ink-spread: 1.8;
+  --motion-offset: calc(-1 * var(--space-2));
+
+  --illo-unit: 1px;
+  --illo-label: 13px;
+  --illo-width: calc(var(--space-8) * 4);
+  --illo-flicker: 0.5s;
+  --illo-beat: 1.5s;
+  --illo-drift: 2.6s;
+  --illo-breath: 3.4s;
+  --illo-ring: 1.2s;
+  --illo-enter: 1.3s;
+  --illo-pop: 0.5s;
+  --illo-burst: 1.6s;
+  --illo-stagger: 70ms;
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-swing: cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-slam: cubic-bezier(0.5, 0, 0.75, 0);
 }
 
 *,
@@ -297,4 +381,11 @@ table {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: var(--duration-move);
+  animation-timing-function: var(--ease-out);
 }

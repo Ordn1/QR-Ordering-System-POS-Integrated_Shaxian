@@ -143,11 +143,19 @@
   min-height: var(--tap-target);
   color: var(--text);
   background: var(--bg);
-  transition: background-color var(--duration-hover) ease-out;
+  transition:
+    background-color var(--duration-hover) ease-out,
+    transform var(--duration-hover) var(--ease-out);
 }
 
 .qty-stepper button:hover:not(:disabled) {
   background: var(--surface);
+}
+
+.qty-stepper button:active:not(:disabled) {
+  transform: scale(var(--press-scale-sm));
+  transition-duration: var(--duration-press);
+  transition-timing-function: var(--ease-press);
 }
 
 .qty-stepper button:disabled {

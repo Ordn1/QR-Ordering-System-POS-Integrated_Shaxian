@@ -214,7 +214,8 @@
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding: var(--space-4) var(--space-4) var(--space-8);
+  padding: var(--space-4) var(--space-4)
+    calc(var(--bottom-bar-h) + var(--tap-target) + var(--space-6));
 }
 
 .customer-page-head {
@@ -320,6 +321,7 @@
 }
 
 .menu-category-tab {
+  position: relative;
   padding: var(--space-2) var(--space-4);
   min-height: var(--tap-target);
   font-size: var(--font-btn);
@@ -332,7 +334,6 @@
   transition:
     background-color var(--duration-hover) ease-out,
     color var(--duration-hover) ease-out,
-    border-color var(--duration-hover) ease-out,
     transform var(--duration-hover) ease-out;
 }
 
@@ -341,14 +342,41 @@
 }
 
 .menu-category-tab:active {
-  transform: scale(0.95);
+  transform: scale(var(--press-scale));
+  transition-duration: var(--duration-press);
+  transition-timing-function: var(--ease-press);
 }
 
 .menu-category-tab[aria-selected='true'] {
+  color: var(--red);
+}
+
+.menu-category-tab-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--seal-bar);
   background: var(--red);
-  color: var(--bg);
-  border-color: var(--red);
-  box-shadow: 0 2px 8px rgba(179, 40, 33, 0.2);
+}
+
+.menu-grid-stage {
+  position: relative;
+}
+
+.menu-fly {
+  position: fixed;
+  z-index: 300;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.menu-fly-photo {
+  width: 100%;
+  height: 100%;
+  background-position: center;
+  background-size: cover;
+  will-change: transform, opacity;
 }
 
 /* --- 2-column card grid (Module 3) --------------------------------------- */
@@ -366,6 +394,7 @@
   border-radius: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  view-transition-name: match-element;
   transition: transform var(--duration-hover) ease-out, box-shadow var(--duration-hover) ease-out;
 }
 
@@ -383,6 +412,7 @@
 }
 
 .menu-card-photo {
+  position: relative;
   aspect-ratio: 1 / 1;
   width: 100%;
   display: grid;
@@ -395,11 +425,31 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 300ms ease-out;
+  transition: opacity var(--duration-move) var(--ease-out);
 }
 
-.menu-card:hover .menu-card-photo img {
-  transform: scale(1.04);
+.menu-card-photo.live {
+  touch-action: pan-y;
+}
+
+.menu-card-photo.live img {
+  opacity: 0;
+}
+
+.menu-showcase {
+  z-index: 30;
+}
+
+.cart-tray {
+  position: relative;
+  height: calc(var(--space-8) * 4);
+  margin-bottom: var(--space-4);
+  touch-action: pan-y;
+}
+
+.menu-card-view {
+  position: absolute;
+  inset: 0;
 }
 
 .menu-card-photo-empty {
@@ -462,7 +512,9 @@
 }
 
 .menu-card-add:active {
-  transform: scale(0.95);
+  transform: scale(var(--press-scale-sm));
+  transition-duration: var(--duration-press);
+  transition-timing-function: var(--ease-press);
 }
 
 /* Keep old classes for backward compatibility in other contexts */
@@ -903,12 +955,85 @@
   color: var(--bg);
   border-color: var(--red);
   box-shadow: 0 0 0 4px rgba(179, 40, 33, 0.2);
-  transform: scale(1.1);
+  transform: scale(var(--seal-rest));
 }
 
 .status-step-content {
   display: flex;
   flex-direction: column;
+}
+
+.status-step-icon-wrap {
+  position: relative;
+}
+
+.status-stepper-item.current {
+  --seal-rest: 1.1;
+}
+
+.status-stepper-item.stamped .status-step-icon-wrap,
+.receipt-hero-card.stamped .receipt-hero-badge {
+  animation: seal-press var(--duration-seal) var(--ease-press) both;
+}
+
+.status-stepper-item.stamped .status-step-icon-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: var(--seal-bar) solid var(--red);
+  opacity: 0;
+  pointer-events: none;
+  animation: seal-ink var(--duration-stamp) var(--ease-out) var(--duration-seal);
+}
+
+.status-stepper-item.stamped .status-step-title {
+  animation: seal-label var(--duration-move) var(--ease-out) var(--duration-seal) both;
+}
+
+.receipt-hero-card.stamped .receipt-hero-number {
+  animation: ticket-land var(--duration-move) var(--ease-out) var(--duration-seal) both;
+}
+
+@keyframes seal-press {
+  from {
+    opacity: 0;
+    transform: scale(calc(var(--seal-rest, 1) * var(--stamp-scale))) rotate(var(--stamp-tilt));
+  }
+  to {
+    opacity: 1;
+    transform: scale(var(--seal-rest, 1)) rotate(0);
+  }
+}
+
+@keyframes seal-ink {
+  from {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(var(--ink-spread));
+  }
+}
+
+@keyframes seal-label {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ticket-land {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-offset));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .status-step-title {
@@ -1165,7 +1290,15 @@
   font-size: var(--font-xs);
   font-weight: var(--weight-emphasis);
   color: var(--text-muted);
-  transition: color var(--duration-hover) ease-out;
+  transition:
+    color var(--duration-hover) ease-out,
+    transform var(--duration-hover) var(--ease-out);
+}
+
+.bottom-bar-item:active {
+  transform: scale(var(--press-scale-sm));
+  transition-duration: var(--duration-press);
+  transition-timing-function: var(--ease-press);
 }
 
 .bottom-bar-item.active {
@@ -1583,6 +1716,7 @@
 }
 
 .item-detail-media {
+  position: relative;
   display: grid;
   place-items: center;
   aspect-ratio: 4 / 3;
@@ -1596,6 +1730,27 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: opacity var(--duration-move) var(--ease-out);
+}
+
+.item-detail-media.live img {
+  opacity: 0;
+}
+
+.item-detail-stage {
+  touch-action: none;
+  transition: opacity var(--duration-move) var(--ease-out);
+}
+
+.item-detail-media:not(.live) .item-detail-stage {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.item-detail-view-toggle {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
 }
 
 .item-detail-price {
@@ -1619,6 +1774,10 @@
   margin-top: var(--space-3);
   font-size: var(--font-sm);
   color: var(--text-muted);
+}
+
+.checkout-reveal {
+  overflow: hidden;
 }
 
 /* --- Group banner & Split bill (Module 10) ------------------------------- */

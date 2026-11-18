@@ -308,6 +308,48 @@ ITEMS: tuple[
 
 FEATURED: frozenset[str] = frozenset({"Wonton", "Peanut Butter Noodles", "Braised Pork Set"})
 
+MODELS: dict[str, str] = {
+    "Wonton": "wonton",
+    "Steamed Rice": "steamed-rice",
+    "Skinless Wonton": "skinless-wonton",
+    "Xiaolongbao": "xiaolongbao",
+    "Boiled Dumplings": "boiled-dumplings",
+    "Fried Wonton": "fried-wonton",
+    "Wonton Noodle Soup": "wonton-noodle-soup",
+    "Pork Feet Noodle Soup": "pork-feet-noodle-soup",
+    "Shuangcai Pork Noodle Soup": "shuangcai-noodle-soup",
+    "Intestine Noodle Soup": "intestine-noodle-soup",
+    "Peanut Butter Noodles": "peanut-butter-noodles",
+    "Fried Noodles": "fried-noodles",
+    "Fried Bihon": "fried-bihon",
+    "Black Pepper Beef Set": "black-pepper-beef-set",
+    "Meicai Braised Pork Set": "meicai-pork-set",
+    "Braised Pork Set": "braised-pork-set",
+    "Braised Pork Feet Set": "braised-pork-feet-set",
+    "Braised Beef Set": "braised-beef-set",
+    "Roasted Chicken Leg Set": "chicken-leg-set",
+    "Braised Pork Feet": "braised-pork-feet",
+    "Braised Pork": "braised-pork",
+    "Pickled Chicken Feet": "pickled-chicken-feet",
+    "Chicken Soup": "chicken-soup",
+    "Tea Eggs": "tea-eggs",
+}
+
+HOT: frozenset[str] = frozenset(
+    {
+        "Wonton",
+        "Steamed Rice",
+        "Skinless Wonton",
+        "Xiaolongbao",
+        "Boiled Dumplings",
+        "Wonton Noodle Soup",
+        "Pork Feet Noodle Soup",
+        "Shuangcai Pork Noodle Soup",
+        "Intestine Noodle Soup",
+        "Chicken Soup",
+    }
+)
+
 
 async def seed_menu(session: AsyncSession) -> dict[str, MenuItem]:
     categories: dict[str, Category] = {}
@@ -348,7 +390,9 @@ async def seed_menu(session: AsyncSession) -> dict[str, MenuItem]:
             allergens=allergens,
             dietary_flags=dietary_flags,
             image_filename=image_filename,
+            model_filename=MODELS.get(name_en),
             is_featured=name_en in FEATURED,
+            is_hot=name_en in HOT,
         )
         session.add(item)
         items[name_en] = item

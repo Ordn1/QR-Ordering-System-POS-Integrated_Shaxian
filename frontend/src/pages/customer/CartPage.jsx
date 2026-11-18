@@ -1,20 +1,25 @@
 import { Split, Users, UtensilsCrossed } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 
 import { fetchTableCart, syncDeviceCart } from '../../api/sessions';
 import Button from '../../components/shared/Button';
+import Money from '../../components/shared/Money';
 import IconButton from '../../components/shared/IconButton';
 import QtyStepper from '../../components/shared/QtyStepper';
+import { useShowcase } from '../../hooks/useShowcase';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { peso } from '../../lib/format';
 import { menuImageUrl } from '../../lib/menuImage';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 
+const CartTray = lazy(() => import('../../components/customer/CartTray'));
+
 export default function CartPage() {
   const { t, i18n } = useTranslation();
+  const showcase = useShowcase();
   const { qrToken } = useParams();
   const navigate = useNavigate();
   const { trackControl } = useOutletContext();
@@ -96,6 +101,12 @@ export default function CartPage() {
         <h1>{t('cart.title')}</h1>
       </div>
 
+      {showcase ? (
+        <Suspense fallback={null}>
+          <CartTray lines={lines} />
+        </Suspense>
+      ) : null}
+
       {showSplitBanner && lines.length === 0 ? (
         <div className="split-active-banner">
           <div className="split-active-banner-content">
@@ -103,12 +114,12 @@ export default function CartPage() {
             <div>
               <p className="split-active-banner-title">
                 {hasActiveSplit
-                  ? t('cart.activeSplitOrder', { defaultValue: 'Active table order in progress' })
-                  : t('cart.groupModeHint', { defaultValue: 'Multiple phones are ordering at this table' })}
+                  ? t('cart.activeSplitOrder')
+                  : t('cart.groupModeHint')}
               </p>
               {unpaidTotal > 0 ? (
                 <p className="split-active-banner-hint">
-                  Table unpaid balance: {peso(unpaidTotal)}
+                  {t('cart.unpaidBalance')} <Money value={unpaidTotal} />
                 </p>
               ) : null}
             </div>
@@ -120,7 +131,7 @@ export default function CartPage() {
                 loading={navigating}
                 onClick={() => handleGoToCheckout('split')}
               >
-                {t('cart.checkout')} (My share · {peso(myServerShare)})
+                {t('cart.checkoutMyShare', { amount: peso(myServerShare) })}
               </Button>
             ) : unpaidTotal > 0 ? (
               <Button
@@ -128,14 +139,14 @@ export default function CartPage() {
                 loading={navigating}
                 onClick={() => handleGoToCheckout('table')}
               >
-                {t('cart.checkout')} (Table · {peso(unpaidTotal)})
+                {t('cart.checkoutTable', { amount: peso(unpaidTotal) })}
               </Button>
             ) : null}
             <Button
               variant="secondary"
               onClick={() => navigate(`/t/${qrToken}/split`)}
             >
-              {t('cart.splitBill', { defaultValue: 'Split the Bill' })}
+              {t('cart.splitBill')}
             </Button>
           </div>
         </div>
@@ -166,7 +177,7 @@ export default function CartPage() {
                     <div className="cart-line-head">
                       <span className="cart-line-name">{line.name}</span>
                       <span className="cart-line-price numeric">
-                        {peso(Number(line.price) * line.quantity)}
+                        <Money value={Number(line.price) * line.quantity} />
                       </span>
                     </div>
                     <div className="cart-line-controls">
@@ -190,7 +201,9 @@ export default function CartPage() {
           <div className="cart-summary-card">
             <div className="cart-summary-row">
               <span>{t('cart.itemCount', { count })}</span>
-              <span className="numeric font-bold">{peso(subtotal)}</span>
+              <span className="numeric font-bold">
+                <Money value={subtotal} />
+              </span>
             </div>
             <div className="cart-actions">
               <Button
@@ -202,7 +215,7 @@ export default function CartPage() {
                 }
               >
                 {session?.group_mode
-                  ? `${t('cart.checkout')} (My share · ${peso(subtotal)})`
+                  ? t('cart.checkoutMyShare', { amount: peso(subtotal) })
                   : t('cart.checkout')}
               </Button>
               {session?.group_mode ? (
@@ -213,13 +226,13 @@ export default function CartPage() {
                     loading={navigating}
                     onClick={() => handleGoToCheckout('table')}
                   >
-                    Pay for entire table
+                    {t('cart.payWholeTable')}
                   </Button>
                   <Button
                     variant="secondary"
                     onClick={() => navigate(`/t/${qrToken}/split`)}
                   >
-                    {t('cart.splitBill', { defaultValue: 'Split the Bill' })}
+                    {t('cart.splitBill')}
                   </Button>
                 </>
               ) : null}

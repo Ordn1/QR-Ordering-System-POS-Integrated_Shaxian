@@ -44,13 +44,16 @@
 
 .primary-btn:active:not(:disabled),
 .secondary-btn:active:not(:disabled),
+.ghost-btn:active:not(:disabled),
 .wide-create-btn:active:not(:disabled),
 .wide-edit-btn:active:not(:disabled),
 .wide-delete-btn:active:not(:disabled),
 .wide-view-btn:active:not(:disabled),
 .add-to-cart-btn:active:not(:disabled),
 .checkout-btn:active:not(:disabled) {
-  transform: scale(1);
+  transform: scale(var(--press-scale));
+  transition-duration: var(--duration-press);
+  transition-timing-function: var(--ease-press);
 }
 
 .primary-btn {

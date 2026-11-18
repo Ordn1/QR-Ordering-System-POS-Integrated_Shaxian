@@ -1,0 +1,501 @@
+.order-progress {
+  margin-bottom: var(--space-4);
+}
+
+.order-progress-art {
+  display: grid;
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.order-progress-art > * {
+  grid-area: 1 / 1;
+}
+
+.order-progress-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 0;
+}
+
+.order-progress-caption {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding-left: var(--space-2);
+  border-left: var(--seal-bar) solid var(--red);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-heading);
+}
+
+.order-progress-detail {
+  font-size: var(--font-xs);
+  font-weight: var(--weight-body);
+  color: var(--text-muted);
+}
+
+.illo {
+  --u: var(--illo-unit);
+  display: block;
+  width: 100%;
+  max-width: var(--illo-width);
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.illo-paper { fill: var(--bg); }
+.illo-red { fill: var(--red); }
+.illo-red-deep { fill: var(--red-deep); }
+.illo-ink { fill: var(--ink); }
+.illo-faint { fill: var(--illo-faint); }
+.illo-green { fill: var(--green); }
+.illo-gold { fill: var(--illo-gold); }
+.illo-gold-deep { fill: var(--illo-gold-deep); }
+.illo-steel { fill: var(--dish-steel); }
+.illo-iron { fill: var(--illo-iron); }
+.illo-iron-light { fill: var(--illo-iron-light); }
+.illo-flame { fill: var(--illo-flame); }
+.illo-flame-core { fill: var(--illo-flame-core); }
+.illo-wood { fill: var(--illo-wood); }
+.illo-noodle { fill: var(--dish-noodle); }
+.illo-leaf { fill: var(--dish-leaf); }
+.illo-carrot { fill: var(--dish-carrot); }
+.illo-meat { fill: var(--dish-meat); }
+.illo-broth { fill: var(--dish-broth); }
+.illo-ceramic { fill: var(--dish-ceramic); }
+.illo-speckle { fill: var(--dish-speckle); }
+.illo-wrapper { fill: var(--dish-wrapper); }
+.illo-scallion { fill: var(--dish-scallion); }
+
+.illo-shadow { fill: var(--ink); opacity: var(--illo-shadow-opacity); }
+.illo-shade { fill: var(--ink); opacity: var(--illo-shade-opacity); }
+.illo-gloss { fill: var(--bg); opacity: var(--illo-gloss-opacity); }
+.illo-shine { fill: var(--bg); opacity: var(--illo-shine-opacity); }
+
+.illo-line-paper,
+.illo-line-gloss,
+.illo-line-gold,
+.illo-line-gold-deep,
+.illo-line-iron,
+.illo-line-iron-light,
+.illo-line-wood,
+.illo-line-red,
+.illo-line-noodle,
+.illo-line-soy,
+.illo-line-scallion {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.illo-line-paper { stroke: var(--bg); }
+.illo-line-gloss { stroke: var(--bg); opacity: var(--illo-gloss-opacity); }
+.illo-line-gold { stroke: var(--illo-gold); }
+.illo-line-gold-deep { stroke: var(--illo-gold-deep); }
+.illo-line-iron { stroke: var(--illo-iron); }
+.illo-line-iron-light { stroke: var(--illo-iron-light); }
+.illo-line-wood { stroke: var(--illo-wood); }
+.illo-line-red { stroke: var(--red); }
+.illo-line-noodle { stroke: var(--dish-noodle); }
+.illo-line-soy { stroke: var(--dish-soy-noodle); }
+.illo-line-scallion { stroke: var(--dish-scallion); }
+
+.illo-label {
+  fill: var(--ink);
+  font-size: var(--illo-label);
+  font-weight: var(--weight-display);
+  text-anchor: middle;
+}
+
+.illo-pivot {
+  transform-box: view-box;
+  transform-origin: calc(var(--pivot-x) * var(--u)) calc(var(--pivot-y) * var(--u));
+}
+
+.illo-base {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.illo-top {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+
+.illo-center {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.illo-flicker {
+  animation: illo-flicker var(--illo-flicker) var(--ease-swing) infinite alternate;
+  animation-duration: calc(var(--illo-flicker) * var(--speed, 1));
+  animation-delay: calc(var(--illo-flicker) * var(--phase, 0) * -1);
+}
+
+.illo-toss {
+  animation: illo-toss var(--illo-beat) var(--ease-swing) infinite;
+}
+
+.illo-hop {
+  animation: illo-hop var(--illo-beat) linear infinite;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+.illo-rise {
+  opacity: var(--illo-steam-opacity);
+  animation: illo-rise var(--illo-drift) var(--ease-swing) infinite;
+  animation-delay: calc(var(--illo-drift) * var(--phase, 0) * -1);
+}
+
+.illo-spark {
+  opacity: 0;
+  animation: illo-spark var(--illo-beat) var(--ease-out) infinite;
+  animation-delay: calc(var(--illo-beat) * var(--phase, 0) * -1);
+}
+
+.illo-sway,
+.illo-hang {
+  animation: illo-sway var(--illo-breath) var(--ease-swing) infinite;
+  animation-delay: calc(var(--illo-breath) * var(--phase, 0) * -1);
+}
+
+.illo-blink {
+  animation: illo-blink var(--illo-ring) steps(1) infinite;
+}
+
+.illo-coin {
+  animation: illo-coin var(--illo-breath) var(--ease-swing) infinite;
+}
+
+.illo-twinkle {
+  opacity: 0;
+  animation: illo-twinkle var(--illo-breath) var(--ease-swing) infinite;
+  animation-delay: calc(var(--illo-breath) * var(--phase, 0) * -1);
+}
+
+.illo-press {
+  animation: illo-press var(--illo-breath) var(--ease-out) infinite;
+}
+
+.illo-wobble {
+  animation: illo-wobble var(--illo-breath) var(--ease-swing) infinite;
+}
+
+.illo-wave {
+  opacity: 0;
+  animation: illo-wave var(--illo-breath) var(--ease-out) infinite;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+.illo-feed {
+  animation: illo-feed var(--illo-enter) var(--ease-out) both;
+}
+
+.illo-jiggle {
+  animation: illo-jiggle calc(var(--illo-enter) / 10) linear 8;
+}
+
+.illo-coin-tap {
+  animation: illo-coin-tap var(--illo-ring) var(--ease-swing) both;
+}
+
+.illo-stamp {
+  opacity: 0;
+  animation: illo-stamp var(--illo-enter) linear both;
+}
+
+.illo-seal {
+  animation: illo-seal var(--illo-enter) var(--ease-out) both;
+}
+
+.illo-ink-ring {
+  opacity: 0;
+  animation: illo-ink-ring var(--illo-enter) var(--ease-out) both;
+}
+
+.illo-hit {
+  animation: illo-hit var(--illo-enter) var(--ease-swing) both;
+}
+
+.illo-ring {
+  animation: illo-ring var(--illo-ring) var(--ease-swing) both;
+}
+
+.illo-ring-press {
+  animation: illo-ring-press var(--illo-ring) var(--ease-out) both;
+}
+
+.illo-ring-wave {
+  opacity: 0;
+  animation: illo-ring-wave var(--illo-ring) var(--ease-out) both;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+.illo-pop {
+  animation: illo-pop var(--illo-pop) var(--ease-pop) both;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+.illo-draw {
+  stroke-dasharray: 1;
+  animation: illo-draw var(--illo-pop) var(--ease-out) both;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+.illo-drop {
+  animation: illo-drop var(--illo-pop) linear both;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+.illo-ignite {
+  animation: illo-ignite var(--illo-pop) var(--ease-pop) both;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+.illo-flare {
+  animation: illo-flare var(--illo-ring) var(--ease-out) both;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+.illo-burst {
+  opacity: 0;
+  animation: illo-burst var(--illo-burst) var(--ease-out) both;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+.illo-confetti {
+  opacity: 0;
+  animation: illo-confetti var(--illo-burst) linear both;
+  animation-delay: calc(var(--order, 0) * var(--illo-stagger));
+}
+
+@keyframes illo-flicker {
+  0% { transform: scale(1, 1) skewX(0deg); }
+  50% { transform: scale(0.9, 1.1) skewX(-5deg); }
+  100% { transform: scale(1.06, 0.9) skewX(4deg); }
+}
+
+@keyframes illo-toss {
+  0%, 66%, 100% { transform: rotate(0deg) translate(0, 0); }
+  16% { transform: rotate(-4deg) translate(calc(3 * var(--u)), calc(1 * var(--u))); }
+  32% { transform: rotate(10deg) translate(calc(-4 * var(--u)), calc(-5 * var(--u))); }
+  48% { transform: rotate(-2deg) translate(0, calc(1 * var(--u))); }
+}
+
+@keyframes illo-hop {
+  0%, 29% { transform: translate(0, 0) rotate(0deg); animation-timing-function: var(--ease-out); }
+  47% {
+    transform: translate(calc(var(--hop-x, 0) * var(--u)), calc(var(--hop-y, -28) * var(--u)))
+      rotate(calc(var(--spin, 1) * 180deg));
+    animation-timing-function: var(--ease-press);
+  }
+  64%, 100% { transform: translate(0, 0) rotate(calc(var(--spin, 1) * 360deg)); }
+}
+
+@keyframes illo-rise {
+  0% { opacity: 0; transform: translateY(calc(6 * var(--u))) scale(0.8, 0.6); }
+  35% { opacity: var(--illo-steam-opacity); }
+  100% { opacity: 0; transform: translateY(calc(-16 * var(--u))) scale(1.1, 1.15); }
+}
+
+@keyframes illo-spark {
+  0% { opacity: 0; transform: translate(0, 0) scale(1); }
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(var(--drift, 4) * var(--u)), calc(-30 * var(--u))) scale(0.3); }
+}
+
+@keyframes illo-sway {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-1.5deg); }
+  75% { transform: rotate(1.5deg); }
+}
+
+@keyframes illo-blink {
+  0% { opacity: 1; }
+  50% { opacity: var(--illo-shade-opacity); }
+}
+
+@keyframes illo-coin {
+  0%, 50%, 100% { transform: translateY(0) scaleX(1); }
+  25% { transform: translateY(calc(-3 * var(--u))) scaleX(1); }
+  60% { transform: translateY(calc(-9 * var(--u))) scaleX(-1); }
+  70% { transform: translateY(calc(-12 * var(--u))) scaleX(1); }
+  80% { transform: translateY(calc(-9 * var(--u))) scaleX(-1); }
+  90% { transform: translateY(calc(-2 * var(--u))) scaleX(1); }
+}
+
+@keyframes illo-twinkle {
+  0%, 60%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  78% { opacity: 1; transform: scale(1) rotate(45deg); }
+}
+
+@keyframes illo-press {
+  0%, 10%, 100% { transform: translateY(0); }
+  3%, 5% { transform: translateY(calc(4 * var(--u))); }
+}
+
+@keyframes illo-wobble {
+  0%, 4%, 34%, 100% { transform: rotate(0deg); }
+  8% { transform: rotate(-5deg); }
+  13% { transform: rotate(4deg); }
+  18% { transform: rotate(-2.5deg); }
+  24% { transform: rotate(1.2deg); }
+  29% { transform: rotate(-0.5deg); }
+}
+
+@keyframes illo-wave {
+  0%, 4% { opacity: 0; transform: translateX(0) scale(0.8); }
+  8% { opacity: 1; }
+  32%, 100% { opacity: 0; transform: translate(calc(var(--dir, 1) * 8 * var(--u)), calc(-5 * var(--u))) scale(1.15); }
+}
+
+@keyframes illo-feed {
+  0% { transform: translateY(calc(44 * var(--u))); }
+  14%, 22% { transform: translateY(calc(33 * var(--u))); }
+  36%, 44% { transform: translateY(calc(22 * var(--u))); }
+  58%, 66% { transform: translateY(calc(11 * var(--u))); }
+  80%, 100% { transform: translateY(0); }
+}
+
+@keyframes illo-jiggle {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(calc(-1 * var(--u))); }
+  75% { transform: translateX(var(--u)); }
+}
+
+@keyframes illo-coin-tap {
+  0%, 100% { transform: translateY(0) scaleX(1); }
+  20% { transform: translateY(calc(-14 * var(--u))) scaleX(-1); }
+  40% { transform: translateY(calc(-20 * var(--u))) scaleX(1); }
+  60% { transform: translateY(calc(-14 * var(--u))) scaleX(-1); }
+  80% { transform: translateY(calc(-4 * var(--u))) scaleX(1); }
+}
+
+@keyframes illo-stamp {
+  0% {
+    opacity: 0;
+    transform: translate(calc(30 * var(--u)), calc(-56 * var(--u))) rotate(16deg);
+    animation-timing-function: var(--ease-out);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(calc(8 * var(--u)), calc(-40 * var(--u))) rotate(6deg);
+    animation-timing-function: var(--ease-slam);
+  }
+  32% { transform: translate(0, 0) rotate(0deg) scale(1); animation-timing-function: var(--ease-out); }
+  38% { transform: translate(0, 0) rotate(0deg) scale(1.08, 0.88); }
+  48%, 56% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); animation-timing-function: var(--ease-out); }
+  82% { opacity: 1; transform: translate(calc(14 * var(--u)), calc(-46 * var(--u))) rotate(10deg); }
+  100% { opacity: 0; transform: translate(calc(26 * var(--u)), calc(-60 * var(--u))) rotate(16deg); }
+}
+
+@keyframes illo-seal {
+  0%, 31% { opacity: 0; transform: scale(var(--stamp-scale)); }
+  32% { opacity: 1; transform: scale(1.12); }
+  44%, 100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes illo-ink-ring {
+  0%, 32% { opacity: 0; transform: scale(0.9); }
+  34% { opacity: 1; }
+  72%, 100% { opacity: 0; transform: scale(var(--ink-spread)); }
+}
+
+@keyframes illo-hit {
+  0%, 31% { transform: rotate(0deg) translateY(0) scale(1); }
+  35% { transform: rotate(0deg) translateY(calc(2 * var(--u))) scale(1.02, 0.97); }
+  46% { transform: rotate(-2deg) translateY(0) scale(1); }
+  58% { transform: rotate(1deg); }
+  70%, 100% { transform: rotate(0deg); }
+}
+
+@keyframes illo-ring {
+  0% { transform: rotate(0deg) scale(1); }
+  8% { transform: rotate(0deg) scale(1.06, 0.92); }
+  20% { transform: rotate(-8deg) scale(1); }
+  34% { transform: rotate(6deg); }
+  48% { transform: rotate(-3.5deg); }
+  62% { transform: rotate(1.5deg); }
+  76%, 100% { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes illo-ring-press {
+  0%, 22%, 100% { transform: translateY(0); }
+  6%, 12% { transform: translateY(calc(5 * var(--u))); }
+}
+
+@keyframes illo-ring-wave {
+  0% { opacity: 0; transform: translateX(0) scale(0.8); }
+  10% { opacity: 1; }
+  70%, 100% { opacity: 0; transform: translate(calc(var(--dir, 1) * 14 * var(--u)), calc(-9 * var(--u))) scale(1.4); }
+}
+
+@keyframes illo-pop {
+  0% { opacity: 0; transform: scale(0.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes illo-draw {
+  0% { stroke-dashoffset: 1; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes illo-drop {
+  0% { opacity: 0; transform: translateY(calc(-30 * var(--u))) scale(1); animation-timing-function: var(--ease-press); }
+  12% { opacity: 1; }
+  55% { transform: translateY(0) scale(1.08, 0.9); animation-timing-function: var(--ease-out); }
+  78% { transform: translateY(calc(-2 * var(--u))) scale(0.97, 1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes illo-ignite {
+  0% { opacity: 0; transform: scale(0.2, 0.1); }
+  55% { opacity: 1; transform: scale(1.1, 1.35); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes illo-flare {
+  0%, 100% { transform: scale(1); }
+  18% { transform: scale(1.3, 1.7); }
+  45% { transform: scale(1.1, 1.25); }
+}
+
+@keyframes illo-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.2) rotate(0deg); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(var(--dx, 0) * var(--u)), calc(var(--dy, 0) * var(--u))) scale(1) rotate(90deg); }
+}
+
+@keyframes illo-confetti {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); animation-timing-function: var(--ease-out); }
+  8% { opacity: 1; }
+  50% {
+    opacity: 1;
+    transform: translate(calc(var(--dx, 0) * var(--u)), calc(var(--dy, 0) * var(--u))) rotate(calc(var(--spin, 1) * 200deg));
+    animation-timing-function: var(--ease-press);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--dx, 0) * 1.25 * var(--u)), calc((var(--dy, 0) + 44) * var(--u)))
+      rotate(calc(var(--spin, 1) * 420deg));
+  }
+}
+
+.illo-paused,
+.illo-paused * {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .illo,
+  .illo * {
+    animation: none !important;
+  }
+}

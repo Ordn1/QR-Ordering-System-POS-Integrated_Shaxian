@@ -39,9 +39,9 @@ function recall(qrToken) {
   return null;
 }
 
-function applySession(session) {
+function applySession(session, { animate = true } = {}) {
   setDeviceToken(session.device_token);
-  useUiStore.getState().setUiMode(session.ui_mode_used);
+  useUiStore.getState().setUiMode(session.ui_mode_used, { animate });
   useUiStore.getState().setLanguage(session.language_used);
   i18n.changeLanguage(session.language_used);
 }
@@ -71,7 +71,7 @@ export const useSessionStore = create((set, get) => ({
       .openSession(qrToken, tokenToUse)
       .then((session) => {
         remember(qrToken, session.device_token);
-        applySession(session);
+        applySession(session, { animate: false });
         set({ session, status: 'ready' });
         return session;
       })

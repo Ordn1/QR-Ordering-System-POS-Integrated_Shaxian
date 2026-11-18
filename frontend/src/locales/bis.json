@@ -115,7 +115,9 @@
     "useBrowserOrigin": "Gamita ang Browser Host",
     "scanInstruction": "I-scan gamit ang camera sa imong telepono aron makita ang menu ug maka-order.",
     "tableResetSuccess": "Na-reset na ang session sa Lamesa {{number}}",
-    "tableQrRegenerated": "Nailisan na ang QR code sa Lamesa {{number}}"
+    "tableQrRegenerated": "Nailisan na ang QR code sa Lamesa {{number}}",
+    "fieldModel": "Recipe sa 3D model",
+    "hot": "Gi-serve nga init (naay aso)"
   },
   "auth": {
     "brand": "Shaxian Snacks",
@@ -141,7 +143,13 @@
     "itemCount_other": "{{count}} ka item",
     "viewBasket": "Tan-awa ang Basket",
     "checkout": "Adto sa checkout",
-    "splitBill": "Bahina ang bayad"
+    "splitBill": "Bahina ang bayad",
+    "activeSplitOrder": "Naa pay order ang lamesa nga nagpadayon",
+    "groupModeHint": "Daghang telepono ang nag-order niining lamesa",
+    "unpaidBalance": "Wala pa nabayri sa lamesa:",
+    "checkoutMyShare": "Bayri ang ako · {{amount}}",
+    "checkoutTable": "Bayri para sa lamesa · {{amount}}",
+    "payWholeTable": "Bayri ang tibuok lamesa"
   },
   "checkout": {
     "title": "Bayranan",
@@ -212,7 +220,9 @@
     "caloriesLabel": "Calorie",
     "allergensLabel": "Allergen",
     "dietaryLabel": "Lagda sa pagkaon",
-    "noneListed": "Walay nakalista"
+    "noneListed": "Walay nakalista",
+    "viewPhoto": "Ipakita ang litrato",
+    "view3d": "Ipakita sa 3D"
   },
   "nav": {
     "menu": "Menu",
@@ -349,5 +359,19 @@
     "placeholder": "Pangitaa og pagkaon…",
     "close": "Siradhi ang pagpangita",
     "noResults": "Walay nakitang katugma."
+  },
+  "progress": {
+    "unpaid": "Naghulat sa bayad",
+    "ahead": "{{count}} ka order ang nag-una",
+    "ahead_other": "{{count}} ka order ang nag-una",
+    "soundOn": "Ablihi ang tingog sa order",
+    "soundOff": "Patya ang tingog sa order",
+    "detail": {
+      "unpaid": "Sugdan sa kusina kung bayad na ang order",
+      "pending": "Kamo na ang sunod sa pila",
+      "preparing": "Giluto na ang inyong pagkaon",
+      "ready": "Kuhaa ang order sa counter",
+      "completed": "Lami nga pagkaon"
+    }
   }
 }

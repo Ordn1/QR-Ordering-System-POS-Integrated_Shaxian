@@ -1,10 +1,19 @@
+import { motion, useDragControls } from 'motion/react';
 import { useEffect, useRef } from 'react';
 
+import { DURATION, SHEET } from '../../lib/motion';
 import { useToastStore } from '../../store/toastStore';
 import ToastRegion from './ToastRegion';
 
 const FOCUSABLE =
   'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
+const FADE = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: DURATION.enter },
+};
 
 const SIZE_CLASS = {
   small: 'modal modal-small',
@@ -18,12 +27,14 @@ export default function Modal({
   destructive = false,
   onClose,
   footer,
+  sheet = false,
   children,
 }) {
   const containerRef = useRef(null);
   const previouslyFocused = useRef(null);
   const openModal = useToastStore((state) => state.openModal);
   const closeModal = useToastStore((state) => state.closeModal);
+  const dragControls = useDragControls();
 
   useEffect(() => {
     openModal();
@@ -72,24 +83,51 @@ export default function Modal({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
+  const Backdrop = sheet ? motion.div : 'div';
+  const Panel = sheet ? motion.div : 'div';
+  const startDrag = sheet ? (event) => dragControls.start(event) : undefined;
+  const sheetPanelProps = sheet
+    ? {
+        ...FADE,
+        drag: 'y',
+        dragListener: false,
+        dragControls,
+        dragConstraints: { top: 0, bottom: 0 },
+        dragElastic: { top: 0, bottom: 1 },
+        dragTransition: SHEET.settle,
+        onDragEnd: (_event, info) => {
+          if (info.offset.y > SHEET.dismissOffset || info.velocity.y > SHEET.dismissVelocity) {
+            onClose();
+          }
+        },
+      }
+    : {};
+
   return (
-    <div
-      className="modal-backdrop"
+    <Backdrop
+      className={sheet ? 'modal-backdrop modal-backdrop-sheet' : 'modal-backdrop'}
+      {...(sheet ? FADE : {})}
       onMouseDown={(event) => {
         if (!destructive && event.target === event.currentTarget) {
           onClose();
         }
       }}
     >
-      <div
-        className={`${SIZE_CLASS[size]}${destructive ? ' confirm-dialog' : ''}`}
+      <Panel
+        className={`${SIZE_CLASS[size]}${destructive ? ' confirm-dialog' : ''}${
+          sheet ? ' modal-sheet' : ''
+        }`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         ref={containerRef}
+        {...sheetPanelProps}
       >
+        {sheet ? (
+          <div className="modal-sheet-handle" onPointerDown={startDrag} aria-hidden="true" />
+        ) : null}
         <ToastRegion inModal />
-        <header className="modal-header">
+        <header className="modal-header" onPointerDown={startDrag}>
           <span className="seal" aria-hidden="true" />
           <h2 className="modal-title">{title}</h2>
         </header>
@@ -103,7 +141,7 @@ export default function Modal({
             {footer}
           </footer>
         ) : null}
-      </div>
-    </div>
+      </Panel>
+    </Backdrop>
   );
 }

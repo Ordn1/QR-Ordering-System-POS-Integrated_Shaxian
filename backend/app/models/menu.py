@@ -59,12 +59,18 @@ class MenuItem(Base):
     allergens: Mapped[str | None] = mapped_column(sa.String(120))
     dietary_flags: Mapped[str | None] = mapped_column(sa.String(60))
     image_filename: Mapped[str | None] = mapped_column(sa.String(80))
+    model_filename: Mapped[str | None] = mapped_column(sa.String(80))
     is_available: Mapped[bool] = mapped_column(
         sa.Boolean,
         nullable=False,
         server_default=sa.true(),
     )
     is_featured: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        nullable=False,
+        server_default=sa.false(),
+    )
+    is_hot: Mapped[bool] = mapped_column(
         sa.Boolean,
         nullable=False,
         server_default=sa.false(),

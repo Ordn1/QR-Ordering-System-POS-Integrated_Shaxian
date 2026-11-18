@@ -16,7 +16,7 @@ This file specifies the **complete finished structure**. It is written at full f
 **It is not a work order.** How much of this structure you may create right now is defined **exclusively** in `Instructions.md`. If that file authorizes a subset, build only that subset. `Instructions.md` always wins on scope.
 
 Read `ProjectOverview.md` and `Database.md` first if you have not. Then Section 12 of this document.
-
+  
 ---
 
 ## 1. Root layout

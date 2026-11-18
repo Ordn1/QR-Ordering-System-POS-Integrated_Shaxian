@@ -81,6 +81,8 @@ Every orderable item, with the trilingual names, nutrition and allergen disclosu
 | `is_available` | BOOLEAN | No | true | — |
 | `is_featured` | BOOLEAN | No | false | — |
 | `created_at` | TIMESTAMPTZ | No | now() | — |
+| `model_filename` | VARCHAR(80) | Yes | — | — |
+| `is_hot` | BOOLEAN | No | false | — |
 
 Check constraints:
 

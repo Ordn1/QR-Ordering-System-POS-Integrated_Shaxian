@@ -1,3 +1,5 @@
+import { MotionConfig } from 'motion/react';
+import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import AppShell from './components/shared/AppShell';
@@ -23,6 +25,9 @@ import QueuePage from './pages/staff/QueuePage';
 import SignedInPage from './pages/staff/SignedInPage';
 import ProtectedRoute from './routes/ProtectedRoute';
 
+const DishesPage = lazy(() => import('./pages/dev/DishesPage'));
+const IllustrationsPage = lazy(() => import('./pages/dev/IllustrationsPage'));
+
 const ADMIN_LINKS = [
   { to: '/admin/dashboard', labelKey: 'admin.dashboardTitle' },
   { to: '/admin/tables', labelKey: 'admin.tablesTitle' },
@@ -40,58 +45,76 @@ const STAFF_LINKS = [
 
 export default function App() {
   return (
-    <div className="app-shell">
-      <Routes>
-        <Route path="/dev/atoms" element={<AtomsPage />} />
-
-        <Route path="/t/:qrToken" element={<TableEntryPage />} />
-        <Route path="/t/:qrToken" element={<CustomerShell />}>
-          <Route path="menu" element={<CustomerMenuPage />} />
-          <Route path="cart" element={<CartPage />} />
-          <Route path="split" element={<SplitBillPage />} />
-          <Route path="checkout" element={<CheckoutPage />} />
-          <Route path="receipt" element={<ReceiptPage />} />
-          <Route path="status" element={<StatusPage />} />
-        </Route>
-
-        <Route path="/admin/login" element={<LoginPage titleKey="auth.adminTitle" />} />
-        <Route path="/staff/login" element={<LoginPage titleKey="auth.staffTitle" />} />
-
-        <Route element={<ProtectedRoute roles={['admin']} loginPath="/admin/login" />}>
+    <MotionConfig reducedMotion="user">
+      <div className="app-shell">
+        <Routes>
+          <Route path="/dev/atoms" element={<AtomsPage />} />
           <Route
-            path="/admin"
-            element={<AppShell links={ADMIN_LINKS} loginPath="/admin/login" />}
-          >
-            <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="tables" element={<TablesPage />} />
-            <Route path="menu" element={<MenuPage />} />
-            <Route path="categories" element={<CategoriesPage />} />
-            <Route path="transactions" element={<TransactionsPage />} />
-            <Route path="verifications" element={<VerificationsPage />} />
-            <Route path="pos" element={<PosPage />} />
-          </Route>
-        </Route>
-
-        <Route
-          element={
-            <ProtectedRoute roles={['admin', 'service_crew']} loginPath="/staff/login" />
-          }
-        >
+            path="/dev/dishes"
+            element={
+              <Suspense fallback={null}>
+                <DishesPage />
+              </Suspense>
+            }
+          />
           <Route
-            path="/staff"
-            element={<AppShell links={STAFF_LINKS} loginPath="/staff/login" />}
-          >
-            <Route index element={<Navigate to="/staff/queue" replace />} />
-            <Route path="queue" element={<QueuePage />} />
-            <Route path="tables" element={<TablesPage />} />
-            <Route path="account" element={<SignedInPage />} />
-          </Route>
-        </Route>
+            path="/dev/illustrations"
+            element={
+              <Suspense fallback={null}>
+                <IllustrationsPage />
+              </Suspense>
+            }
+          />
 
-        <Route path="*" element={<Navigate to="/staff/login" replace />} />
-      </Routes>
-      <ToastRegion />
-    </div>
+          <Route path="/t/:qrToken" element={<TableEntryPage />} />
+          <Route path="/t/:qrToken" element={<CustomerShell />}>
+            <Route path="menu" element={<CustomerMenuPage />} />
+            <Route path="cart" element={<CartPage />} />
+            <Route path="split" element={<SplitBillPage />} />
+            <Route path="checkout" element={<CheckoutPage />} />
+            <Route path="receipt" element={<ReceiptPage />} />
+            <Route path="status" element={<StatusPage />} />
+          </Route>
+
+          <Route path="/admin/login" element={<LoginPage titleKey="auth.adminTitle" />} />
+          <Route path="/staff/login" element={<LoginPage titleKey="auth.staffTitle" />} />
+
+          <Route element={<ProtectedRoute roles={['admin']} loginPath="/admin/login" />}>
+            <Route
+              path="/admin"
+              element={<AppShell links={ADMIN_LINKS} loginPath="/admin/login" />}
+            >
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="tables" element={<TablesPage />} />
+              <Route path="menu" element={<MenuPage />} />
+              <Route path="categories" element={<CategoriesPage />} />
+              <Route path="transactions" element={<TransactionsPage />} />
+              <Route path="verifications" element={<VerificationsPage />} />
+              <Route path="pos" element={<PosPage />} />
+            </Route>
+          </Route>
+
+          <Route
+            element={
+              <ProtectedRoute roles={['admin', 'service_crew']} loginPath="/staff/login" />
+            }
+          >
+            <Route
+              path="/staff"
+              element={<AppShell links={STAFF_LINKS} loginPath="/staff/login" />}
+            >
+              <Route index element={<Navigate to="/staff/queue" replace />} />
+              <Route path="queue" element={<QueuePage />} />
+              <Route path="tables" element={<TablesPage />} />
+              <Route path="account" element={<SignedInPage />} />
+            </Route>
+          </Route>
+
+          <Route path="*" element={<Navigate to="/staff/login" replace />} />
+        </Routes>
+        <ToastRegion />
+      </div>
+    </MotionConfig>
   );
 }

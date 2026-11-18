@@ -9,6 +9,7 @@
   --font-badge: 16px;
 
   --leading-base: var(--leading-loose);
+  --motion-offset: 0px;
 
   --space-3: 16px;
   --space-4: 24px;
@@ -96,6 +97,16 @@
   min-width: 0;
 }
 
+[data-ui-mode='accessible'] .primary-btn,
+[data-ui-mode='accessible'] .secondary-btn,
+[data-ui-mode='accessible'] .checkout-btn {
+  height: auto;
+  min-height: var(--h-btn);
+  padding-block: var(--space-2);
+  white-space: normal;
+  text-align: center;
+}
+
 /* Single-column accessible rows stack the photo above the text, so it takes the
    full width rather than staying a 112px thumbnail floating on the left. */
 [data-ui-mode='accessible'] .menu-item-photo {
@@ -148,4 +159,9 @@
 
 [data-ui-mode='accessible'] .lang-toggle-sep {
   color: var(--text);
+}
+
+[data-ui-mode='accessible'] .illo,
+[data-ui-mode='accessible'] .illo * {
+  animation: none !important;
 }

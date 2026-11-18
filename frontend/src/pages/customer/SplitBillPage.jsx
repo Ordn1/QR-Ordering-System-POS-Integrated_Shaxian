@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { fetchTableCart } from '../../api/sessions';
 import Badge from '../../components/shared/Badge';
 import Button from '../../components/shared/Button';
+import Money from '../../components/shared/Money';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
@@ -93,7 +94,9 @@ export default function SplitBillPage() {
                   {share.payment_status ? (
                     <Badge value={share.payment_status} domain="payment" />
                   ) : null}
-                  <span className="split-share-total numeric">{peso(share.subtotal)}</span>
+                  <span className="split-share-total numeric">
+                    <Money value={share.subtotal} />
+                  </span>
                 </div>
               </header>
               {share.lines.length > 0 ? (
@@ -103,7 +106,7 @@ export default function SplitBillPage() {
                       <span className="split-share-item-qty">{line.quantity}×</span>
                       <span className="split-share-item-name">{line.name}</span>
                       <span className="split-share-item-price numeric">
-                        {peso(line.subtotal)}
+                        <Money value={line.subtotal} />
                       </span>
                     </li>
                   ))}
@@ -119,7 +122,9 @@ export default function SplitBillPage() {
       <div className="split-table-total-card">
         <div className="split-total-row">
           <span>{t('split.total')}</span>
-          <span className="numeric">{peso(tableTotal)}</span>
+          <span className="numeric">
+            <Money value={tableTotal} />
+          </span>
         </div>
         <div className="cart-actions">
           <Button

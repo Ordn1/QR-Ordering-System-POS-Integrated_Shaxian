@@ -1,3 +1,4 @@
+import NumberFlow from '@number-flow/react';
 import { ClipboardList, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
@@ -24,10 +25,15 @@ export default function BottomBar({ sessionPath, trackControl }) {
         to={`${sessionPath}/cart`}
         className={({ isActive }) => `bottom-bar-item${isActive ? ' active' : ''}`}
         ref={trackControl?.('cart')}
+        data-fly-target="cart"
       >
         <ShoppingBag size={20} strokeWidth={1.75} />
         <span>{t('nav.cart')}</span>
-        {count > 0 ? <span className="bottom-bar-count numeric">{count}</span> : null}
+        {count > 0 ? (
+          <span className="bottom-bar-count numeric">
+            <NumberFlow value={count} />
+          </span>
+        ) : null}
       </NavLink>
       <NavLink
         to={`${sessionPath}/status`}

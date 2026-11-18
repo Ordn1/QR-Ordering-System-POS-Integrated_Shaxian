@@ -10,13 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@number-flow/react": "0.6.2",
+    "@react-three/drei": "10.7.9",
+    "@react-three/fiber": "9.8.1",
     "i18next": "26.3.6",
     "lucide-react": "1.26.0",
+    "motion": "13.5.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-i18next": "17.0.11",
     "react-router-dom": "7.18.1",
     "recharts": "3.10.1",
+    "three": "0.186.1",
     "zustand": "5.0.14"
   },
   "devDependencies": {

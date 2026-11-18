@@ -16,6 +16,7 @@ class Suggestion(BaseModel):
     name: str
     price: Decimal
     image_filename: str | None
+    model_filename: str | None = None
     lift: Decimal
     confidence: Decimal
 

@@ -51,6 +51,7 @@ async def recommend(
             "name": {"en": item.name_en, "fil": item.name_fil, "bis": item.name_bis}[language],
             "price": item.price,
             "image_filename": item.image_filename,
+            "model_filename": item.model_filename,
             "lift": metrics_by_item[item.item_id].lift,
             "confidence": metrics_by_item[item.item_id].confidence,
         }

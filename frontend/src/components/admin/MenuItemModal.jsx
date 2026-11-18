@@ -19,8 +19,10 @@ const BLANK = {
   allergens: '',
   dietary_flags: '',
   image_filename: '',
+  model_filename: '',
   is_available: true,
   is_featured: false,
+  is_hot: false,
 };
 
 function toPayload(form) {
@@ -39,8 +41,10 @@ function toPayload(form) {
     allergens: optional(form.allergens),
     dietary_flags: optional(form.dietary_flags),
     image_filename: optional(form.image_filename),
+    model_filename: optional(form.model_filename),
     is_available: form.is_available,
     is_featured: form.is_featured,
+    is_hot: form.is_hot,
   };
 }
 
@@ -188,6 +192,15 @@ export default function MenuItemModal({ item, categories, onCancel, onSubmit }) 
           onChange={set('image_filename')}
           hint="fried-chicken-1pc.webp"
         />
+        <TextInput
+          label={t('admin.fieldModel')}
+          inputClass="freetext"
+          maxLength={80}
+          value={form.model_filename}
+          error={fieldErrors.model_filename}
+          onChange={set('model_filename')}
+          hint="wonton"
+        />
       </div>
 
       <h3 className="section-heading">
@@ -239,6 +252,10 @@ export default function MenuItemModal({ item, categories, onCancel, onSubmit }) 
             onChange={toggle('is_featured')}
           />
           {t('admin.featured')}
+        </label>
+        <label className="checkbox-field">
+          <input type="checkbox" checked={form.is_hot} onChange={toggle('is_hot')} />
+          {t('admin.hot')}
         </label>
       </div>
     </Modal>

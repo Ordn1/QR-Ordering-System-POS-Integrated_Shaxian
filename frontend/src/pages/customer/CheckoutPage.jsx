@@ -1,4 +1,5 @@
 import { Check, CreditCard, Receipt, Store } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,10 +13,19 @@ import {
 import { placeOrder, quoteOrder } from '../../api/orders';
 import { fetchTableCart, syncDeviceCart } from '../../api/sessions';
 import Button from '../../components/shared/Button';
+import Money from '../../components/shared/Money';
 import { peso } from '../../lib/format';
+import { DURATION, MOVE, prefersReducedMotion } from '../../lib/motion';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
+
+const ROW_REVEAL = {
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: 'auto' },
+  exit: { opacity: 0, height: 0 },
+  transition: MOVE,
+};
 
 export default function CheckoutPage() {
   const { t, i18n } = useTranslation();
@@ -38,6 +48,18 @@ export default function CheckoutPage() {
   const [quote, setQuote] = useState(null);
   const [displayLines, setDisplayLines] = useState(lines);
   const [loadingScope, setLoadingScope] = useState(true);
+  const [settledQuote, setSettledQuote] = useState(null);
+
+  const deducting =
+    Boolean(quote?.discount_applied) && settledQuote !== quote && !prefersReducedMotion();
+
+  useEffect(() => {
+    if (!quote?.discount_applied) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setSettledQuote(quote), DURATION.hold * 1000);
+    return () => clearTimeout(timer);
+  }, [quote]);
 
   useEffect(() => {
     if (!session?.session_id) {
@@ -185,7 +207,7 @@ export default function CheckoutPage() {
       }
 
       navigate(`/t/${qrToken}/receipt?txn_id=${receipt.txn_id}`, {
-        state: { receipt },
+        state: { receipt, placedAt: Date.now() },
         replace: true,
       });
     } catch (error) {
@@ -231,45 +253,78 @@ export default function CheckoutPage() {
           <dl className="checkout-totals">
             <div className="checkout-total-row">
               <dt>{t('checkout.gross')}</dt>
-              <dd className="numeric">{peso(quote.gross_amount)}</dd>
+              <dd className="numeric">
+                <Money value={quote.gross_amount} />
+              </dd>
             </div>
 
-            {quote.discount_applied ? (
-              <>
-                <div className="checkout-total-row">
+            <AnimatePresence initial={false}>
+              {quote.discount_applied && !deducting ? (
+                <motion.div
+                  key="vat-exempt"
+                  className="checkout-total-row checkout-reveal"
+                  {...ROW_REVEAL}
+                >
                   <dt>{t('checkout.vatExempt')}</dt>
-                  <dd className="numeric">{peso(quote.vat_exempt_sales)}</dd>
-                </div>
-                <div className="checkout-total-row checkout-discount-row">
+                  <dd className="numeric">
+                    <Money value={quote.vat_exempt_sales} />
+                  </dd>
+                </motion.div>
+              ) : null}
+              {quote.discount_applied && !deducting ? (
+                <motion.div
+                  key="discount"
+                  className="checkout-total-row checkout-discount-row checkout-reveal"
+                  {...ROW_REVEAL}
+                >
                   <dt className="checkout-discount">{t('checkout.discount')}</dt>
                   <dd className="checkout-discount numeric">
-                    −{peso(quote.discount_amount)}
+                    <Money value={quote.discount_amount} sign="−" />
                   </dd>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="checkout-total-row">
+                </motion.div>
+              ) : null}
+              {!quote.discount_applied ? (
+                <motion.div
+                  key="vatable"
+                  className="checkout-total-row checkout-reveal"
+                  {...ROW_REVEAL}
+                >
                   <dt>{t('checkout.vatable')}</dt>
-                  <dd className="numeric">{peso(quote.vatable_sales)}</dd>
-                </div>
-                <div className="checkout-total-row">
+                  <dd className="numeric">
+                    <Money value={quote.vatable_sales} />
+                  </dd>
+                </motion.div>
+              ) : null}
+              {!quote.discount_applied ? (
+                <motion.div
+                  key="vat"
+                  className="checkout-total-row checkout-reveal"
+                  {...ROW_REVEAL}
+                >
                   <dt>{t('checkout.vat')}</dt>
-                  <dd className="numeric">{peso(quote.vat_amount)}</dd>
-                </div>
-              </>
-            )}
+                  <dd className="numeric">
+                    <Money value={quote.vat_amount} />
+                  </dd>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
 
             <div className="checkout-total-row checkout-net-row">
               <dt className="checkout-net">{t('checkout.net')}</dt>
-              <dd className="checkout-net numeric">{peso(quote.net_amount)}</dd>
+              <dd className="checkout-net numeric">
+                <Money value={deducting ? quote.gross_amount : quote.net_amount} />
+              </dd>
             </div>
           </dl>
         ) : null}
 
-        {quote?.discount_applied ? (
-          <p className="checkout-discount-note">{t('priority.discountNote')}</p>
-        ) : null}
+        <AnimatePresence initial={false}>
+          {quote?.discount_applied && !deducting ? (
+            <motion.p className="checkout-discount-note checkout-reveal" {...ROW_REVEAL}>
+              {t('priority.discountNote')}
+            </motion.p>
+          ) : null}
+        </AnimatePresence>
       </section>
 
       <section className="payment-options-section">

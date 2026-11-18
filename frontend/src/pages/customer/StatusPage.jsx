@@ -8,11 +8,12 @@ import {
   ShoppingBag,
   Sparkles,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { latestOrders } from '../../api/queue';
+import OrderProgress from '../../components/customer/progress/OrderProgress';
 import Badge from '../../components/shared/Badge';
 import Button from '../../components/shared/Button';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -29,6 +30,8 @@ const STEP_ICONS = {
 
 const STEPS = ['pending', 'preparing', 'ready', 'completed'];
 
+const stageOf = (order) => (order.payment_status === 'paid' ? order.status : 'unpaid');
+
 export default function StatusPage() {
   const { t } = useTranslation();
   const { qrToken } = useParams();
@@ -36,11 +39,27 @@ export default function StatusPage() {
   const session = useSessionStore((state) => state.session);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const seenStages = useRef(new Map());
+  const [stamped, setStamped] = useState(() => new Set());
 
   const load = useCallback(
     () =>
       latestOrders(session.session_id)
-        .then(setOrders)
+        .then((next) => {
+          const fresh = new Set();
+          next.forEach((order) => {
+            const before = seenStages.current.get(order.txn_id);
+            const now = stageOf(order);
+            if (before !== undefined && before !== now && now !== 'unpaid') {
+              fresh.add(`${order.txn_id}:${now}`);
+            }
+            seenStages.current.set(order.txn_id, now);
+          });
+          if (fresh.size > 0) {
+            setStamped((previous) => new Set([...previous, ...fresh]));
+          }
+          setOrders(next);
+        })
         .catch((error) => toast.error(error.message))
         .finally(() => setLoading(false)),
     [session.session_id],
@@ -96,6 +115,14 @@ export default function StatusPage() {
                 }
               />
             </div>
+
+            {STEPS.includes(order.status) ? (
+              <OrderProgress
+                stage={stageOf(order)}
+                ahead={allPaid && order.status === 'pending' && order.queue_position ? order.queue_position - 1 : 0}
+                queueLabel={queueLabel(order.queue_number)}
+              />
+            ) : null}
 
             {awaitingPayment ? (
               <div className="status-split-warning">
@@ -175,11 +202,14 @@ export default function StatusPage() {
                   {STEPS.map((stepName) => {
                     const reached = STEPS.indexOf(order.status) >= STEPS.indexOf(stepName);
                     const current = order.status === stepName;
+                    const stamp = current && stamped.has(`${order.txn_id}:${stepName}`);
                     const IconComponent = STEP_ICONS[stepName] || Clock;
 
                     return (
                       <li
-                        className={`status-stepper-item${reached ? ' reached' : ''}${current ? ' current' : ''}`}
+                        className={`status-stepper-item${reached ? ' reached' : ''}${
+                          current ? ' current' : ''
+                        }${stamp ? ' stamped' : ''}`}
                         key={stepName}
                       >
                         <div className="status-step-icon-wrap">

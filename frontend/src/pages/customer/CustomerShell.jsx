@@ -155,6 +155,8 @@ export default function CustomerShell() {
               item_id: suggestion.item_id,
               name: suggestion.name,
               price: suggestion.price,
+              image_filename: suggestion.image_filename,
+              model_filename: suggestion.model_filename,
             });
             accept(suggestion);
             toast.success(`${suggestion.name} · ${t('menu.addToCart')}`);
@@ -202,6 +204,7 @@ export default function CustomerShell() {
               name: item[nameKey] || item.name_en,
               price: item.price,
               image_filename: item.image_filename,
+              model_filename: item.model_filename,
             });
             toast.success(`${item[nameKey] || item.name_en} · ${t('menu.addToCart')}`);
           }}

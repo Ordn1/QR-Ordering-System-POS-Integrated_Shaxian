@@ -115,7 +115,9 @@
     "useBrowserOrigin": "Gamitin ang Browser Host",
     "scanInstruction": "I-scan gamit ang camera ng iyong telepono upang makita ang menu at umorder.",
     "tableResetSuccess": "Na-reset na ang session ng Mesa {{number}}",
-    "tableQrRegenerated": "Napalitan na ang QR code ng Mesa {{number}}"
+    "tableQrRegenerated": "Napalitan na ang QR code ng Mesa {{number}}",
+    "fieldModel": "Recipe ng 3D model",
+    "hot": "Inihahain nang mainit (may usok)"
   },
   "auth": {
     "brand": "Shaxian Snacks",
@@ -141,7 +143,13 @@
     "itemCount_other": "{{count}} na item",
     "viewBasket": "Tingnan ang Basket",
     "checkout": "Pumunta sa checkout",
-    "splitBill": "Hatiin ang bayad"
+    "splitBill": "Hatiin ang bayad",
+    "activeSplitOrder": "May kasalukuyang order ang mesa",
+    "groupModeHint": "Maraming telepono ang umo-order sa mesang ito",
+    "unpaidBalance": "Hindi pa bayad ng mesa:",
+    "checkoutMyShare": "Bayaran ang akin · {{amount}}",
+    "checkoutTable": "Bayaran para sa mesa · {{amount}}",
+    "payWholeTable": "Bayaran ang buong mesa"
   },
   "checkout": {
     "title": "Bayaran",
@@ -212,7 +220,9 @@
     "caloriesLabel": "Calorie",
     "allergensLabel": "Allergen",
     "dietaryLabel": "Panuntunan sa pagkain",
-    "noneListed": "Walang nakalista"
+    "noneListed": "Walang nakalista",
+    "viewPhoto": "Ipakita ang larawan",
+    "view3d": "Ipakita sa 3D"
   },
   "nav": {
     "menu": "Menu",
@@ -349,5 +359,19 @@
     "placeholder": "Maghanap ng pagkain…",
     "close": "Isara ang paghahanap",
     "noResults": "Walang nakitang katugma."
+  },
+  "progress": {
+    "unpaid": "Hinihintay ang bayad",
+    "ahead": "{{count}} order ang nauuna",
+    "ahead_other": "{{count}} order ang nauuna",
+    "soundOn": "Buksan ang tunog ng order",
+    "soundOff": "Patayin ang tunog ng order",
+    "detail": {
+      "unpaid": "Sisimulan ng kusina kapag bayad na ang order",
+      "pending": "Kayo na ang susunod sa pila",
+      "preparing": "Niluluto na ang inyong pagkain",
+      "ready": "Kunin ang order sa counter",
+      "completed": "Masarap na kainan"
+    }
   }
 }

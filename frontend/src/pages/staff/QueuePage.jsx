@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +8,7 @@ import QueueHero from '../../components/staff/QueueHero';
 import QueueList from '../../components/staff/QueueList';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { queueLabel } from '../../lib/format';
+import { DURATION } from '../../lib/motion';
 import { toast } from '../../store/toastStore';
 
 const STAGES = ['preparing', 'pending', 'ready'];
@@ -133,12 +135,22 @@ export default function QueuePage() {
       </div>
 
       <div className="queue-layout">
-        <QueueHero
-          entry={focus}
-          busy={busy}
-          onAdvance={advance}
-          onConfirmPayment={setSettling}
-        />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={focus?.txn_id ?? 'idle'}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: DURATION.enter }}
+          >
+            <QueueHero
+              entry={focus}
+              busy={busy}
+              onAdvance={advance}
+              onConfirmPayment={setSettling}
+            />
+          </motion.div>
+        </AnimatePresence>
 
         <section className="queue-panel">
           <div className="queue-tabs" role="tablist">
@@ -158,6 +170,7 @@ export default function QueuePage() {
           </div>
 
           <QueueList
+            key={activeStage}
             entries={byStage[activeStage] ?? []}
             activeId={focus?.txn_id ?? null}
             onSelect={(entry) => setSelectedId(entry.txn_id)}

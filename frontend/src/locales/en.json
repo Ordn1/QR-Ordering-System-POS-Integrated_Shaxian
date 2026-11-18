@@ -115,7 +115,9 @@
     "useBrowserOrigin": "Use Current Browser Host",
     "scanInstruction": "Scan with your phone camera to browse the menu and order from your seat.",
     "tableResetSuccess": "Table {{number}} session reset to vacant",
-    "tableQrRegenerated": "Table {{number}} QR token rotated"
+    "tableQrRegenerated": "Table {{number}} QR token rotated",
+    "fieldModel": "3D model recipe",
+    "hot": "Served hot (shows steam)"
   },
   "auth": {
     "brand": "Shaxian Snacks",
@@ -141,7 +143,13 @@
     "itemCount_other": "{{count}} items",
     "viewBasket": "View Basket",
     "checkout": "Go to checkout",
-    "splitBill": "Split the bill"
+    "splitBill": "Split the bill",
+    "activeSplitOrder": "Active table order in progress",
+    "groupModeHint": "Multiple phones are ordering at this table",
+    "unpaidBalance": "Table unpaid balance:",
+    "checkoutMyShare": "Pay my share · {{amount}}",
+    "checkoutTable": "Pay for the table · {{amount}}",
+    "payWholeTable": "Pay for the entire table"
   },
   "checkout": {
     "title": "Checkout",
@@ -212,7 +220,9 @@
     "caloriesLabel": "Calories",
     "allergensLabel": "Allergens",
     "dietaryLabel": "Dietary",
-    "noneListed": "None listed"
+    "noneListed": "None listed",
+    "viewPhoto": "Show the photo",
+    "view3d": "Show in 3D"
   },
   "nav": {
     "menu": "Menu",
@@ -349,5 +359,19 @@
     "placeholder": "Search for a dish…",
     "close": "Close search",
     "noResults": "No items match your search."
+  },
+  "progress": {
+    "unpaid": "Waiting for payment",
+    "ahead": "{{count}} order ahead",
+    "ahead_other": "{{count}} orders ahead",
+    "soundOn": "Turn order sounds on",
+    "soundOff": "Turn order sounds off",
+    "detail": {
+      "unpaid": "The kitchen starts once your order is paid",
+      "pending": "Your order is next in line",
+      "preparing": "Your food is being cooked",
+      "ready": "Pick up your order at the counter",
+      "completed": "Enjoy your meal"
+    }
   }
 }
