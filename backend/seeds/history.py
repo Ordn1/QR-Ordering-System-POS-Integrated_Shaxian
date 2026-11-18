@@ -157,28 +157,30 @@ async def seed_history(
             session.add_all(devices)
             await session.flush()
 
-            discount_applies = declared in (PriorityStatus.SENIOR, PriorityStatus.PWD)
+            # The declaring phone is the host. Its discount stands only if the cashier
+            # saw a valid ID, exactly as services/verification.py settles it live; a
+            # senior or PWD who showed none is a rejected check at full VAT.
+            declarer = devices[0]
+            claims_discount = declared in (PriorityStatus.SENIOR, PriorityStatus.PWD)
+            discount_applies = False
             if declared is not PriorityStatus.STANDARD:
-                # Entitlement follows the declaration, exactly as services/session.py
-                # does it live — the discount is applied inside the ordering session.
-                # Presenting an ID at the counter is a separate audit fact, recorded
-                # here for the BIR trail, and only seniors and PWDs carry a card.
                 presented = declared is not PriorityStatus.PREGNANT and rng.random() < 0.7
+                discount_applies = claims_discount and presented
+                checked = claims_discount
                 session.add(
                     PriorityVerificationLog(
                         session_id=ordering_session.session_id,
+                        device_id=declarer.device_id,
                         declared_status=declared,
                         id_presented=presented,
                         id_last4=f"{rng.randint(0, 9999):04d}" if presented else None,
                         cardholder_name=rng.choice(CARDHOLDERS) if presented else None,
                         issuing_lgu=rng.choice(ISSUING_LGUS) if presented else None,
-                        verified_by=crew.staff_id if presented else None,
-                        verified_at=opened + timedelta(minutes=2) if presented else None,
+                        verified_by=crew.staff_id if checked else None,
+                        verified_at=opened + timedelta(minutes=2) if checked else None,
                         discount_eligible=discount_applies,
                     )
                 )
-            else:
-                discount_applies = False
 
             pool = pool_for(session_type)
             chosen = rng.sample(pool, rng.randint(2, 4))
@@ -187,7 +189,9 @@ async def seed_history(
                     item_id=items[name].item_id,
                     quantity=rng.randint(1, 2),
                     unit_price=items[name].price,
-                    discount_eligible=discount_applies and position == 0,
+                    discount_eligible=(
+                        discount_applies and devices[position % device_count] is declarer
+                    ),
                     device_id=devices[position % device_count].device_id,
                 )
                 for position, name in enumerate(chosen)

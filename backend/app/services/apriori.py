@@ -5,10 +5,13 @@ context, and mines association rules per segment with mlxtend. Each segment gets
 its own rule set, which is what lets the same item pair carry a different lift
 depending on who ordered it.
 
-Thresholds were chosen against the real seeded history rather than guessed: at
-min_support 0.15 every segment yields rules (8 standard / 14 priority / 11 group)
-with lift spreads of roughly 1.1–1.5. Lowering the floor further inflates the rule
+Thresholds were checked against the generated seed history rather than guessed: at
+min_support 0.15 every segment yields rules (18 standard, capped to 12 / 12 priority /
+11 group) with lifts of roughly 1.1–3.7. Lowering the floor further inflates the rule
 count on baskets too thin to support it.
+
+Ordering is fully determined — baskets by transaction, ties broken by confidence and
+then support — so the same history always mines the same stored rules.
 """
 
 from dataclasses import dataclass
@@ -52,7 +55,9 @@ def _mine(baskets: list[list[str]]) -> pd.DataFrame:
     # multi-item consequent would have nothing to render.
     rules = rules[rules["consequents"].apply(len) == 1]
     rules = rules[rules["lift"] >= MIN_LIFT]
-    rules = rules.sort_values("lift", ascending=False).head(MAX_RULES_PER_SEGMENT)
+    rules = rules.sort_values(
+        ["lift", "confidence", "support"], ascending=False, kind="mergesort"
+    ).head(MAX_RULES_PER_SEGMENT)
     return itemsets, rules
 
 
@@ -64,6 +69,7 @@ async def generate(db: AsyncSession) -> list[SegmentReport]:
         .join(TransactionItem, TransactionItem.txn_id == Transaction.txn_id)
         .join(MenuItem, MenuItem.item_id == TransactionItem.item_id)
         .where(Transaction.status != TxnStatus.VOIDED)
+        .order_by(Transaction.txn_id, MenuItem.item_id)
     )
 
     grouped: dict[SessionType, dict[int, set[str]]] = {

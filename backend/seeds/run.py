@@ -4,10 +4,9 @@ from sqlalchemy import func, select
 
 from app.database import SessionFactory, engine
 from app.models import Table
-from seeds.analytics import seed_analytics
+from app.services import apriori as apriori_service
 from seeds.history import seed_history
 from seeds.menu import seed_menu
-from seeds.rules import seed_rules
 from seeds.staff import DEV_ACCOUNTS, seed_staff
 from seeds.tables import seed_tables
 
@@ -24,25 +23,39 @@ async def main() -> None:
         tables = await seed_tables(session)
         staff = await seed_staff(session)
         items = await seed_menu(session)
-        rules = await seed_rules(session, items)
-        transactions, ordering_sessions = await seed_history(session, tables, staff, items)
-        events = await seed_analytics(session, ordering_sessions, transactions)
+        transactions, _ = await seed_history(session, tables, staff, items)
 
         # Commit
         await session.commit()
 
-        report(tables, items, rules, transactions, events)
+        # Mine
+        segments = await apriori_service.generate(session)
+
+        report(tables, items, transactions, segments)
 
     await engine.dispose()
 
 
-def report(tables, items, rules, transactions, events) -> None:
+def report(tables, items, transactions, segments) -> None:
     print(f"tables            {len(tables)}")
     print(f"staff accounts    {len(DEV_ACCOUNTS)}")
     print(f"menu items        {len(items)}")
-    print(f"apriori rules     {len(rules)}")
-    print(f"transactions      {len(transactions)}")
-    print(f"analytics events  {events}")
+    print(f"transactions      {len(transactions)}  (generated history, not real diners)")
+
+    print(
+        f"\napriori rules mined from that history "
+        f"(min_support={apriori_service.MIN_SUPPORT}, min_lift={apriori_service.MIN_LIFT}):"
+    )
+    print(f"  {'segment':10} {'baskets':>8} {'itemsets':>9} {'rules':>6}")
+    for segment in segments:
+        print(f"  {segment.segment:10} {segment.baskets:>8} {segment.itemsets:>9} {segment.rules:>6}")
+    if any(segment.baskets and not segment.rules for segment in segments):
+        print(
+            "  A segment mined no rules. Add history (BUSINESS_DAYS / PER_DAY in "
+            "seeds/history.py) rather than lowering the support floor."
+        )
+
+    print("\nNo analytics events are seeded: the recommendation funnel fills from real sessions.")
 
     print("\nDev credentials — never real, never deployed:")
     for username, password, _, role in DEV_ACCOUNTS:

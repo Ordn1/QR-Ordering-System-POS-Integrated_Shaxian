@@ -71,7 +71,12 @@ async def matching_rules(
     statement = (
         select(AprioriRule)
         .where(AprioriRule.session_type == segment, AprioriRule.lift > USEFUL_LIFT)
-        .order_by(AprioriRule.lift.desc())
+        .order_by(
+            AprioriRule.lift.desc(),
+            AprioriRule.confidence.desc(),
+            AprioriRule.support.desc(),
+            AprioriRule.rule_id,
+        )
     )
 
     if cart:
