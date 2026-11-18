@@ -7,10 +7,18 @@ from app.config import settings
 from app.core.deps import AnyStaff, DbSession
 from app.models import KitchenQueue, Payment, Table, Transaction
 from app.models.enums import PaymentMethod, PaymentStatus
-from app.schemas.queue import OrderStatusRead, QueueEntryRead, StatusWrite
+from app.core.exceptions import NotFoundError
+from app.schemas.queue import (
+    OrderStatusRead,
+    PendingVerificationRead,
+    QueueEntryRead,
+    StatusWrite,
+    VerificationWrite,
+)
 from app.services import order as order_service
 from app.services import pos as pos_service
 from app.services import queue as queue_service
+from app.services import verification as verification_service
 from app.websocket import events
 
 logger = logging.getLogger(__name__)
@@ -33,7 +41,10 @@ def _summary_method_and_status(
 
 @router.get("", response_model=list[QueueEntryRead])
 async def read_queue(db: DbSession, staff: AnyStaff) -> list[QueueEntryRead]:
-    rows = await queue_service.list_queue(db)
+    return await build_entries(db, await queue_service.list_queue(db))
+
+
+async def build_entries(db: DbSession, rows: list) -> list[QueueEntryRead]:
     if not rows:
         return []
 
@@ -46,6 +57,8 @@ async def read_queue(db: DbSession, staff: AnyStaff) -> list[QueueEntryRead]:
     payments_by_txn: dict[int, list[Payment]] = {}
     for p in all_payments:
         payments_by_txn.setdefault(p.txn_id, []).append(p)
+
+    pending = await verification_service.pending_checks(db, [txn for _, txn, _ in rows])
 
     result: list[QueueEntryRead] = []
     for slot, txn, session in rows:
@@ -70,6 +83,10 @@ async def read_queue(db: DbSession, staff: AnyStaff) -> list[QueueEntryRead]:
                 payment_status=status,
                 entered_queue_at=slot.entered_queue_at,
                 prep_started_at=slot.prep_started_at,
+                pending_verifications=[
+                    PendingVerificationRead.model_validate(log)
+                    for log in pending.get(txn.txn_id, [])
+                ],
             )
         )
     return result
@@ -84,9 +101,35 @@ async def update_status(
     return await order_status(db, transaction)
 
 
+@router.post("/{txn_id}/verification", response_model=QueueEntryRead)
+async def record_verification(
+    txn_id: int, payload: VerificationWrite, db: DbSession, staff: AnyStaff
+) -> QueueEntryRead:
+    """Record the cashier's ID check; a rejection re-prices the claiming phone's lines."""
+    transaction = await verification_service.record_check(
+        db,
+        txn_id,
+        payload.log_id,
+        staff.staff_id,
+        payload.outcome == "verified",
+        payload.id_last4,
+        payload.cardholder_name,
+        payload.issuing_lgu,
+    )
+    await events.publish_status(transaction)
+    await events.publish_cart_changed(transaction.session_id)
+    await events.publish_session_changed(transaction.session_id)
+
+    rows = [row for row in await queue_service.list_queue(db) if row[1].txn_id == txn_id]
+    entries = await build_entries(db, rows)
+    if not entries:
+        raise NotFoundError("That order has left the queue. Refresh the queue.")
+    return entries[0]
+
+
 @router.post("/{txn_id}/payment", response_model=OrderStatusRead)
 async def confirm_payment(txn_id: int, db: DbSession, staff: AnyStaff) -> OrderStatusRead:
-    transaction = await queue_service.confirm_cash_payment(db, txn_id, staff.staff_id)
+    transaction = await verification_service.settle_cash(db, txn_id, staff.staff_id)
     await events.publish_status(transaction)
     await events.publish_cart_changed(transaction.session_id)
 

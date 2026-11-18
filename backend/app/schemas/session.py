@@ -1,10 +1,13 @@
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import Language, PaymentStatus, PriorityStatus, SessionType, UiMode
 from app.schemas.fields import SmallPositive
+
+DiscountStatus = Literal["none", "pending", "verified", "rejected"]
 
 
 class SessionOpen(BaseModel):
@@ -74,5 +77,6 @@ class SessionRead(BaseModel):
     ui_mode_used: UiMode
     language_used: Language
     discount_eligible: bool
+    discount_status: DiscountStatus = "none"
     trigger_count: int
     last_trigger_at: str | None

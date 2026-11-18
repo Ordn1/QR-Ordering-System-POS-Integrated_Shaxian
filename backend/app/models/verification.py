@@ -18,6 +18,11 @@ class PriorityVerificationLog(Base):
             "id_last4 ~ '^[0-9]{4}$'",
             name="chk_priority_verification_log_id_last4_format",
         ),
+        sa.UniqueConstraint(
+            "session_id",
+            "device_id",
+            name="uq_priority_verification_log_session_device",
+        ),
     )
 
     log_id: Mapped[int] = mapped_column(
@@ -28,6 +33,14 @@ class PriorityVerificationLog(Base):
     session_id: Mapped[int] = mapped_column(
         sa.BigInteger,
         sa.ForeignKey("sessions.session_id"),
+        nullable=False,
+    )
+    device_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            "session_devices.device_id",
+            name="fk_priority_verification_log_device",
+        ),
         nullable=False,
     )
     declared_status: Mapped[PriorityStatus] = mapped_column(PRIORITY_STATUS, nullable=False)

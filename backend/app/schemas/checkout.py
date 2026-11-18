@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import Language, PaymentMethod, PaymentStatus, TxnStatus
 from app.schemas.fields import SmallPositive
+from app.schemas.session import DiscountStatus
 
 
 class OrderLineWrite(BaseModel):
@@ -36,6 +37,8 @@ class QuoteRead(BaseModel):
     net_amount: Decimal
     item_count: int
     discount_applied: bool
+    discount_status: DiscountStatus = "none"
+    online_allowed: bool = True
 
 
 class ReceiptLine(BaseModel):
@@ -79,5 +82,6 @@ class ReceiptRead(BaseModel):
     payment_status: PaymentStatus
     checkout_url: str | None = None
     fallback_to_cashier: bool = False
+    discount_status: DiscountStatus = "none"
     lines: list[ReceiptLine]
     shares: list[PaymentShareRead] = Field(default_factory=list)

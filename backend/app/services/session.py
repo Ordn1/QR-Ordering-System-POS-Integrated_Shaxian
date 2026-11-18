@@ -136,25 +136,23 @@ async def get_session(db: AsyncSession, session_id: int) -> Session:
 
 
 async def declare_priority(
-    db: AsyncSession, session_id: int, declared: PriorityStatus
+    db: AsyncSession, session_id: int, device: SessionDevice, declared: PriorityStatus
 ) -> Session:
-    """Record a self-declared priority status. Only an explicit customer tap reaches here."""
+    """Record one phone's self-declared priority status. Only an explicit customer tap reaches here.
+
+    The declaration belongs to the phone that made it, so in a group only that phone's
+    lines carry the statutory discount. The discount stays provisional until the cashier
+    checks the ID.
+    """
     session = await get_session(db, session_id)
     if session.ended_at is not None:
         raise BusinessRuleError("That table session has ended. Scan the QR code again.")
 
-    session.declared_priority_status = declared
-    session.session_type = resolve_session_type(declared, session.group_mode)
-    session.accessibility_accepted = declared is not PriorityStatus.STANDARD
-    session.ui_mode_used = (
-        UiMode.ACCESSIBLE if declared is not PriorityStatus.STANDARD else UiMode.STANDARD
-    )
-
-    existing = await db.scalar(
-        select(PriorityVerificationLog).where(
-            PriorityVerificationLog.session_id == session_id
+    existing = await device_declaration(db, session_id, device.device_id)
+    if existing is not None and existing.verified_at is not None:
+        raise BusinessRuleError(
+            "Your ID was already checked at the counter. Ask a staff member to change it."
         )
-    )
 
     if declared is PriorityStatus.STANDARD:
         if existing is not None:
@@ -165,6 +163,7 @@ async def declare_priority(
             db.add(
                 PriorityVerificationLog(
                     session_id=session_id,
+                    device_id=device.device_id,
                     declared_status=declared,
                     id_presented=False,
                     discount_eligible=eligible,
@@ -173,6 +172,26 @@ async def declare_priority(
         else:
             existing.declared_status = declared
             existing.discount_eligible = eligible
+
+    await db.flush()
+
+    if declared is PriorityStatus.STANDARD:
+        latest = await db.scalar(
+            select(PriorityVerificationLog.declared_status)
+            .where(PriorityVerificationLog.session_id == session_id)
+            .order_by(PriorityVerificationLog.log_id.desc())
+            .limit(1)
+        )
+        session_status = latest or PriorityStatus.STANDARD
+    else:
+        session_status = declared
+
+    session.declared_priority_status = session_status
+    session.session_type = resolve_session_type(session_status, session.group_mode)
+    session.accessibility_accepted = session_status is not PriorityStatus.STANDARD
+    session.ui_mode_used = (
+        UiMode.ACCESSIBLE if session_status is not PriorityStatus.STANDARD else UiMode.STANDARD
+    )
 
     await db.commit()
     await db.refresh(session)
@@ -195,16 +214,73 @@ async def set_preferences(
     return session
 
 
-async def discount_eligible(db: AsyncSession, session_id: int) -> bool:
-    """A discount needs a verification row flagged eligible, per Algorithms.md §4.5."""
-    return bool(
-        await db.scalar(
-            select(PriorityVerificationLog.log_id).where(
+async def device_declaration(
+    db: AsyncSession, session_id: int, device_id: int
+) -> PriorityVerificationLog | None:
+    return await db.scalar(
+        select(PriorityVerificationLog).where(
+            PriorityVerificationLog.session_id == session_id,
+            PriorityVerificationLog.device_id == device_id,
+        )
+    )
+
+
+async def declarations_for(
+    db: AsyncSession, session_id: int, device_ids: set[int | None]
+) -> list[PriorityVerificationLog]:
+    """The declarations behind a set of priced lines, for showing their discount state."""
+    wanted = {device_id for device_id in device_ids if device_id is not None}
+    if not wanted:
+        return []
+    return list(
+        await db.scalars(
+            select(PriorityVerificationLog).where(
+                PriorityVerificationLog.session_id == session_id,
+                PriorityVerificationLog.device_id.in_(wanted),
+            )
+        )
+    )
+
+
+async def discount_devices(db: AsyncSession, session_id: int) -> set[int]:
+    """Phones whose lines carry the statutory discount, per Algorithms.md §4.5.
+
+    A row stays eligible while its ID check is pending and after the cashier verifies
+    it; a rejected check clears the flag.
+    """
+    return set(
+        await db.scalars(
+            select(PriorityVerificationLog.device_id).where(
                 PriorityVerificationLog.session_id == session_id,
                 PriorityVerificationLog.discount_eligible.is_(True),
             )
         )
     )
+
+
+async def pending_discount_devices(db: AsyncSession, session_id: int) -> set[int]:
+    """Phones claiming a discount whose ID the cashier has not checked yet."""
+    return set(
+        await db.scalars(
+            select(PriorityVerificationLog.device_id).where(
+                PriorityVerificationLog.session_id == session_id,
+                PriorityVerificationLog.discount_eligible.is_(True),
+                PriorityVerificationLog.verified_at.is_(None),
+            )
+        )
+    )
+
+
+def discount_status(logs: list[PriorityVerificationLog]) -> str:
+    """Collapse ID checks into one customer-facing state: pending wins, then verified."""
+    claims = [log for log in logs if log.declared_status in DISCOUNTABLE]
+    if any(log.discount_eligible and log.verified_at is None for log in claims):
+        return "pending"
+    if any(log.discount_eligible for log in claims):
+        return "verified"
+    if claims:
+        return "rejected"
+    return "none"
 
 
 async def device_count(db: AsyncSession, session_id: int) -> int:

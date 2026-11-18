@@ -228,7 +228,7 @@ async def _append_device_items_to_transaction(
     new_lines: list[tuple[str, int]],
     method: PaymentMethod,
 ) -> Payment:
-    eligible = await session_service.discount_eligible(db, session_id)
+    eligible = await session_service.discount_devices(db, session_id)
     items_map = {
         item.item_id: item
         for item in await db.scalars(
@@ -247,7 +247,7 @@ async def _append_device_items_to_transaction(
                 item_id=item.item_id,
                 quantity=qty,
                 unit_price=item.price,
-                discount_eligible=eligible,
+                discount_eligible=device.device_id in eligible,
                 device_id=device.device_id,
             )
         )
@@ -360,13 +360,13 @@ async def build_cart(
                     )
                 )
             if existing_rows:
-                eligible = await session_service.discount_eligible(db, session_id)
+                eligible = await session_service.discount_devices(db, session_id)
                 return [
                     CartLine(
                         item_id=row.item_id,
                         quantity=row.quantity,
                         unit_price=row.unit_price,
-                        discount_eligible=eligible,
+                        discount_eligible=row.device_id in eligible,
                         device_id=row.device_id,
                     )
                     for row in existing_rows
@@ -381,7 +381,7 @@ async def build_cart(
     if not resolved:
         raise BusinessRuleError("Your cart is empty. Add an item before checking out.")
 
-    eligible = await session_service.discount_eligible(db, session_id)
+    eligible = await session_service.discount_devices(db, session_id)
     items = {
         item.item_id: item
         for item in await db.scalars(
@@ -401,7 +401,7 @@ async def build_cart(
                 item_id=item.item_id,
                 quantity=quantity,
                 unit_price=item.price,
-                discount_eligible=eligible,
+                discount_eligible=line_device_id in eligible,
                 device_id=line_device_id,
             )
         )
@@ -439,6 +439,14 @@ async def place_order(
     effective_scope = checkout_scope
     if ordering_session.group_mode and effective_scope == "single":
         effective_scope = "split"
+
+    if method is PaymentMethod.ONLINE:
+        pending = await session_service.pending_discount_devices(db, session_id)
+        covered = pending if effective_scope == "table" else pending & {device.device_id}
+        if covered:
+            raise BusinessRuleError(
+                "Discounted orders are paid at the cashier, where the ID is checked."
+            )
 
     existing_txn = await find_open_table_transaction(db, session_id)
 
@@ -532,7 +540,7 @@ async def place_order(
     if not resolved:
         raise BusinessRuleError("Your cart is empty. Add an item before checking out.")
 
-    eligible = await session_service.discount_eligible(db, session_id)
+    eligible = await session_service.discount_devices(db, session_id)
     items = {
         item.item_id: item
         for item in await db.scalars(
@@ -552,7 +560,7 @@ async def place_order(
                 item_id=item.item_id,
                 quantity=quantity,
                 unit_price=item.price,
-                discount_eligible=eligible,
+                discount_eligible=line_device_id in eligible,
                 device_id=line_device_id,
             )
         )
@@ -646,6 +654,76 @@ async def place_order(
     if active_payment is not None:
         await db.refresh(active_payment)
     return transaction, active_payment
+
+
+REPRICED_COLUMNS = (
+    "gross_amount",
+    "vatable_sales",
+    "vat_exempt_sales",
+    "vat_amount",
+    "discount_amount",
+    "net_amount",
+    "item_count",
+)
+
+
+async def reprice_device_lines(
+    db: AsyncSession, transaction: Transaction, device_id: int
+) -> None:
+    """Re-price one phone's lines after the cashier's ID check changes its entitlement.
+
+    Settled money is never touched: if that phone's share is already paid, or nothing on
+    the order is unpaid, the stored pricing stands. The difference lands on the phone's
+    own unpaid share, or on the single unpaid share that covers the whole table.
+    """
+    payments = list(
+        await db.scalars(select(Payment).where(Payment.txn_id == transaction.txn_id))
+    )
+    own = [p for p in payments if p.device_id == device_id]
+    unpaid = [p for p in payments if p.status is not PaymentStatus.PAID]
+    if not unpaid or any(p.status is PaymentStatus.PAID for p in own):
+        return
+
+    target = next((p for p in own if p.status is not PaymentStatus.PAID), None)
+    if target is None:
+        if len(unpaid) != 1:
+            raise BusinessRuleError(
+                "This order's payment shares cannot be matched to that phone. "
+                "Void the order and enter it again."
+            )
+        target = unpaid[0]
+
+    eligible = device_id in await session_service.discount_devices(db, transaction.session_id)
+    rows = list(
+        await db.scalars(
+            select(TransactionItem)
+            .where(TransactionItem.txn_id == transaction.txn_id)
+            .order_by(TransactionItem.txi_id)
+        )
+    )
+    priced = price_order(
+        [
+            CartLine(
+                item_id=row.item_id,
+                quantity=row.quantity,
+                unit_price=row.unit_price,
+                discount_eligible=eligible if row.device_id == device_id else row.is_discounted,
+                device_id=row.device_id,
+            )
+            for row in rows
+        ]
+    )
+
+    for row, line in zip(rows, priced.lines, strict=True):
+        if row.device_id == device_id:
+            row.is_discounted = line.is_discounted
+            row.discount_amount = line.discount_amount
+
+    target.amount += priced.net_amount - transaction.net_amount
+    target.discount_applied += priced.discount_amount - transaction.discount_amount
+
+    for column in REPRICED_COLUMNS:
+        setattr(transaction, column, getattr(priced, column))
 
 
 def aggregate_payment_status(payments: list[Payment]) -> PaymentStatus:

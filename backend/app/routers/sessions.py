@@ -3,7 +3,7 @@ from fastapi import APIRouter, Query
 from app.core.customer import CurrentDevice
 from app.core.deps import DbSession
 from app.models import Session, SessionDevice, Table
-from app.models.enums import Language
+from app.models.enums import Language, PriorityStatus, UiMode
 from app.schemas.session import (
     DeclarationWrite,
     PreferencesWrite,
@@ -23,6 +23,14 @@ async def to_read(
     db: DbSession, session: Session, device: SessionDevice, table: Table
 ) -> SessionRead:
     triggers = await analytics_service.trigger_history(db, session.session_id)
+    mine = await session_service.device_declaration(db, session.session_id, device.device_id)
+    my_status = mine.declared_status if mine is not None else PriorityStatus.STANDARD
+    if my_status is not PriorityStatus.STANDARD:
+        ui_mode = UiMode.ACCESSIBLE
+    elif session.group_mode:
+        ui_mode = UiMode.STANDARD
+    else:
+        ui_mode = session.ui_mode_used
     return SessionRead(
         session_id=session.session_id,
         table_id=session.table_id,
@@ -30,12 +38,13 @@ async def to_read(
         device_token=device.device_token,
         is_host=device.is_host,
         device_count=await session_service.device_count(db, session.session_id),
-        declared_priority_status=session.declared_priority_status,
+        declared_priority_status=my_status,
         session_type=session.session_type,
         group_mode=session.group_mode,
-        ui_mode_used=session.ui_mode_used,
+        ui_mode_used=ui_mode,
         language_used=session.language_used,
-        discount_eligible=await session_service.discount_eligible(db, session.session_id),
+        discount_eligible=bool(mine is not None and mine.discount_eligible),
+        discount_status=session_service.discount_status([mine] if mine is not None else []),
         trigger_count=triggers[0],
         last_trigger_at=triggers[1],
     )
@@ -64,7 +73,7 @@ async def declare(
     session_id: int, payload: DeclarationWrite, db: DbSession, device: CurrentDevice
 ) -> SessionRead:
     session = await session_service.declare_priority(
-        db, session_id, payload.declared_priority_status
+        db, session_id, device, payload.declared_priority_status
     )
     table = await db.get(Table, session.table_id)
     read_model = await to_read(db, session, device, table)

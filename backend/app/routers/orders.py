@@ -18,6 +18,7 @@ from app.schemas.order import TransactionRead
 from app.schemas.queue import OrderStatusRead, PaymentShareStatusRead
 from app.services import order as order_service
 from app.services import payment as payment_service
+from app.services import session as session_service
 from app.websocket import events
 
 router = APIRouter(prefix="/api/v1/transactions", tags=["transactions"])
@@ -59,6 +60,10 @@ async def build_receipt(
     )
     overall_status = order_service.aggregate_payment_status(payments)
 
+    declarations = await session_service.declarations_for(
+        db, transaction.session_id, {line.device_id for line, _ in rows}
+    )
+
     shares = [
         PaymentShareRead(
             payment_id=p.payment_id,
@@ -96,6 +101,7 @@ async def build_receipt(
         payment_status=overall_status,
         checkout_url=checkout_url,
         fallback_to_cashier=fallback_to_cashier,
+        discount_status=session_service.discount_status(declarations),
         lines=[
             ReceiptLine(
                 item_id=line.item_id,
@@ -152,6 +158,10 @@ async def quote_order(
         [(line.item_id, line.quantity) for line in payload.items],
         payload.checkout_scope,
     )
+    line_devices = {line.device_id for line in priced.lines}
+    declarations = await session_service.declarations_for(db, session_id, line_devices)
+    pending = await session_service.pending_discount_devices(db, session_id)
+    paying_for = line_devices if payload.checkout_scope == "table" else {device.device_id}
     return QuoteRead(
         gross_amount=priced.gross_amount,
         vatable_sales=priced.vatable_sales,
@@ -161,6 +171,8 @@ async def quote_order(
         net_amount=priced.net_amount,
         item_count=priced.item_count,
         discount_applied=priced.discount_amount > 0,
+        discount_status=session_service.discount_status(declarations),
+        online_allowed=not (pending & paying_for),
     )
 
 

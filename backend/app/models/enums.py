@@ -67,7 +67,7 @@ class EventType(str, Enum):
     DWELL_TIMEOUT = "dwell_timeout"
     BACK_NAVIGATION = "back_navigation"
     CART_ABANDON = "cart_abandon"
-    SCROLL_REVERSAL = "scroll_reversal"
+    CATEGORY_REVISIT = "category_revisit"
     RECOMMENDATION_SHOWN = "recommendation_shown"
     RECOMMENDATION_ACCEPTED = "recommendation_accepted"
     RECOMMENDATION_DISMISSED = "recommendation_dismissed"

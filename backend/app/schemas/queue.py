@@ -1,7 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.enums import (
     PaymentMethod,
@@ -10,6 +11,33 @@ from app.models.enums import (
     SessionType,
     TxnStatus,
 )
+from app.schemas.fields import ALPHA, ALPHANUMERIC, sized
+
+
+class PendingVerificationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    log_id: int
+    device_id: int
+    declared_status: PriorityStatus
+
+
+class VerificationWrite(BaseModel):
+    log_id: int = Field(ge=1)
+    outcome: Literal["verified", "rejected"]
+    id_last4: str | None = Field(default=None, pattern=r"^[0-9]{4}$")
+    cardholder_name: sized(80, ALPHA) | None = None
+    issuing_lgu: sized(50, ALPHANUMERIC) | None = None
+
+    @model_validator(mode="after")
+    def details_for_verified(self) -> "VerificationWrite":
+        if self.outcome == "verified" and not (
+            self.id_last4 and self.cardholder_name and self.issuing_lgu
+        ):
+            raise ValueError(
+                "Enter the last 4 ID digits, the cardholder's name and the issuing LGU."
+            )
+        return self
 
 
 class QueueEntryRead(BaseModel):
@@ -33,6 +61,7 @@ class QueueEntryRead(BaseModel):
     payment_status: PaymentStatus
     entered_queue_at: datetime
     prep_started_at: datetime | None
+    pending_verifications: list[PendingVerificationRead] = Field(default_factory=list)
 
 
 class StatusWrite(BaseModel):
