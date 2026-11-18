@@ -16,7 +16,7 @@ const SIGNAL_EVENT = {
   dwell: 'dwell_timeout',
   back: 'back_navigation',
   abandon: 'cart_abandon',
-  scroll: 'scroll_reversal',
+  revisit: 'category_revisit',
 };
 
 export function useConfusionSignals({
@@ -103,13 +103,8 @@ export function useConfusionSignals({
     [language, log, sessionId],
   );
 
-  // fireOnce: guards against the same signal type being added to the active
-  // window more than once while it is already live. Repeatable signals like
-  // 'scroll' bypass this and call evaluate() directly so two distinct
-  // category-revisit events can accumulate to REQUIRED_SIGNALS.
   const fireOnce = useCallback(
     (name, detail) => {
-      // Already active in the current window — skip duplicate
       if (active.current.has(name)) {
         return;
       }
@@ -118,10 +113,6 @@ export function useConfusionSignals({
     [evaluate],
   );
 
-  // evaluateRepeatable: used for signals that should contribute every time
-  // they fire (e.g. scroll reversal / category revisit). Unlike fireOnce it
-  // does NOT skip if the same type is already in the active window — each
-  // new occurrence extends the window timestamp and may push size to REQUIRED.
   const evaluateRepeatable = useCallback(
     (name, detail) => {
       evaluate(name, detail);
@@ -175,8 +166,7 @@ export function useConfusionSignals({
       fireOnce('abandon', {});
     }
     if (returning) {
-      // scroll reversal is repeatable — each revisit is a fresh confusion signal
-      evaluateRepeatable('scroll', {});
+      evaluateRepeatable('revisit', {});
     }
   }, [activeCategory, fireOnce, evaluateRepeatable]);
 

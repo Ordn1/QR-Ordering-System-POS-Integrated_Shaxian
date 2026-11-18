@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChefHat, Clock, CheckCircle2, CreditCard } from 'lucide-react';
+import { ChefHat, Clock, CheckCircle2, CreditCard, IdCard } from 'lucide-react';
 
 import { peso, queueLabel } from '../../lib/format';
 import Badge from '../shared/Badge';
@@ -76,6 +76,12 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
       {/* Meta row */}
       <div className="queue-hero-meta">
         <Badge value={entry.declared_priority_status} />
+        {entry.pending_verifications?.length ? (
+          <span className="queue-hero-chip queue-hero-chip--id">
+            <IdCard size={12} />
+            {t('staff.idCheck')}
+          </span>
+        ) : null}
         <span className="queue-hero-chip">🪑 {t('staff.tableNumber', { number: entry.table_number })}</span>
         <span className="queue-hero-chip">🍽 {t('staff.itemCount', { count: entry.item_count })}</span>
         {entry.payment_method && (

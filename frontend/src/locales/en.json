@@ -164,7 +164,9 @@
     "payAtCashier": "Pay at cashier",
     "payOnline": "Pay online",
     "placeOrder": "Place order",
-    "placed": "Order placed"
+    "placed": "Order placed",
+    "discountPending": "Your discount is applied for now. Show your senior citizen or PWD ID at the counter to keep it.",
+    "onlineNeedsId": "Not available while your discount waits for an ID check."
   },
   "common": {
     "back": "Back",
@@ -288,7 +290,10 @@
     "payAtCounter": "Pay at the counter when your number is called.",
     "paidOnline": "Payment received. We will call your number when it is ready.",
     "items": "Items",
-    "backToMenu": "Back to the menu"
+    "backToMenu": "Back to the menu",
+    "discountPending": "Discount pending. Show your ID at the counter.",
+    "discountVerified": "Discount confirmed by the cashier.",
+    "discountRejected": "No valid ID was presented, so the discount was removed."
   },
   "recommend": {
     "title": "Still deciding?",
@@ -339,7 +344,18 @@
     "statReady": "Ready",
     "statAverage": "Average wait",
     "cashTitle": "Confirm cash payment",
-    "cashConfirm": "Mark as paid"
+    "cashConfirm": "Mark as paid",
+    "idCheck": "ID check",
+    "idCheckTitle": "Check the ID",
+    "idLast4": "Last 4 digits of ID",
+    "idCardholder": "Cardholder name",
+    "idLgu": "Issuing LGU",
+    "idVerified": "ID verified",
+    "idRejected": "No valid ID",
+    "idNeeded": "Check every ID before marking this order paid.",
+    "idSaved": "ID check recorded for {{queue}}",
+    "idRemoved": "Discount removed from {{queue}}",
+    "idMissing": "Enter all three ID details to verify."
   },
   "status": {
     "title": "Order status",

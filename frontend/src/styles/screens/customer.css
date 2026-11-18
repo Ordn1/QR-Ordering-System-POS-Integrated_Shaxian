@@ -2069,3 +2069,29 @@
   gap: var(--space-2);
 }
 
+
+.payment-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.payment-card:disabled:hover {
+  background: var(--bg);
+}
+
+.payment-card-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.receipt-discount-note {
+  margin-top: var(--space-3);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.receipt-discount-note--pending {
+  color: var(--amber-strong);
+}

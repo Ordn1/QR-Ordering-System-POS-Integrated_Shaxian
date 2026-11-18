@@ -499,3 +499,55 @@
   font-weight: var(--weight-display);
   text-align: center;
 }
+
+.queue-row-id-check,
+.queue-hero-chip--id {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-xs);
+  font-weight: var(--weight-emphasis);
+  color: var(--amber-strong);
+  background: var(--amber-tint);
+  border: 1px solid var(--amber);
+  border-radius: 0;
+}
+
+.queue-row-id-check {
+  padding: 1px 6px;
+}
+
+.cash-id-check {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-5) 0 0;
+  padding: var(--space-4);
+  border: 1px solid var(--amber);
+  border-radius: 0;
+  background: var(--amber-tint);
+}
+
+.cash-id-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+}
+
+.cash-id-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.cash-id-needed {
+  margin-top: var(--space-3);
+  font-size: var(--font-sm);
+  color: var(--amber-strong);
+  text-align: center;
+}
+
+[data-ui-mode='accessible'] .cash-id-actions {
+  flex-direction: column-reverse;
+}

@@ -107,6 +107,27 @@ export default function QueuePage() {
     }
   }
 
+  async function recordCheck(entry, claim, check) {
+    setBusy(true);
+    try {
+      const updated = await queueApi.recordVerification(entry.txn_id, {
+        log_id: claim.log_id,
+        ...check,
+      });
+      setSettling(updated);
+      await load();
+      toast.success(
+        t(check.outcome === 'verified' ? 'staff.idSaved' : 'staff.idRemoved', {
+          queue: queueLabel(entry.queue_number),
+        }),
+      );
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="content-area">
       <header className="page-header">
@@ -183,6 +204,7 @@ export default function QueuePage() {
           entry={settling}
           busy={busy}
           onConfirm={confirmPayment}
+          onVerify={recordCheck}
           onClose={() => setSettling(null)}
         />
       ) : null}

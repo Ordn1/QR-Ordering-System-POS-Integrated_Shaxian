@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Clock } from 'lucide-react';
+import { Clock, IdCard } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { peso, queueLabel } from '../../lib/format';
@@ -57,6 +57,12 @@ export default function QueueList({ entries, activeId, onSelect }) {
 
                 <span className="queue-row-tags">
                   {entry.is_priority && <Badge value={entry.declared_priority_status} />}
+                  {entry.pending_verifications?.length ? (
+                    <span className="queue-row-id-check">
+                      <IdCard size={11} />
+                      {t('staff.idCheck')}
+                    </span>
+                  ) : null}
                   {mins !== null && (
                     <span className={`queue-row-elapsed${mins >= 10 ? ' queue-row-elapsed--late' : ''}`}>
                       <Clock size={11} />

@@ -8,3 +8,6 @@ export const advanceStatus = (txnId, status) =>
 export const confirmPayment = (txnId) => api.post(`/queue/${txnId}/payment`);
 
 export const latestOrders = (sessionId) => api.get(`/orders/${sessionId}/latest`);
+
+export const recordVerification = (txnId, check) =>
+  api.post(`/queue/${txnId}/verification`, check);

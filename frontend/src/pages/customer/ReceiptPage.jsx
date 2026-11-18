@@ -20,6 +20,12 @@ import { toast } from '../../store/toastStore';
 
 const JUST_PLACED_MS = 5000;
 
+const DISCOUNT_NOTE = {
+  pending: 'receipt.discountPending',
+  verified: 'receipt.discountVerified',
+  rejected: 'receipt.discountRejected',
+};
+
 export default function ReceiptPage() {
   const { t, i18n } = useTranslation();
   const { qrToken } = useParams();
@@ -244,6 +250,11 @@ export default function ReceiptPage() {
             <dd className="receipt-net numeric">{peso(receipt.net_amount)}</dd>
           </div>
         </dl>
+        {DISCOUNT_NOTE[receipt.discount_status] ? (
+          <p className={`receipt-discount-note receipt-discount-note--${receipt.discount_status}`}>
+            {t(DISCOUNT_NOTE[receipt.discount_status])}
+          </p>
+        ) : null}
       </section>
 
       <div className="receipt-actions">

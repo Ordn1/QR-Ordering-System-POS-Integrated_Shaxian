@@ -52,6 +52,8 @@ export default function CheckoutPage() {
 
   const deducting =
     Boolean(quote?.discount_applied) && settledQuote !== quote && !prefersReducedMotion();
+  const onlineBlocked = quote ? !quote.online_allowed : false;
+  const chosenMethod = onlineBlocked ? 'cashier' : method;
 
   useEffect(() => {
     if (!quote?.discount_applied) {
@@ -182,7 +184,7 @@ export default function CheckoutPage() {
 
       const receipt = await placeOrder(session.session_id, {
         items: itemsToSend,
-        payment_method: method,
+        payment_method: chosenMethod,
         language: i18n.language,
         origin_url: window.location.origin,
         checkout_scope: activeScope,
@@ -321,7 +323,9 @@ export default function CheckoutPage() {
         <AnimatePresence initial={false}>
           {quote?.discount_applied && !deducting ? (
             <motion.p className="checkout-discount-note checkout-reveal" {...ROW_REVEAL}>
-              {t('priority.discountNote')}
+              {quote.discount_status === 'pending'
+                ? t('checkout.discountPending')
+                : t('priority.discountNote')}
             </motion.p>
           ) : null}
         </AnimatePresence>
@@ -332,7 +336,7 @@ export default function CheckoutPage() {
         <div className="payment-card-grid">
           <button
             type="button"
-            className={`payment-card${method === 'cashier' ? ' selected' : ''}`}
+            className={`payment-card${chosenMethod === 'cashier' ? ' selected' : ''}`}
             onClick={() => setMethod('cashier')}
           >
             <div className="payment-card-icon-wrap">
@@ -342,13 +346,14 @@ export default function CheckoutPage() {
               <span className="payment-card-title">{t('checkout.payAtCashier')}</span>
             </div>
             <div className="payment-card-check">
-              {method === 'cashier' ? <Check size={16} strokeWidth={2.5} /> : null}
+              {chosenMethod === 'cashier' ? <Check size={16} strokeWidth={2.5} /> : null}
             </div>
           </button>
 
           <button
             type="button"
-            className={`payment-card${method === 'online' ? ' selected' : ''}`}
+            className={`payment-card${chosenMethod === 'online' ? ' selected' : ''}`}
+            disabled={onlineBlocked}
             onClick={() => setMethod('online')}
           >
             <div className="payment-card-icon-wrap">
@@ -356,9 +361,12 @@ export default function CheckoutPage() {
             </div>
             <div className="payment-card-text">
               <span className="payment-card-title">{t('checkout.payOnline')}</span>
+              {onlineBlocked ? (
+                <span className="payment-card-hint">{t('checkout.onlineNeedsId')}</span>
+              ) : null}
             </div>
             <div className="payment-card-check">
-              {method === 'online' ? <Check size={16} strokeWidth={2.5} /> : null}
+              {chosenMethod === 'online' ? <Check size={16} strokeWidth={2.5} /> : null}
             </div>
           </button>
         </div>

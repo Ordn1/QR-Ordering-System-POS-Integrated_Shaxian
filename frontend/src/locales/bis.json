@@ -164,7 +164,9 @@
     "payAtCashier": "Bayad sa kahera",
     "payOnline": "Bayad online",
     "placeOrder": "Ipadala ang order",
-    "placed": "Napadala ang order"
+    "placed": "Napadala ang order",
+    "discountPending": "Temporaryo nga gi-apply ang imong diskwento. Ipakita ang imong senior citizen o PWD ID sa counter aron dili kini matangtang.",
+    "onlineNeedsId": "Dili magamit samtang naghulat pa og pagsusi sa ID ang imong diskwento."
   },
   "common": {
     "back": "Balik",
@@ -288,7 +290,10 @@
     "payAtCounter": "Bayad sa counter kung matawag na ang imong numero.",
     "paidOnline": "Nadawat ang bayad. Tawgon namo ang imong numero kung andam na.",
     "items": "Mga item",
-    "backToMenu": "Balik sa menu"
+    "backToMenu": "Balik sa menu",
+    "discountPending": "Naghulat pa ang diskwento. Ipakita ang imong ID sa counter.",
+    "discountVerified": "Gikumpirma sa cashier ang diskwento.",
+    "discountRejected": "Walay balido nga ID nga gipakita, busa gitangtang ang diskwento."
   },
   "recommend": {
     "title": "Nagduhaduha pa?",
@@ -339,7 +344,18 @@
     "statReady": "Andam",
     "statAverage": "Kasagarang hulat",
     "cashTitle": "Kumpirmaha ang bayad nga cash",
-    "cashConfirm": "Markahi nga bayad"
+    "cashConfirm": "Markahi nga bayad",
+    "idCheck": "Susiha ang ID",
+    "idCheckTitle": "Susiha ang ID",
+    "idLast4": "Katapusang 4 ka numero sa ID",
+    "idCardholder": "Tag-iya sa ID",
+    "idLgu": "LGU nga nag-isyu",
+    "idVerified": "Balido ang ID",
+    "idRejected": "Walay balido nga ID",
+    "idNeeded": "Susiha una ang matag ID sa dili pa markahan nga bayad ang order.",
+    "idSaved": "Natala ang pagsusi sa ID para sa {{queue}}",
+    "idRemoved": "Gitangtang ang diskwento sa {{queue}}",
+    "idMissing": "Isulat ang tulo ka detalye sa ID aron ma-verify."
   },
   "status": {
     "title": "Kahimtang sa order",
