@@ -16,6 +16,7 @@ import CategoriesPage from './pages/admin/CategoriesPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import MenuPage from './pages/admin/MenuPage';
 import PosPage from './pages/admin/PosPage';
+import StaffPage from './pages/admin/StaffPage';
 import TablesPage from './pages/admin/TablesPage';
 import TransactionsPage from './pages/admin/TransactionsPage';
 import VerificationsPage from './pages/admin/VerificationsPage';
@@ -33,6 +34,7 @@ const ADMIN_LINKS = [
   { to: '/admin/tables', labelKey: 'admin.tablesTitle' },
   { to: '/admin/menu', labelKey: 'admin.menuTitle' },
   { to: '/admin/categories', labelKey: 'admin.categoriesTitle' },
+  { to: '/admin/staff', labelKey: 'admin.staffTitle' },
   { to: '/admin/transactions', labelKey: 'admin.transactionsTitle' },
   { to: '/admin/verifications', labelKey: 'admin.verificationsTitle' },
   { to: '/admin/pos', labelKey: 'admin.posTitle' },
@@ -40,6 +42,7 @@ const ADMIN_LINKS = [
 
 const STAFF_LINKS = [
   { to: '/staff/queue', labelKey: 'staff.queueTitle' },
+  { to: '/staff/pos', labelKey: 'admin.posTitle' },
   { to: '/staff/tables', labelKey: 'admin.tablesTitle' },
 ];
 
@@ -89,6 +92,7 @@ export default function App() {
               <Route path="tables" element={<TablesPage />} />
               <Route path="menu" element={<MenuPage />} />
               <Route path="categories" element={<CategoriesPage />} />
+              <Route path="staff" element={<StaffPage />} />
               <Route path="transactions" element={<TransactionsPage />} />
               <Route path="verifications" element={<VerificationsPage />} />
               <Route path="pos" element={<PosPage />} />
@@ -106,6 +110,7 @@ export default function App() {
             >
               <Route index element={<Navigate to="/staff/queue" replace />} />
               <Route path="queue" element={<QueuePage />} />
+              <Route path="pos" element={<PosPage />} />
               <Route path="tables" element={<TablesPage />} />
               <Route path="account" element={<SignedInPage />} />
             </Route>

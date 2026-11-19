@@ -3,8 +3,11 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import NotFoundError
 from app.models import (
     AnalyticsEvent,
+    AprioriRule,
+    AuditLog,
     MenuItem,
     PriorityVerificationLog,
     Session,
@@ -15,6 +18,16 @@ from app.models import (
 from app.models.enums import EventType, PriorityStatus, TxnStatus
 
 TRIGGER_EVENT = EventType.RECOMMENDATION_SHOWN
+
+
+def mask_name(name: str | None) -> str | None:
+    """Mask cardholder name per Security.md §5.4 (first letter of each part + bullets)."""
+    if not name:
+        return None
+    parts = [part for part in name.strip().split() if part]
+    if not parts:
+        return None
+    return " ".join(f"{part[0]}•••" for part in parts)
 
 
 async def record(
@@ -98,12 +111,7 @@ async def segment_mix(db: AsyncSession) -> list[dict[str, Any]]:
 
 
 async def priority_mix(db: AsyncSession) -> list[dict[str, Any]]:
-    """Sessions by *declared* status.
-
-    segment_mix groups by session_type, which folds senior, PWD and pregnant into
-    one "priority" bucket. This is the four-way breakdown the paper reports, so the
-    zero cases stay visible rather than dropping out of the group-by.
-    """
+    """Sessions by *declared* status."""
     rows = await db.execute(
         select(Session.declared_priority_status, func.count())
         .group_by(Session.declared_priority_status)
@@ -115,12 +123,39 @@ async def priority_mix(db: AsyncSession) -> list[dict[str, Any]]:
     ]
 
 
-async def verification_log(db: AsyncSession, limit: int = 100) -> list[dict[str, Any]]:
-    """The priority-declaration audit trail, newest first.
+# Read
+async def apriori_rules_list(db: AsyncSession) -> list[dict[str, Any]]:
+    """Return all stored Apriori rules with item_id arrays resolved to dish names."""
+    items_by_id = {
+        item.item_id: item.name_en
+        for item in await db.scalars(select(MenuItem))
+    }
+    rules = list(
+        await db.scalars(
+            select(AprioriRule).order_by(
+                AprioriRule.session_type.asc(),
+                AprioriRule.lift.desc(),
+            )
+        )
+    )
+    return [
+        {
+            "rule_id": rule.rule_id,
+            "session_type": rule.session_type.value,
+            "antecedents": [items_by_id.get(item_id, item_id) for item_id in rule.antecedents],
+            "consequents": [items_by_id.get(item_id, item_id) for item_id in rule.consequents],
+            "support": float(rule.support),
+            "confidence": float(rule.confidence),
+            "lift": float(rule.lift),
+            "generated_at": rule.generated_at.isoformat(),
+        }
+        for rule in rules
+    ]
 
-    Only id_last4 is stored, never a whole card number — see Database.md and the
-    RA 10173 commitment the paper makes in its Privacy requirement.
-    """
+
+# Read
+async def verification_log(db: AsyncSession, limit: int = 100) -> list[dict[str, Any]]:
+    """The priority-declaration audit trail, newest first, with server-side personal data masking."""
     rows = await db.execute(
         select(PriorityVerificationLog, Session.started_at, StaffAccount.full_name)
         .join(Session, Session.session_id == PriorityVerificationLog.session_id)
@@ -137,7 +172,7 @@ async def verification_log(db: AsyncSession, limit: int = 100) -> list[dict[str,
             "declared_status": log.declared_status.value,
             "id_presented": log.id_presented,
             "id_last4": log.id_last4,
-            "cardholder_name": log.cardholder_name,
+            "cardholder_name": mask_name(log.cardholder_name),
             "issuing_lgu": log.issuing_lgu,
             "verified_by": verifier,
             "verified_at": log.verified_at.isoformat() if log.verified_at else None,
@@ -146,6 +181,53 @@ async def verification_log(db: AsyncSession, limit: int = 100) -> list[dict[str,
         }
         for log, started_at, verifier in rows.all()
     ]
+
+
+# Read
+async def get_unmasked_verification(
+    db: AsyncSession, log_id: int, staff_id: str
+) -> dict[str, Any]:
+    """Return unmasked verification details for one record and write an audit_log entry per Security.md §5.4."""
+    row = await db.execute(
+        select(PriorityVerificationLog, Session.started_at, StaffAccount.full_name)
+        .join(Session, Session.session_id == PriorityVerificationLog.session_id)
+        .outerjoin(
+            StaffAccount, StaffAccount.staff_id == PriorityVerificationLog.verified_by
+        )
+        .where(PriorityVerificationLog.log_id == log_id)
+    )
+    found = row.first()
+    if found is None:
+        raise NotFoundError("That verification record no longer exists.")
+
+    log, started_at, verifier = found
+    db.add(
+        AuditLog(
+            staff_id=staff_id,
+            action="verification_unmask",
+            entity_type="priority_verification_log",
+            entity_id=str(log.log_id),
+            after_state={
+                "session_id": log.session_id,
+                "declared_status": log.declared_status.value,
+            },
+        )
+    )
+    await db.commit()
+
+    return {
+        "log_id": log.log_id,
+        "session_id": log.session_id,
+        "declared_status": log.declared_status.value,
+        "id_presented": log.id_presented,
+        "id_last4": log.id_last4,
+        "cardholder_name": log.cardholder_name,
+        "issuing_lgu": log.issuing_lgu,
+        "verified_by": verifier,
+        "verified_at": log.verified_at.isoformat() if log.verified_at else None,
+        "discount_eligible": log.discount_eligible,
+        "declared_at": started_at.isoformat(),
+    }
 
 
 async def recommendation_funnel(db: AsyncSession) -> dict[str, int]:

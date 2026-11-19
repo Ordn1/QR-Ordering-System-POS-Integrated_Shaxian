@@ -51,6 +51,17 @@ class AprioriRunRead(BaseModel):
     segments: list[SegmentReportRead]
 
 
+class AprioriRuleRow(BaseModel):
+    rule_id: str
+    session_type: str
+    antecedents: list[str]
+    consequents: list[str]
+    support: float
+    confidence: float
+    lift: float
+    generated_at: str
+
+
 class Funnel(BaseModel):
     shown: int
     accepted: int
@@ -77,3 +88,4 @@ class AnalyticsSummary(BaseModel):
     segment_mix: list[SegmentPoint]
     priority_mix: list[PriorityPoint]
     recommendation_funnel: Funnel
+    apriori_rules: list[AprioriRuleRow] = []

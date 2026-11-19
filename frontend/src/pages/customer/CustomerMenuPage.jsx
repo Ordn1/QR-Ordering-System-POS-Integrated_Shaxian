@@ -38,8 +38,14 @@ const GRID_SWAP = {
 
 export default function CustomerMenuPage() {
   const { t, i18n } = useTranslation();
-  const { observeItem, activeCategory, setActiveCategory, trackControl, completed } =
-    useOutletContext();
+  const {
+    observeItem,
+    recordBack,
+    activeCategory,
+    setActiveCategory,
+    trackControl,
+    completed,
+  } = useOutletContext();
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
   const [declaring, setDeclaring] = useState(false);
@@ -58,6 +64,19 @@ export default function CustomerMenuPage() {
     setDirection(from < 0 || to < 0 ? 0 : Math.sign(to - from));
     setShownCategory(activeCategory);
   }
+
+  useEffect(() => {
+    if (!session?.session_id) {
+      return;
+    }
+    const key = `shaxian.declared_prompt.${session.session_id}`;
+    try {
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        setDeclaring(true);
+      }
+    } catch { }
+  }, [session?.session_id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,7 +215,10 @@ export default function CustomerMenuPage() {
               onAdd(item, qty, photo);
               setViewing(null);
             }}
-            onClose={() => setViewing(null)}
+            onClose={() => {
+              setViewing(null);
+              recordBack?.();
+            }}
           />
         ) : null}
       </AnimatePresence>

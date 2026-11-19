@@ -135,6 +135,70 @@ async def get_session(db: AsyncSession, session_id: int) -> Session:
     return session
 
 
+# Update
+async def update_device_profile(
+    db: AsyncSession,
+    session_id: int,
+    device: SessionDevice,
+    display_name: str | None,
+) -> SessionDevice:
+    """Update a participating device's display nickname within the table session."""
+    await get_session(db, session_id)
+    device.display_name = display_name.strip() if display_name else None
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+
+# Delete
+async def remove_session_device(
+    db: AsyncSession,
+    session_id: int,
+    actor: SessionDevice,
+    target_device_id: int,
+) -> Session:
+    """Allow the table host to remove a guest device and revoke its device_token per Security.md §5.8."""
+    session = await get_session(db, session_id)
+    if not actor.is_host:
+        raise PermissionError("Only the host phone that opened the table session can remove devices.")
+
+    if target_device_id == actor.device_id:
+        raise BusinessRuleError("The host phone cannot remove itself from the session.")
+
+    target = await db.scalar(
+        select(SessionDevice).where(
+            SessionDevice.session_id == session_id,
+            SessionDevice.device_id == target_device_id,
+        )
+    )
+    if target is None:
+        raise NotFoundError("That device is no longer part of this table session.")
+
+    paid_or_ordered = await db.scalar(
+        select(func.count())
+        .select_from(Payment)
+        .where(Payment.device_id == target_device_id)
+    )
+    if paid_or_ordered:
+        raise BusinessRuleError(
+            "That phone already has a recorded payment share on this table and cannot be removed."
+        )
+
+    clear_device_cart(session_id, target_device_id)
+    await db.delete(target)
+    await db.flush()
+
+    remaining = await device_count(db, session_id)
+    session.group_mode = remaining > 1
+    session.session_type = resolve_session_type(
+        session.declared_priority_status, session.group_mode
+    )
+
+    await db.commit()
+    await db.refresh(session)
+    return session
+
+
 async def declare_priority(
     db: AsyncSession, session_id: int, device: SessionDevice, declared: PriorityStatus
 ) -> Session:
@@ -330,7 +394,7 @@ async def get_table_cart(
     current_device_id: int,
     language: str = "en",
 ) -> TableCartRead:
-    await get_session(db, session_id)
+    ordering_session = await get_session(db, session_id)
     devices = list(
         await db.scalars(
             select(SessionDevice)
@@ -361,26 +425,35 @@ async def get_table_cart(
             )
         }
 
-    txns = list(
-        await db.scalars(
-            select(Transaction)
-            .where(
-                Transaction.session_id == session_id,
-                Transaction.status == TxnStatus.PENDING,
-            )
-            .order_by(Transaction.placed_at.desc())
-        )
-    )
     active_open_txn: Transaction | None = None
     active_payments: list[Payment] = []
-    for txn in txns:
-        payments = list(
-            await db.scalars(select(Payment).where(Payment.txn_id == txn.txn_id))
+
+    if ordering_session.group_mode:
+        txns = list(
+            await db.scalars(
+                select(Transaction)
+                .where(
+                    Transaction.session_id == session_id,
+                    Transaction.status == TxnStatus.PENDING,
+                )
+                .order_by(Transaction.placed_at.desc())
+            )
         )
-        if any(p.status != PaymentStatus.PAID for p in payments) or live_item_ids:
-            active_open_txn = txn
-            active_payments = payments
-            break
+        for txn in txns:
+            payments = list(
+                await db.scalars(select(Payment).where(Payment.txn_id == txn.txn_id))
+            )
+            has_unsettled_split = len(payments) > 1 and any(
+                p.status != PaymentStatus.PAID for p in payments
+            )
+            has_awaiting_choice = any(
+                p.aggregator_ref == "AWAITING-CHOICE" and p.status != PaymentStatus.PAID
+                for p in payments
+            )
+            if has_unsettled_split or has_awaiting_choice:
+                active_open_txn = txn
+                active_payments = payments
+                break
 
     if active_open_txn is not None:
         rows = await db.execute(
@@ -448,6 +521,7 @@ async def get_table_cart(
                 DeviceShareRead(
                     device_id=dev.device_id,
                     device_number=index,
+                    display_name=dev.display_name,
                     is_host=dev.is_host,
                     is_me=is_me,
                     subtotal=share_sub,
@@ -500,6 +574,7 @@ async def get_table_cart(
             DeviceShareRead(
                 device_id=dev.device_id,
                 device_number=index,
+                display_name=dev.display_name,
                 is_host=dev.is_host,
                 is_me=is_me,
                 subtotal=share_subtotal,

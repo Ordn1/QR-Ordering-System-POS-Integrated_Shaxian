@@ -1,22 +1,35 @@
+from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from decimal import Decimal
+from datetime import UTC, date, datetime
+from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.exceptions import BusinessRuleError, NotFoundError
-from app.models import KitchenQueue, Payment, Session, Transaction
+from app.models import (
+    KitchenQueue,
+    Payment,
+    PriorityVerificationLog,
+    Session,
+    Transaction,
+    TransactionItem,
+)
 from app.models.enums import PaymentStatus, PrintStatus, TxnStatus
 
 QUEUE_LOCK_SQL = text("SELECT pg_advisory_xact_lock(hashtext('kitchen_queue'))")
+CENTAVO = Decimal("0.01")
 
 NEXT_STATUS = {
     TxnStatus.PENDING: TxnStatus.PREPARING,
     TxnStatus.PREPARING: TxnStatus.READY,
     TxnStatus.READY: TxnStatus.COMPLETED,
 }
+
+
+def _money(value: Decimal) -> Decimal:
+    return value.quantize(CENTAVO, rounding=ROUND_HALF_UP)
 
 
 @dataclass
@@ -40,6 +53,45 @@ class QueueEntry:
 async def lock_queue(db: AsyncSession) -> None:
     """Serialise queue mutation for the whole transaction."""
     await db.execute(QUEUE_LOCK_SQL)
+
+
+# Update
+async def ensure_unique_queue_numbers(db: AsyncSession) -> None:
+    """Repair any duplicate queue_number rows within the same business day (queue_date)."""
+    txns = list(
+        await db.scalars(
+            select(Transaction).order_by(
+                Transaction.queue_date.asc(), Transaction.txn_id.asc()
+            )
+        )
+    )
+    if not txns:
+        return
+
+    by_date: dict[date, list[Transaction]] = defaultdict(list)
+    for txn in txns:
+        by_date[txn.queue_date].append(txn)
+
+    dirty_days = [
+        day_txns
+        for day_txns in by_date.values()
+        if len({t.queue_number for t in day_txns}) != len(day_txns)
+    ]
+    if not dirty_days:
+        return
+
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('queue_number'))")
+    )
+    for day_txns in dirty_days:
+        for idx, txn in enumerate(day_txns, start=1):
+            txn.queue_number = 10000 + idx
+    await db.flush()
+
+    for day_txns in dirty_days:
+        for idx, txn in enumerate(day_txns, start=1):
+            txn.queue_number = idx
+    await db.commit()
 
 
 async def pending_entries(db: AsyncSession) -> list[QueueEntry]:
@@ -84,6 +136,7 @@ async def place_in_queue(db: AsyncSession, transaction: Transaction) -> KitchenQ
 
 
 async def list_queue(db: AsyncSession) -> list[tuple[KitchenQueue, Transaction, Session]]:
+    await ensure_unique_queue_numbers(db)
     rows = await db.execute(
         select(KitchenQueue, Transaction, Session)
         .join(Transaction, Transaction.txn_id == KitchenQueue.txn_id)
@@ -113,16 +166,41 @@ async def advance_status(
             f"not {target.value}."
         )
 
-    if target is TxnStatus.PREPARING:
-        payments = list(
-            await db.scalars(select(Payment).where(Payment.txn_id == txn_id))
+    payments = list(
+        await db.scalars(select(Payment).where(Payment.txn_id == txn_id))
+    )
+    unpaid = [p for p in payments if p.status != PaymentStatus.PAID]
+
+    if target is TxnStatus.PREPARING and len(payments) > 1 and unpaid:
+        remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
+        raise BusinessRuleError(
+            f"Split order Q-{transaction.queue_number:03d} cannot be prepared yet — "
+            f"{len(unpaid)} split share(s) (₱{remaining:.2f}) are still unpaid."
         )
-        unpaid = [p for p in payments if p.status != PaymentStatus.PAID]
-        if unpaid:
-            remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
+
+    if target is TxnStatus.COMPLETED and unpaid:
+        remaining = sum((p.amount for p in unpaid), Decimal("0.00"))
+        raise BusinessRuleError(
+            f"Order Q-{transaction.queue_number:03d} still has ₱{remaining:.2f} unpaid. "
+            "Please click 'Confirm cash' first before marking it completed."
+        )
+
+    if target is TxnStatus.COMPLETED and transaction.discount_amount > Decimal("0.00"):
+        unchecked = await db.scalar(
+            select(func.count())
+            .select_from(PriorityVerificationLog)
+            .join(TransactionItem, TransactionItem.device_id == PriorityVerificationLog.device_id)
+            .where(
+                TransactionItem.txn_id == txn_id,
+                TransactionItem.is_discounted.is_(True),
+                PriorityVerificationLog.session_id == transaction.session_id,
+                PriorityVerificationLog.verified_at.is_(None),
+            )
+        )
+        if unchecked:
             raise BusinessRuleError(
-                f"Order Q-{transaction.queue_number:03d} cannot be prepared yet — "
-                f"{len(unpaid)} payment share(s) (₱{remaining:.2f}) are still unpaid."
+                f"Order Q-{transaction.queue_number:03d} has a Senior/PWD discount. "
+                "Please click 'Verify Senior / PWD ID' when handing over the order (or revert to standard price if no ID is presented)."
             )
 
     slot = await db.scalar(select(KitchenQueue).where(KitchenQueue.txn_id == txn_id))
@@ -165,18 +243,9 @@ async def confirm_cash_payment(db: AsyncSession, txn_id: int, staff_id: str) -> 
         payment.paid_at = now
         payment.print_status = PrintStatus.SUCCESS
 
-    # Update
-    existing_slot = await db.scalar(
-        select(KitchenQueue).where(KitchenQueue.txn_id == txn_id)
-    )
-    if existing_slot is None:
-        await place_in_queue(db, transaction)
-        existing_slot = await db.scalar(
-            select(KitchenQueue).where(KitchenQueue.txn_id == txn_id)
-        )
-
-    if existing_slot is not None:
-        existing_slot.updated_by = staff_id
+    slot = await db.scalar(select(KitchenQueue).where(KitchenQueue.txn_id == txn_id))
+    if slot is not None:
+        slot.updated_by = staff_id
 
     await db.commit()
     await db.refresh(transaction)

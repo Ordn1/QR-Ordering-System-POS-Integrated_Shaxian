@@ -26,6 +26,7 @@ export default function MenuPage() {
   const [viewing, setViewing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
   const adminView = useUiStore((state) => state.adminView);
   const paged = usePagination(items);
 
@@ -64,12 +65,27 @@ export default function MenuPage() {
     }
     setEditing(null);
     const nextItems = await load();
-    // A new item lands at the end of the list, which is rarely the page being
-    // viewed. Follow it rather than leaving the user staring at an unchanged page.
     if (created && Array.isArray(nextItems)) {
       paged.revealIndex(nextItems.findIndex((row) => row.item_id === created.item_id));
     }
     toast.success(t(editingItem ? 'admin.itemSaved' : 'admin.itemAdded'));
+  }
+
+  async function handleToggleAvailability(row) {
+    setTogglingId(row.item_id);
+    try {
+      const updated = await menuApi.toggleItemAvailability(row.item_id, !row.is_available);
+      setItems((current) =>
+        current.map((item) => (item.item_id === row.item_id ? updated : item)),
+      );
+      toast.success(
+        `${row.name_en} marked ${updated.is_available ? 'Available' : 'Sold Out'}.`,
+      );
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   async function confirmDelete() {
@@ -93,7 +109,22 @@ export default function MenuPage() {
     {
       key: 'status',
       header: t('common.status'),
-      render: (row) => <Badge value={row.is_available ? 'available' : 'sold out'} />,
+      render: (row) => (
+        <button
+          type="button"
+          disabled={togglingId === row.item_id}
+          onClick={() => handleToggleAvailability(row)}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+          }}
+          title="Click to toggle Available / Sold Out"
+        >
+          <Badge value={row.is_available ? 'available' : 'sold out'} />
+        </button>
+      ),
     },
     {
       key: 'actions',
@@ -182,9 +213,23 @@ export default function MenuPage() {
           title={viewing.name_en}
           onClose={() => setViewing(null)}
           footer={
-            <Button variant="secondary" data-modal-cancel="true" onClick={() => setViewing(null)}>
-              {t('common.close')}
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                loading={togglingId === viewing.item_id}
+                onClick={async () => {
+                  await handleToggleAvailability(viewing);
+                  setViewing((prev) =>
+                    prev ? { ...prev, is_available: !prev.is_available } : null,
+                  );
+                }}
+              >
+                {viewing.is_available ? 'Mark Sold Out' : 'Mark Available'}
+              </Button>
+              <Button variant="secondary" data-modal-cancel="true" onClick={() => setViewing(null)}>
+                {t('common.close')}
+              </Button>
+            </>
           }
         >
           <dl className="detail-list">

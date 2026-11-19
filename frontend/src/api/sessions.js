@@ -11,6 +11,12 @@ export const declarePriority = (sessionId, status) =>
 export const savePreferences = (sessionId, preferences) =>
   api.patch(`/sessions/${sessionId}/preferences`, preferences);
 
+export const updateDeviceProfile = (sessionId, displayName) =>
+  api.patch(`/sessions/${sessionId}/device`, { display_name: displayName || null });
+
+export const removeSessionDevice = (sessionId, targetDeviceId) =>
+  api.delete(`/sessions/${sessionId}/devices/${targetDeviceId}`);
+
 export const fetchTableCart = (sessionId, language = 'en') =>
   api.get(`/sessions/${sessionId}/cart?language=${encodeURIComponent(language)}`);
 

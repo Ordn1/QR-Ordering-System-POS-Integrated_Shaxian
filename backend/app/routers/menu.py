@@ -1,7 +1,13 @@
 from fastapi import APIRouter
 
-from app.core.deps import AdminStaff, DbSession
-from app.schemas.menu import CategoryRead, CategoryWrite, MenuItemRead, MenuItemWrite
+from app.core.deps import AdminStaff, AnyStaff, DbSession
+from app.schemas.menu import (
+    CategoryRead,
+    CategoryWrite,
+    MenuItemAvailabilityWrite,
+    MenuItemRead,
+    MenuItemWrite,
+)
 from app.services import menu as menu_service
 
 router = APIRouter(prefix="/api/v1/menu", tags=["menu"])
@@ -40,6 +46,11 @@ async def list_items(db: DbSession, available_only: bool = False) -> list[MenuIt
     return [MenuItemRead.model_validate(item) for item in items]
 
 
+@router.get("/images", response_model=list[str])
+async def list_images(staff: AnyStaff) -> list[str]:
+    return menu_service.list_available_images()
+
+
 @router.post("/items", response_model=MenuItemRead, status_code=201)
 async def create_item(
     payload: MenuItemWrite, db: DbSession, staff: AdminStaff
@@ -52,7 +63,17 @@ async def create_item(
 async def update_item(
     item_id: str, payload: MenuItemWrite, db: DbSession, staff: AdminStaff
 ) -> MenuItemRead:
-    item = await menu_service.update_item(db, item_id, payload)
+    item = await menu_service.update_item(db, item_id, payload, staff_id=staff.staff_id)
+    return MenuItemRead.model_validate(item)
+
+
+@router.patch("/items/{item_id}/availability", response_model=MenuItemRead)
+async def toggle_item_availability(
+    item_id: str, payload: MenuItemAvailabilityWrite, db: DbSession, staff: AnyStaff
+) -> MenuItemRead:
+    item = await menu_service.toggle_availability(
+        db, item_id, payload.is_available, staff_id=staff.staff_id
+    )
     return MenuItemRead.model_validate(item)
 
 

@@ -1,9 +1,15 @@
+from pathlib import Path
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError
-from app.models import Category, MenuItem, TransactionItem
+from app.models import AuditLog, Category, MenuItem, TransactionItem
 from app.schemas.menu import CategoryWrite, MenuItemWrite
+
+_FRONTEND_MENU_DIR = (
+    Path(__file__).resolve().parents[3] / "frontend" / "public" / "menu"
+)
 
 
 async def list_categories(db: AsyncSession, *, active_only: bool = False) -> list[Category]:
@@ -97,17 +103,83 @@ async def create_item(db: AsyncSession, payload: MenuItemWrite) -> MenuItem:
     return item
 
 
-async def update_item(db: AsyncSession, item_id: str, payload: MenuItemWrite) -> MenuItem:
+# Update
+async def update_item(
+    db: AsyncSession, item_id: str, payload: MenuItemWrite, staff_id: str | None = None
+) -> MenuItem:
     item = await get_item(db, item_id)
     await get_category(db, payload.cat_id)
     await guard_item_name(db, payload.name_en, exclude=item_id)
 
+    old_price = item.price
+    old_avail = item.is_available
+
     for field, value in payload.model_dump().items():
         setattr(item, field, value)
+
+    if old_price != item.price:
+        db.add(
+            AuditLog(
+                staff_id=staff_id,
+                action="price_change",
+                entity_type="menu_item",
+                entity_id=item.item_id,
+                before_state={"price": f"{old_price:.2f}"},
+                after_state={"price": f"{item.price:.2f}"},
+            )
+        )
+    elif old_avail != item.is_available:
+        db.add(
+            AuditLog(
+                staff_id=staff_id,
+                action="availability_change",
+                entity_type="menu_item",
+                entity_id=item.item_id,
+                before_state={"is_available": old_avail},
+                after_state={"is_available": item.is_available},
+            )
+        )
 
     await db.commit()
     await db.refresh(item)
     return item
+
+
+# Update
+async def toggle_availability(
+    db: AsyncSession, item_id: str, is_available: bool, staff_id: str | None = None
+) -> MenuItem:
+    """Flip an item between available and sold out immediately."""
+    item = await get_item(db, item_id)
+    old_avail = item.is_available
+    item.is_available = is_available
+
+    if old_avail != is_available:
+        db.add(
+            AuditLog(
+                staff_id=staff_id,
+                action="availability_change",
+                entity_type="menu_item",
+                entity_id=item.item_id,
+                before_state={"is_available": old_avail},
+                after_state={"is_available": is_available},
+            )
+        )
+
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+# Read
+def list_available_images() -> list[str]:
+    if not _FRONTEND_MENU_DIR.exists():
+        return []
+    return sorted(
+        file.name
+        for file in _FRONTEND_MENU_DIR.iterdir()
+        if file.is_file() and file.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+    )
 
 
 async def delete_item(db: AsyncSession, item_id: str) -> None:

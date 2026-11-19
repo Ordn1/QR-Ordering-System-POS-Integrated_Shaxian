@@ -38,6 +38,7 @@ export function useConfusionSignals({
   const active = useRef(new Map());
   const dwelt = useRef(new Set());
   const backCount = useRef(0);
+  const backFired = useRef(false);
   const visited = useRef(new Set());
   const lastCategory = useRef(null);
   const armedAt = useRef(null);
@@ -54,7 +55,10 @@ export function useConfusionSignals({
 
   const log = useCallback(
     (payload) => {
-      recordEvent(sessionId, payload).catch(() => {});
+      if (!sessionId) {
+        return;
+      }
+      recordEvent(sessionId, payload).catch(() => { });
     },
     [sessionId],
   );
@@ -98,7 +102,7 @@ export function useConfusionSignals({
             signals: firing,
           });
         })
-        .catch(() => {});
+        .catch(() => { });
     },
     [language, log, sessionId],
   );
@@ -119,19 +123,23 @@ export function useConfusionSignals({
     },
     [evaluate],
   );
+  const recordBack = useCallback(() => {
+    backCount.current += 1;
+    if (backCount.current >= BACKNAV_THRESHOLD && !backFired.current) {
+      backFired.current = true;
+      fireOnce('back', {});
+    }
+  }, [fireOnce]);
 
-  const fireRef = useRef(evaluateRepeatable);
+  const recordBackRef = useRef(recordBack);
 
   useEffect(() => {
-    fireRef.current = evaluateRepeatable;
-  }, [evaluateRepeatable]);
+    recordBackRef.current = recordBack;
+  }, [recordBack]);
 
   useEffect(() => {
     function onPopState() {
-      backCount.current += 1;
-      if (backCount.current >= BACKNAV_THRESHOLD) {
-        fireRef.current('back', {});
-      }
+      recordBackRef.current();
     }
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -234,5 +242,5 @@ export function useConfusionSignals({
     setSuggestions(null);
   }, [log]);
 
-  return { suggestions, observeItem, accept, dismiss };
+  return { suggestions, observeItem, recordBack, accept, dismiss };
 }

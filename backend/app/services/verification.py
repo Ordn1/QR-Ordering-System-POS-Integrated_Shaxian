@@ -142,3 +142,37 @@ async def settle_cash(db: AsyncSession, txn_id: int, staff_id: str) -> Transacti
     if await has_pending_check(db, transaction):
         raise BusinessRuleError("Check the senior or PWD ID before confirming payment.")
     return await queue_service.confirm_cash_payment(db, txn_id, staff_id)
+
+
+async def verify_next(
+    db: AsyncSession,
+    txn_id: int,
+    staff_id: str,
+    id_last4: str,
+    cardholder_name: str,
+    issuing_lgu: str,
+) -> Transaction:
+    """Verify the oldest pending claim on this order. A second senior at the table is a second call."""
+    claims = await _claims_for(db, txn_id)
+    return await record_check(
+        db, txn_id, claims[0].log_id, staff_id, True, id_last4, cardholder_name, issuing_lgu
+    )
+
+
+async def revoke_pending(db: AsyncSession, txn_id: int, staff_id: str) -> Transaction:
+    """No valid ID was shown: reject every pending claim on this order and re-price it."""
+    claims = await _claims_for(db, txn_id)
+    transaction = None
+    for claim in claims:
+        transaction = await record_check(db, txn_id, claim.log_id, staff_id, False, None, None, None)
+    return transaction
+
+
+async def _claims_for(db: AsyncSession, txn_id: int) -> list[PriorityVerificationLog]:
+    transaction = await db.get(Transaction, txn_id)
+    if transaction is None:
+        raise NotFoundError("That order no longer exists. Refresh the queue.")
+    claims = (await pending_checks(db, [transaction])).get(txn_id, [])
+    if not claims:
+        raise BusinessRuleError("No senior or PWD ID check is waiting on this order.")
+    return claims

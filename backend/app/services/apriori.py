@@ -5,10 +5,9 @@ context, and mines association rules per segment with mlxtend. Each segment gets
 its own rule set, which is what lets the same item pair carry a different lift
 depending on who ordered it.
 
-Thresholds were checked against the generated seed history rather than guessed: at
-min_support 0.15 every segment yields rules (18 standard, capped to 12 / 12 priority /
-11 group) with lifts of roughly 1.1–3.7. Lowering the floor further inflates the rule
-count on baskets too thin to support it.
+MIN_SUPPORT is 0.08. On the 48-order generated seed history (11–19 baskets per
+segment) that admits rules resting on one or two orders, so a larger history, such as
+seeds/transactions.csv, is what makes the rule set trustworthy.
 
 Ordering is fully determined — baskets by transaction, ties broken by confidence and
 then support — so the same history always mines the same stored rules.
@@ -23,10 +22,17 @@ from mlxtend.preprocessing import TransactionEncoder
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AprioriRule, MenuItem, Session, Transaction, TransactionItem
+from app.models import (
+    AprioriRule,
+    AuditLog,
+    MenuItem,
+    Session,
+    Transaction,
+    TransactionItem,
+)
 from app.models.enums import SessionType, TxnStatus
 
-MIN_SUPPORT = 0.15
+MIN_SUPPORT = 0.08
 MIN_LIFT = 1.05
 MAX_RULES_PER_SEGMENT = 12
 QUANTISE = Decimal("0.0001")
@@ -40,7 +46,7 @@ class SegmentReport:
     rules: int
 
 
-def _mine(baskets: list[list[str]]) -> pd.DataFrame:
+def _mine(baskets: list[list[str]]) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Frequent itemsets to association rules, single-item consequents only."""
     encoder = TransactionEncoder()
     frame = pd.DataFrame(
@@ -51,8 +57,6 @@ def _mine(baskets: list[list[str]]) -> pd.DataFrame:
         return itemsets, pd.DataFrame()
 
     rules = association_rules(itemsets, metric="lift", min_threshold=1.0)
-    # The retrieval path maps each consequent to exactly one menu item, so a
-    # multi-item consequent would have nothing to render.
     rules = rules[rules["consequents"].apply(len) == 1]
     rules = rules[rules["lift"] >= MIN_LIFT]
     rules = rules.sort_values(
@@ -61,8 +65,11 @@ def _mine(baskets: list[list[str]]) -> pd.DataFrame:
     return itemsets, rules
 
 
-async def generate(db: AsyncSession) -> list[SegmentReport]:
-    """Mine every segment and replace the stored rule set. One transaction."""
+# Create
+async def generate(
+    db: AsyncSession, staff_id: str | None = None
+) -> list[SegmentReport]:
+    """Mine every segment, replace the stored rule set, and record an audit log entry."""
     rows = await db.execute(
         select(Session.session_type, Transaction.txn_id, MenuItem.item_id)
         .join(Transaction, Transaction.session_id == Session.session_id)
@@ -107,5 +114,20 @@ async def generate(db: AsyncSession) -> list[SegmentReport]:
             SegmentReport(segment.value, len(baskets), len(itemsets), len(rules))
         )
 
+    db.add(
+        AuditLog(
+            staff_id=staff_id,
+            action="apriori_batch_run",
+            entity_type="apriori_rules",
+            entity_id=None,
+            after_state={
+                "min_support": MIN_SUPPORT,
+                "min_lift": MIN_LIFT,
+                "segments": [vars(r) for r in reports],
+            },
+        )
+    )
+
+    # Commit
     await db.commit()
     return reports

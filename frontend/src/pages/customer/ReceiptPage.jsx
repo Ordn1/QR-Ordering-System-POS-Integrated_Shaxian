@@ -1,4 +1,4 @@
-import { CheckCircle2, CreditCard, Receipt, Smartphone } from 'lucide-react';
+import { CheckCircle2, CreditCard, Receipt, ShieldCheck, Smartphone } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,6 +15,7 @@ import Badge from '../../components/shared/Badge';
 import Button from '../../components/shared/Button';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { peso, queueLabel } from '../../lib/format';
+import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
 
@@ -33,6 +34,7 @@ export default function ReceiptPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const session = useSessionStore((state) => state.session);
+  const clearCart = useCartStore((state) => state.clear);
 
   const initialReceipt = location.state?.receipt ?? null;
   const [justPlaced] = useState(
@@ -48,15 +50,22 @@ export default function ReceiptPage() {
   const handledRef = useRef(false);
 
   const txnId = receipt?.txn_id ?? (txnIdParam ? Number(txnIdParam) : null);
+  const langCode = ['en', 'fil', 'bis'].includes(i18n.language)
+    ? i18n.language
+    : 'en';
+
+  useEffect(() => {
+    clearCart();
+  }, [clearCart]);
 
   const reloadReceipt = useCallback(() => {
     if (!session?.session_id || !txnId) {
       return Promise.resolve();
     }
-    return fetchReceipt(session.session_id, txnId, i18n.language)
+    return fetchReceipt(session.session_id, txnId, langCode)
       .then(setReceipt)
       .catch(() => { });
-  }, [session?.session_id, txnId, i18n.language]);
+  }, [session?.session_id, txnId, langCode]);
 
   const runVerification = useCallback(async () => {
     if (!session?.session_id || !txnId) {
@@ -67,7 +76,7 @@ export default function ReceiptPage() {
       const updated = await verifyOrderPayment(
         session.session_id,
         txnId,
-        i18n.language,
+        langCode,
       );
       setReceipt(updated);
       setSearchParams({ txn_id: String(txnId) }, { replace: true });
@@ -85,7 +94,7 @@ export default function ReceiptPage() {
       setVerifying(false);
       setLoading(false);
     }
-  }, [session?.session_id, txnId, i18n.language, setSearchParams, t]);
+  }, [session?.session_id, txnId, langCode, setSearchParams, t]);
 
   useEffect(() => {
     if (!session?.session_id || !txnId || handledRef.current) {
@@ -96,12 +105,12 @@ export default function ReceiptPage() {
     if (shouldVerify) {
       runVerification();
     } else {
-      fetchReceipt(session.session_id, txnId, i18n.language)
+      fetchReceipt(session.session_id, txnId, langCode)
         .then(setReceipt)
         .catch((error) => toast.error(error.message))
         .finally(() => setLoading(false));
     }
-  }, [session?.session_id, txnId, shouldVerify, i18n.language, runVerification]);
+  }, [session?.session_id, txnId, shouldVerify, langCode, runVerification]);
 
   useEffect(() => {
     if (wasCancelled) {
@@ -121,7 +130,7 @@ export default function ReceiptPage() {
     reloadReceipt,
   );
 
-  if (loading || verifying) {
+  if (loading || verifying || (!receipt && txnId)) {
     return (
       <main className="customer-page">
         <div className="entry-status-wrap">
@@ -139,13 +148,14 @@ export default function ReceiptPage() {
   }
 
   if (!receipt) {
-    return <Navigate to={`/t/${qrToken}/menu`} replace />;
+    return <Navigate to={`/t/${qrToken}/status`} replace />;
   }
 
   const shares = receipt.shares ?? [];
   const hasMultipleShares = shares.length > 1;
   const myShare = shares.find((s) => s.is_me);
   const isCashierOrder = receipt.payment_method === 'cashier' || receipt.fallback_to_cashier;
+  const hasPriorityDiscount = Number(receipt.discount_amount) > 0;
 
   return (
     <main className="customer-page">
@@ -169,14 +179,33 @@ export default function ReceiptPage() {
           {receipt.payment_status === 'paid'
             ? t('receipt.paidOnline')
             : isCashierOrder && !hasMultipleShares
-              ? t('receipt.payAtCounter', {
-                  defaultValue: 'Pay at the counter when your number is called.',
-                })
+              ? `Present Queue Code ${queueLabel(receipt.queue_number)} at the Cashier POS Counter to pay.`
               : hasMultipleShares
                 ? 'Kitchen preparation begins once all payment shares are settled.'
-                : t('receipt.payAtCounter')}
+                : `Present Queue Code ${queueLabel(receipt.queue_number)} at the Cashier POS Counter to pay.`}
         </p>
       </section>
+
+      {hasPriorityDiscount ? (
+        <section
+          className="receipt-card"
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 'var(--space-3)',
+          }}
+        >
+          <ShieldCheck size={22} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <h2 style={{ fontSize: 'var(--text-base)', margin: '0 0 var(--space-1) 0' }}>
+              Senior / PWD ID Verification Reminder
+            </h2>
+            <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+              Please have your physical OSCA or PWD ID card ready. Our staff will verify it when serving your meal or when you settle at the counter.
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {hasMultipleShares ? (
         <section className="receipt-card">
@@ -276,7 +305,7 @@ export default function ReceiptPage() {
             {t('split.title')}
           </Button>
         ) : null}
-        <Button variant="secondary" onClick={() => navigate(`/t/${qrToken}/status`)}>
+        <Button variant="primary" onClick={() => navigate(`/t/${qrToken}/status`)}>
           {t('nav.status')}
         </Button>
         <Button variant="secondary" onClick={() => navigate(`/t/${qrToken}/menu`)}>

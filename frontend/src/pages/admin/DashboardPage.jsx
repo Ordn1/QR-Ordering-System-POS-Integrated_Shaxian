@@ -14,11 +14,13 @@ import { peso } from '../../lib/format';
 import { toast } from '../../store/toastStore';
 
 const percent = (value) => `${Math.round(value * 100)}%`;
+const SEGMENTS = ['all', 'standard', 'priority', 'group'];
 
 export default function DashboardPage() {
   const { t } = useTranslation();
   const [summary, setSummary] = useState(null);
   const [mining, setMining] = useState(false);
+  const [ruleSegment, setRuleSegment] = useState('all');
 
   useEffect(() => {
     fetchSummary()
@@ -26,8 +28,6 @@ export default function DashboardPage() {
       .catch((error) => toast.error(error.message));
   }, []);
 
-  // Runs the same routine as `python -m jobs.apriori`, so the batch job can be
-  // demonstrated live and the rule set seen to regenerate.
   async function mine() {
     setMining(true);
     try {
@@ -54,6 +54,11 @@ export default function DashboardPage() {
 
   const { headline, recommendation_funnel: funnel } = summary;
   const acceptance = funnel.shown ? funnel.accepted / funnel.shown : 0;
+  const rules = summary.apriori_rules ?? [];
+  const filteredRules =
+    ruleSegment === 'all'
+      ? rules
+      : rules.filter((rule) => rule.session_type === ruleSegment);
 
   return (
     <main className="content-area">
@@ -129,6 +134,59 @@ export default function DashboardPage() {
             <dt>{t('admin.factDiscount')}</dt>
             <dd className="numeric">{peso(headline.discount_amount)}</dd>
           </dl>
+        </Card>
+      </div>
+
+      <div className="dashboard-grid dashboard-grid-wide">
+        <Card
+          title={`Apriori Association Rules (${filteredRules.length})`}
+          actions={
+            <div className="table-row-actions">
+              {SEGMENTS.map((segment) => (
+                <Button
+                  key={segment}
+                  variant={ruleSegment === segment ? 'primary' : 'secondary'}
+                  onClick={() => setRuleSegment(segment)}
+                >
+                  {segment.charAt(0).toUpperCase() + segment.slice(1)}
+                </Button>
+              ))}
+            </div>
+          }
+        >
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Rule ID</th>
+                  <th>Segment</th>
+                  <th>If In Basket (Antecedents)</th>
+                  <th>Suggested Item (Consequent)</th>
+                  <th>Support</th>
+                  <th>Confidence</th>
+                  <th>Lift</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRules.map((rule) => (
+                  <tr key={rule.rule_id}>
+                    <td className="numeric">{rule.rule_id}</td>
+                    <td>{rule.session_type}</td>
+                    <td>{rule.antecedents.join(' + ')}</td>
+                    <td>{rule.consequents.join(', ')}</td>
+                    <td className="numeric">{(rule.support * 100).toFixed(1)}%</td>
+                    <td className="numeric">{(rule.confidence * 100).toFixed(1)}%</td>
+                    <td className="numeric">{rule.lift.toFixed(2)}</td>
+                  </tr>
+                ))}
+                {filteredRules.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>No association rules found for this segment.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
     </main>

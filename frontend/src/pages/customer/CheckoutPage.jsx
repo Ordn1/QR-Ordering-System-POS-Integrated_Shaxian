@@ -1,6 +1,6 @@
-import { Check, CreditCard, Receipt, Store } from 'lucide-react';
+import { Check, CheckCircle2, CreditCard, Receipt, Store } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Navigate,
@@ -14,7 +14,7 @@ import { placeOrder, quoteOrder } from '../../api/orders';
 import { fetchTableCart, syncDeviceCart } from '../../api/sessions';
 import Button from '../../components/shared/Button';
 import Money from '../../components/shared/Money';
-import { peso } from '../../lib/format';
+import { peso, queueLabel } from '../../lib/format';
 import { DURATION, MOVE, prefersReducedMotion } from '../../lib/motion';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
@@ -35,7 +35,6 @@ export default function CheckoutPage() {
   const { trackControl, completed } = useOutletContext();
   const session = useSessionStore((state) => state.session);
   const lines = useCartStore((state) => state.lines);
-  const clear = useCartStore((state) => state.clear);
 
   const requestedScope = searchParams.get('scope');
   const initialScope =
@@ -44,7 +43,7 @@ export default function CheckoutPage() {
   const [activeScope, setActiveScope] = useState(initialScope);
   const [method, setMethod] = useState('cashier');
   const [placing, setPlacing] = useState(false);
-  const [placed, setPlaced] = useState(false);
+  const [placedReceipt, setPlacedReceipt] = useState(null);
   const [quote, setQuote] = useState(null);
   const [displayLines, setDisplayLines] = useState(lines);
   const [loadingScope, setLoadingScope] = useState(true);
@@ -63,8 +62,10 @@ export default function CheckoutPage() {
     return () => clearTimeout(timer);
   }, [quote]);
 
+  const placedRef = useRef(false);
+
   useEffect(() => {
-    if (!session?.session_id) {
+    if (!session?.session_id || placedRef.current) {
       return undefined;
     }
     let cancelled = false;
@@ -81,7 +82,7 @@ export default function CheckoutPage() {
         }
 
         const tableCart = await fetchTableCart(session.session_id, i18n.language);
-        if (cancelled) {
+        if (cancelled || placedRef.current) {
           return;
         }
 
@@ -149,15 +150,15 @@ export default function CheckoutPage() {
           itemsForQuote,
           resolvedScope,
         );
-        if (!cancelled) {
+        if (!cancelled && !placedRef.current) {
           setQuote(nextQuote);
         }
       } catch (error) {
-        if (!cancelled) {
+        if (!cancelled && !placedRef.current) {
           toast.error(error.message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !placedRef.current) {
           setLoadingScope(false);
         }
       }
@@ -169,7 +170,45 @@ export default function CheckoutPage() {
     };
   }, [session?.session_id, session?.group_mode, lines, requestedScope, i18n.language]);
 
-  if (!loadingScope && displayLines.length === 0 && lines.length === 0 && !placed) {
+  if (placedReceipt) {
+    return (
+      <main className="customer-page">
+        <section className="receipt-hero-card">
+          <div className="receipt-hero-badge">
+            <CheckCircle2 size={36} strokeWidth={2} className="text-green" />
+          </div>
+          <p className="receipt-hero-eyebrow">{t('receipt.queueNumber')}</p>
+          <h2 className="receipt-hero-number numeric">
+            {queueLabel(placedReceipt.queue_number)}
+          </h2>
+          <p className="receipt-note">
+            Present Queue Code {queueLabel(placedReceipt.queue_number)} at the Cashier POS Counter to pay.
+          </p>
+        </section>
+        <div className="receipt-actions">
+          <Button
+            variant="primary"
+            onClick={() =>
+              navigate(`/t/${qrToken}/receipt?txn_id=${placedReceipt.txn_id}`, {
+                state: { receipt: placedReceipt },
+                replace: true,
+              })
+            }
+          >
+            View Digital Receipt
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => navigate(`/t/${qrToken}/status`)}
+          >
+            {t('nav.status')}
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  if (!loadingScope && displayLines.length === 0 && lines.length === 0 && !placedRef.current) {
     return <Navigate to={`/t/${qrToken}/cart`} replace />;
   }
 
@@ -182,18 +221,24 @@ export default function CheckoutPage() {
         quantity: line.quantity,
       }));
 
+      const langCode = ['en', 'fil', 'bis'].includes(i18n.language)
+        ? i18n.language
+        : 'en';
+
       const receipt = await placeOrder(session.session_id, {
         items: itemsToSend,
         payment_method: chosenMethod,
-        language: i18n.language,
+        language: langCode,
         origin_url: window.location.origin,
         checkout_scope: activeScope,
       });
-      setPlaced(true);
+
+      placedRef.current = true;
+      setPlacedReceipt(receipt);
       completed?.('place');
-      clear();
 
       if (receipt.checkout_url) {
+        useCartStore.getState().clear();
         window.location.assign(receipt.checkout_url);
         return;
       }
@@ -205,7 +250,9 @@ export default function CheckoutPage() {
           }),
         );
       } else {
-        toast.success(t('checkout.placed'));
+        toast.success(
+          `${t('checkout.placed')} · ${queueLabel(receipt.queue_number)}`,
+        );
       }
 
       navigate(`/t/${qrToken}/receipt?txn_id=${receipt.txn_id}`, {

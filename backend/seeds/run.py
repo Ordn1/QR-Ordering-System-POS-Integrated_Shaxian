@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from app.database import SessionFactory, engine
 from app.models import Table
 from app.services import apriori as apriori_service
-from seeds.history import seed_history
+from seeds.history import describe_source, seed_history
 from seeds.menu import seed_menu
 from seeds.staff import DEV_ACCOUNTS, seed_staff
 from seeds.tables import seed_tables
@@ -40,7 +40,7 @@ def report(tables, items, transactions, segments) -> None:
     print(f"tables            {len(tables)}")
     print(f"staff accounts    {len(DEV_ACCOUNTS)}")
     print(f"menu items        {len(items)}")
-    print(f"transactions      {len(transactions)}  (generated history, not real diners)")
+    print(f"transactions      {len(transactions)}  ({describe_source()})")
 
     print(
         f"\napriori rules mined from that history "

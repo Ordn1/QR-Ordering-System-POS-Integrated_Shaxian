@@ -51,9 +51,10 @@ alembic downgrade base && alembic upgrade head && python -m seeds.run
 
 ### What the seed contains
 
-- **Generated order history**: 48 orders over the 16 days before you seed,
-  drawn from a fixed random seed. These are not real diners. They exist so
-  the Apriori job has baskets to mine.
+- **Order history**: if `backend/seeds/transactions.csv` exists, it is
+  loaded from that file. Otherwise the seed generates 48 orders over the 16
+  days before you seed, from a fixed random seed. Generated orders are not
+  real diners; they exist so the Apriori job has baskets to mine.
 - **Apriori rules mined from that history** by the same job the admin
   dashboard runs (`python -m jobs.apriori`). None are typed in.
 - **No analytics events.** The dashboard's recommendation funnel fills only

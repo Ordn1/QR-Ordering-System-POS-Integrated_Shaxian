@@ -2,14 +2,6 @@ import { useTranslation } from 'react-i18next';
 
 import { peso, queueLabel } from '../../lib/format';
 
-/**
- * What the counter register holds after a transmission — the cashier's view.
- *
- * The register is simulated: the partner restaurant's POS schema is undocumented,
- * so the bridge posts to an endpoint hosted by this server instead of a real
- * terminal. The notice at the foot says so on the artifact itself, because this
- * must never be mistaken for a BIR-registered fiscal receipt.
- */
 export default function RegisterReceipt({ transmission }) {
   const { t } = useTranslation();
 
@@ -19,6 +11,7 @@ export default function RegisterReceipt({ transmission }) {
 
   const { payload, receipt_no: receiptNo } = transmission;
   const totals = payload.totals ?? {};
+  const payment = payload.payment ?? {};
   const discounted = Number(totals.statutory_discount ?? 0) > 0;
 
   return (
@@ -66,6 +59,14 @@ export default function RegisterReceipt({ transmission }) {
         )}
         <dt className="register-net">{t('checkout.net')}</dt>
         <dd className="register-net numeric">{peso(totals.net)}</dd>
+        {payment.cash_tendered ? (
+          <>
+            <dt>Cash Tendered</dt>
+            <dd className="numeric">{peso(payment.cash_tendered)}</dd>
+            <dt>Change Due</dt>
+            <dd className="numeric">{peso(payment.change_due ?? 0)}</dd>
+          </>
+        ) : null}
       </dl>
 
       <p className="register-notice">{t('pos.notFiscal')}</p>
