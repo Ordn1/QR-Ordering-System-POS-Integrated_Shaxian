@@ -144,12 +144,15 @@
   align-items: flex-start;
 }
 
-/* White on --red measures 6.48:1 — fine for standard mode's 4.5 floor, short of
+/* --red on white measures 6.48:1 — fine for standard mode's 4.5 floor, short of
    the 7:1 §15.2 requires at accessible type. --red-deep reaches 9.25:1 and keeps
-   the mark unmistakably brand red. Standard mode is untouched. */
+   the active tab unmistakably brand red. Standard mode is untouched. */
 [data-ui-mode='accessible'] .menu-category-tab[aria-selected='true'] {
+  color: var(--red-deep);
+}
+
+[data-ui-mode='accessible'] .menu-category-tab-bar {
   background: var(--red-deep);
-  border-color: var(--red-deep);
 }
 
 [data-ui-mode='accessible'] .checkout-item-qty,
