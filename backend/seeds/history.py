@@ -46,13 +46,13 @@ PER_DAY = 3
 
 PRIORITY_POOL = (
     "Wonton",
-    "Steamed Rice",
+    "Rice",
     "Chicken Soup",
     "Skinless Wonton",
-    "Wonton Noodle Soup",
+    "Wonton Noodles Soup",
     "Tea Eggs",
-    "Braised Pork Set",
-    "Xiaolongbao",
+    "Braised Pork with Rice and Soup",
+    "Mini Siopao",
 )
 STANDARD_POOL = (
     "Peanut Butter Noodles",
@@ -60,21 +60,21 @@ STANDARD_POOL = (
     "Fried Bihon",
     "Tea Eggs",
     "Wonton",
-    "Steamed Rice",
-    "Xiaolongbao",
+    "Rice",
+    "Mini Siopao",
     "Fried Wonton",
-    "Intestine Noodle Soup",
-    "Shuangcai Pork Noodle Soup",
+    "Intestine Noodles Soup",
+    "Sauerkraut Pork Noodle Soup",
 )
 GROUP_POOL = (
     "Braised Pork Feet",
     "Braised Pork",
     "Pickled Chicken Feet",
-    "Steamed Rice",
-    "Xiaolongbao",
+    "Rice",
+    "Mini Siopao",
     "Fried Noodles",
     "Wonton",
-    "Braised Beef Set",
+    "Braised Beef with Rice and Soup",
 )
 
 PLAN: tuple[tuple[SessionType, PriorityStatus], ...] = (
