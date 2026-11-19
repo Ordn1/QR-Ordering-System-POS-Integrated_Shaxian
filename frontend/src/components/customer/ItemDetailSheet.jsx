@@ -8,6 +8,7 @@ import { useShowcase } from '../../hooks/useShowcase';
 import { menuDepthUrl, menuImageUrl } from '../../lib/menuImage';
 import { DURATION, MOVE } from '../../lib/motion';
 import Badge from '../shared/Badge';
+import MenuCode from '../shared/MenuCode';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
 import QtyStepper from '../shared/QtyStepper';
@@ -88,20 +89,28 @@ export default function ItemDetailSheet({ item, name, description, onAdd, onClos
             {view === 'solid' ? <ImageIcon size={18} strokeWidth={1.75} /> : <Box size={18} strokeWidth={1.75} />}
           </button>
         ) : null}
+        <MenuCode code={item.menu_code} overlay />
       </motion.div>
 
       <div className="item-detail-header-row">
         <h3 className="item-detail-title">{name}</h3>
         <p className="item-detail-price numeric">{peso(item.price)}</p>
       </div>
+      {item.name_zh ? (
+        <p className="dish-name-zh item-detail-name-zh" lang="zh-Hans">
+          {item.name_zh}
+        </p>
+      ) : null}
 
       {description ? <p className="item-detail-description">{description}</p> : null}
 
       <dl className="detail-list item-detail-facts">
-        <dt className="eyebrow">{t('menu.caloriesLabel')}</dt>
-        <dd className="numeric">
-          {item.calories !== null ? t('menu.calories', { count: item.calories }) : '—'}
-        </dd>
+        {item.calories !== null ? (
+          <>
+            <dt className="eyebrow">{t('menu.caloriesLabel')}</dt>
+            <dd className="numeric">{t('menu.calories', { count: item.calories })}</dd>
+          </>
+        ) : null}
         <dt className="eyebrow">{t('menu.allergensLabel')}</dt>
         <dd>{item.allergens ?? t('menu.noneListed')}</dd>
         <dt className="eyebrow">{t('menu.dietaryLabel')}</dt>

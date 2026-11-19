@@ -12,6 +12,9 @@
     "categoriesEmpty": "No categories yet. Add your first category to get started.",
     "transactionsTitle": "Transactions",
     "transactionsEmpty": "No transactions yet. They appear here once diners place orders.",
+    "colCode": "Code",
+    "fieldCode": "Menu code",
+    "fieldNameZh": "Name (Chinese)",
     "colName": "Name",
     "colCategory": "Category",
     "colPrice": "Price",
@@ -409,7 +412,7 @@
   },
   "search": {
     "title": "Search menu",
-    "placeholder": "Search for a dish…",
+    "placeholder": "Search a dish or code (A1)…",
     "close": "Close search",
     "noResults": "No items match your search."
   },

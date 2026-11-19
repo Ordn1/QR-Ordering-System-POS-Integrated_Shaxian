@@ -25,6 +25,8 @@ const PARTIAL = {
   alphanumeric: new RegExp(`^[${LATIN}0-9 '\\-.()]*$`),
   numeric: /^[0-9]*$/,
   currency: /^[0-9]*(\.[0-9]{0,2})?$/,
+  menucode: /^([A-Za-z][0-9]{0,2}|[A-Za-z][0-9]{1,2}[a-z+])?$/,
+  hanzi: /^[\u3400-\u9fff()（）]*$/u,
   freetext: null,
 };
 

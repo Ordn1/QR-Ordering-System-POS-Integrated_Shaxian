@@ -5,6 +5,7 @@ import { peso } from '../../lib/format';
 import { menuImageUrl } from '../../lib/menuImage';
 import Badge from '../shared/Badge';
 import IconButton from '../shared/IconButton';
+import MenuCode from '../shared/MenuCode';
 
 export default function MenuTile({ item, categoryName, onView, onEdit, onDelete }) {
   const { t } = useTranslation();
@@ -18,6 +19,7 @@ export default function MenuTile({ item, categoryName, onView, onEdit, onDelete 
         ) : (
           <ImageOff className="tile-media-empty" size={28} strokeWidth={1.75} />
         )}
+        <MenuCode code={item.menu_code} overlay />
         <span className="tile-status">
           <Badge value={item.is_available ? 'available' : 'sold out'} />
         </span>
@@ -25,6 +27,11 @@ export default function MenuTile({ item, categoryName, onView, onEdit, onDelete 
 
       <div className="tile-body">
         <span className="tile-name">{item.name_en}</span>
+        {item.name_zh ? (
+          <span className="dish-name-zh" lang="zh-Hans">
+            {item.name_zh}
+          </span>
+        ) : null}
         <span className="tile-meta">{categoryName}</span>
         <span className="tile-price numeric">{peso(item.price)}</span>
       </div>

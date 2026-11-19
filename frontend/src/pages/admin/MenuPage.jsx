@@ -8,6 +8,7 @@ import MenuTile from '../../components/admin/MenuTile';
 import Badge from '../../components/shared/Badge';
 import DataTable from '../../components/shared/DataTable';
 import IconButton from '../../components/shared/IconButton';
+import MenuCode from '../../components/shared/MenuCode';
 import ViewToggle from '../../components/shared/ViewToggle';
 import Button from '../../components/shared/Button';
 import Modal from '../../components/shared/Modal';
@@ -103,6 +104,11 @@ export default function MenuPage() {
   }
 
   const columns = [
+    {
+      key: 'code',
+      header: t('admin.colCode'),
+      render: (row) => <MenuCode code={row.menu_code} />,
+    },
     { key: 'name', header: t('admin.colName'), render: (row) => row.name_en },
     { key: 'category', header: t('admin.colCategory'), render: (row) => categoryName(row.cat_id) },
     { key: 'price', header: t('admin.colPrice'), align: 'right', render: (row) => peso(row.price) },
@@ -233,6 +239,10 @@ export default function MenuPage() {
           }
         >
           <dl className="detail-list">
+            <dt className="eyebrow">{t('admin.colCode')}</dt>
+            <dd>
+              <MenuCode code={viewing.menu_code} />
+            </dd>
             <dt className="eyebrow">{t('admin.itemId')}</dt>
             <dd className="numeric">{viewing.item_id}</dd>
             <dt className="eyebrow">{t('admin.fieldCategory')}</dt>
@@ -241,6 +251,10 @@ export default function MenuPage() {
             <dd>{viewing.name_fil}</dd>
             <dt className="eyebrow">{t('admin.colBisaya')}</dt>
             <dd>{viewing.name_bis}</dd>
+            <dt className="eyebrow">{t('admin.fieldNameZh')}</dt>
+            <dd className="zh-text" lang="zh-Hans">
+              {viewing.name_zh ?? '—'}
+            </dd>
             <dt className="eyebrow">{t('admin.fieldPrice')}</dt>
             <dd className="numeric">{peso(viewing.price)}</dd>
             <dt className="eyebrow">{t('admin.fieldCalories')}</dt>

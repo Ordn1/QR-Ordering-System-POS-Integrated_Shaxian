@@ -9,6 +9,7 @@ import { useShowcase } from '../../hooks/useShowcase';
 import { menuDepthUrl, menuImageUrl } from '../../lib/menuImage';
 import { MOVE } from '../../lib/motion';
 import Badge from '../shared/Badge';
+import MenuCode from '../shared/MenuCode';
 
 const DishView = lazy(() => import('./DishView'));
 
@@ -62,9 +63,15 @@ export default function MenuItemCard({
               />
             </Suspense>
           ) : null}
+          <MenuCode code={item.menu_code} overlay />
         </motion.div>
         <div className="menu-card-body">
           <h3 className="menu-card-name">{name}</h3>
+          {item.name_zh ? (
+            <p className="dish-name-zh" lang="zh-Hans">
+              {item.name_zh}
+            </p>
+          ) : null}
           {description ? <p className="menu-card-desc">{description}</p> : null}
         </div>
       </button>

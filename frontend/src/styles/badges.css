@@ -46,3 +46,45 @@
   background: var(--status-orange-tint);
   color: var(--status-orange);
 }
+
+/* The dish's code from the printed menu board. A red seal chip (UIDesign §1.1),
+   so it is sharp-cornered like the seal square, never a pill like the status badges. */
+.menu-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--h-badge);
+  height: var(--h-badge);
+  padding: 0 var(--space-1);
+  background: var(--red);
+  color: var(--bg);
+  font-size: var(--font-badge);
+  font-weight: var(--weight-display);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.menu-code-overlay {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Chinese dish names: the brand fonts have no CJK glyphs, so fall back to the system's. */
+.zh-text,
+.dish-name-zh {
+  font-family: 'Poppins', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei',
+    system-ui, sans-serif;
+}
+
+/* The small muted line under a dish name on cards and the item sheet. */
+.dish-name-zh {
+  font-size: var(--font-xs);
+  font-weight: var(--weight-body);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}

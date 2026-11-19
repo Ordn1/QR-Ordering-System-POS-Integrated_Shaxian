@@ -29,7 +29,12 @@ export default function SearchOverlay({ items, language, onSelect, onClose }) {
   const results = normalised
     ? items.filter((item) => {
         const name = (item[nameKey] || item.name_en || '').toLowerCase();
-        return name.includes(normalised);
+        const code = (item.menu_code || '').toLowerCase();
+        return (
+          name.includes(normalised) ||
+          (code !== '' && code.startsWith(normalised)) ||
+          (item.name_zh || '').includes(normalised)
+        );
       })
     : [];
 

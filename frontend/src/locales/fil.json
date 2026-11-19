@@ -12,6 +12,9 @@
     "categoriesEmpty": "Wala pang kategorya. Magdagdag ng unang kategorya.",
     "transactionsTitle": "Mga transaksyon",
     "transactionsEmpty": "Wala pang transaksyon. Lilitaw ito kapag may umorder na.",
+    "colCode": "Code",
+    "fieldCode": "Menu code",
+    "fieldNameZh": "Pangalan (Tsino)",
     "colName": "Pangalan",
     "colCategory": "Kategorya",
     "colPrice": "Presyo",
@@ -409,7 +412,7 @@
   },
   "search": {
     "title": "Hanapin sa menu",
-    "placeholder": "Maghanap ng pagkain…",
+    "placeholder": "Maghanap ng pagkain o code (A1)…",
     "close": "Isara ang paghahanap",
     "noResults": "Walang nakitang katugma."
   },

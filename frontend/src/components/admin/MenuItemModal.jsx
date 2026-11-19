@@ -8,9 +8,11 @@ import TextInput from '../shared/TextInput';
 
 const BLANK = {
   cat_id: '',
+  menu_code: '',
   name_en: '',
   name_fil: '',
   name_bis: '',
+  name_zh: '',
   description_en: '',
   description_fil: '',
   description_bis: '',
@@ -30,9 +32,11 @@ function toPayload(form) {
 
   return {
     cat_id: form.cat_id,
+    menu_code: form.menu_code.trim(),
     name_en: form.name_en.trim(),
     name_fil: form.name_fil.trim(),
     name_bis: form.name_bis.trim(),
+    name_zh: optional(form.name_zh),
     description_en: optional(form.description_en),
     description_fil: optional(form.description_fil),
     description_bis: optional(form.description_bis),
@@ -65,6 +69,13 @@ export default function MenuItemModal({ item, categories, onCancel, onSubmit }) 
 
   const set = (key) => (event) =>
     setForm((current) => ({ ...current, [key]: event.target.value }));
+
+  // Codes start with a capital letter (A1, A3s, D2+); capitalise it as it is typed.
+  const setCode = (event) =>
+    setForm((current) => ({
+      ...current,
+      menu_code: event.target.value.replace(/^[a-z]/, (letter) => letter.toUpperCase()),
+    }));
 
   const toggle = (key) => (event) =>
     setForm((current) => ({ ...current, [key]: event.target.checked }));
@@ -102,6 +113,26 @@ export default function MenuItemModal({ item, categories, onCancel, onSubmit }) 
         {t('admin.sectionNames')}
       </h3>
       <div className="form-grid">
+        <TextInput
+          label={t('admin.fieldCode')}
+          required
+          inputClass="menucode"
+          maxLength={4}
+          value={form.menu_code}
+          error={fieldErrors.menu_code}
+          onChange={setCode}
+          hint="A1, A3s, D2+"
+        />
+        <TextInput
+          label={t('admin.fieldNameZh')}
+          inputClass="hanzi"
+          maxLength={30}
+          lang="zh-Hans"
+          value={form.name_zh}
+          error={fieldErrors.name_zh}
+          onChange={set('name_zh')}
+          hint="扁食"
+        />
         <TextInput
           label={t('admin.fieldNameEn')}
           required
@@ -190,7 +221,7 @@ export default function MenuItemModal({ item, categories, onCancel, onSubmit }) 
           value={form.image_filename}
           error={fieldErrors.image_filename}
           onChange={set('image_filename')}
-          hint="fried-chicken-1pc.webp"
+          hint="wonton.webp"
         />
         <TextInput
           label={t('admin.fieldModel')}

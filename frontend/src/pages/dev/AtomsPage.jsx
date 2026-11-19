@@ -77,16 +77,16 @@ const BADGE_GROUPS = [
 ];
 
 const ROWS = [
-  { id: 'MNU-0001', name: '1pc Fried Chicken', category: 'Chicken', price: '89.00', status: 'available' },
-  { id: 'MNU-0002', name: 'Steamed Rice', category: 'Rice Meals', price: '25.00', status: 'available' },
-  { id: 'MNU-0027', name: 'Halo-Halo', category: 'Desserts', price: '79.00', status: 'sold out' },
+  { id: 'MNU-0001', name: 'Wonton', category: 'Wontons and Dumplings', price: '120.00', status: 'available' },
+  { id: 'MNU-0030', name: 'Rice', category: 'Sides and Extras', price: '30.00', status: 'available' },
+  { id: 'MNU-0042', name: 'Braised Beef Shank', category: 'Sharing Plates', price: '360.00', status: 'sold out' },
 ];
 
 export default function AtomsPage() {
   const uiMode = useUiStore((state) => state.uiMode);
   const setUiMode = useUiStore((state) => state.setUiMode);
   const [quantity, setQuantity] = useState(2);
-  const [name, setName] = useState('1pc Fried Chicken');
+  const [name, setName] = useState('Wonton');
   const [openModal, setOpenModal] = useState(null);
 
   const columns = [

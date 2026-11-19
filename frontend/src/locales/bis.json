@@ -12,6 +12,9 @@
     "categoriesEmpty": "Wala pay kategorya. Pagdugang sa una nimong kategorya.",
     "transactionsTitle": "Mga transaksyon",
     "transactionsEmpty": "Wala pay transaksyon. Makita kini kung naay mo-order.",
+    "colCode": "Code",
+    "fieldCode": "Menu code",
+    "fieldNameZh": "Ngalan (Insik)",
     "colName": "Ngalan",
     "colCategory": "Kategorya",
     "colPrice": "Presyo",
@@ -409,7 +412,7 @@
   },
   "search": {
     "title": "Pangitaa sa menu",
-    "placeholder": "Pangitaa og pagkaon…",
+    "placeholder": "Pangitaa og pagkaon o code (A1)…",
     "close": "Siradhi ang pagpangita",
     "noResults": "Walay nakitang katugma."
   },

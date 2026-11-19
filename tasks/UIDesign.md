@@ -37,7 +37,7 @@ Those two facts set the whole direction:
 
 Shaxian's poster carries a red seal stamp — the small square chop in the corner. That square is this system's recurring mark: **a solid red square, 6×6px, sharp-cornered.**
 
-It appears in exactly six places and nowhere else:
+It appears in exactly seven places and nowhere else:
 
 - Under the active navbar item, as a 3px red bar
 - Under the active customer category tab, as the same 3px bar, which slides between tabs
@@ -45,6 +45,7 @@ It appears in exactly six places and nowhere else:
 - In a modal header, before the title
 - As the required-field marker on forms
 - On the order-status stepper, marking each reached step; a step reached by a live update is *stamped* in (§14)
+- As the menu-code chip (`A1`, `A3s`, `D2+`) in the top-left corner of a dish photo — the code from the shop's printed menu board, bold white on solid `--red`, sharp-cornered, `--h-badge` tall. It appears on the admin menu table and cards and on the customer menu card and item sheet. White on `--red` is about 6.5:1, so the small type passes AA; it scales with the badge tokens in accessibility mode
 
 It is never decorative. It always marks *this one, here*. Used more freely it becomes wallpaper and stops meaning anything.
 
@@ -70,7 +71,7 @@ On the customer ordering screens, and only there, the dishes themselves are show
 | Cart | A red-lacquer tray holding the cart's 3D dishes; bowls stack with quantity |
 | Receipt and status | None — the order's progress is drawn flat by the stage illustrations (§1.4) |
 
-**The dish kit.** Every menu item has a 3D model built in code from the house tableware — the gold speckled calligraphy bowl, the rounded-square plate, the porcelain rice bowl, the steel steamer, the clay jar — and its toppings. Nothing is downloaded or licensed. Each model is tuned side by side with its photo at `/dev/dishes`. A menu item's `model_filename` names its built-in recipe (`wonton`); an unknown name falls back to the relief.
+**The dish kit.** Menu items can have a 3D model built in code from the house tableware — the gold speckled calligraphy bowl, the rounded-square plate, the porcelain rice bowl, the steel steamer, the clay jar — and its toppings. Nothing is downloaded or licensed. Each model is tuned side by side with its photo at `/dev/dishes`. A menu item's `model_filename` names its built-in recipe (`wonton`); an item with no recipe, or an unknown name, uses the relief — its photo raised by a depth map from `backend/jobs/depth_maps.py`.
 
 It is a progressive upgrade. The flat photo renders first and stays underneath, and the 3D fades in over it once loaded. It is off in accessibility mode, with reduced motion, without WebGL2, on devices reporting under 4 GB of memory, and for the rest of the session once the frame rate stays low. Staff and admin screens never use it.
 
