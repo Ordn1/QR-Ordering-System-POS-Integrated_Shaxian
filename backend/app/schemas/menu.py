@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict
 
 from app.schemas.fields import (
     ALPHANUMERIC,
+    HANZI,
+    MENU_CODE,
     Price,
     SmallNonNegative,
     freetext,
@@ -12,6 +14,8 @@ from app.schemas.fields import (
 
 CategoryName = sized(40, ALPHANUMERIC)
 ItemName = sized(60, ALPHANUMERIC)
+MenuCode = sized(4, MENU_CODE)
+ChineseName = sized(30, HANZI)
 Description = freetext(160)
 Allergens = freetext(120)
 DietaryFlags = freetext(60)
@@ -44,9 +48,11 @@ class MenuItemAvailabilityWrite(BaseModel):
 
 class MenuItemWrite(BaseModel):
     cat_id: str
+    menu_code: MenuCode
     name_en: ItemName
     name_fil: ItemName
     name_bis: ItemName
+    name_zh: ChineseName | None = None
     description_en: Description | None = None
     description_fil: Description | None = None
     description_bis: Description | None = None
@@ -66,9 +72,11 @@ class MenuItemRead(BaseModel):
 
     item_id: str
     cat_id: str
+    menu_code: str | None
     name_en: str
     name_fil: str
     name_bis: str
+    name_zh: str | None
     description_en: str | None
     description_fil: str | None
     description_bis: str | None

@@ -95,6 +95,7 @@ async def create_item(db: AsyncSession, payload: MenuItemWrite) -> MenuItem:
     """Create a menu item, rejecting a duplicate English name."""
     await get_category(db, payload.cat_id)
     await guard_item_name(db, payload.name_en)
+    await guard_item_code(db, payload.menu_code)
 
     item = MenuItem(**payload.model_dump())
     db.add(item)
@@ -110,6 +111,7 @@ async def update_item(
     item = await get_item(db, item_id)
     await get_category(db, payload.cat_id)
     await guard_item_name(db, payload.name_en, exclude=item_id)
+    await guard_item_code(db, payload.menu_code, exclude=item_id)
 
     old_price = item.price
     old_avail = item.is_available
@@ -206,3 +208,13 @@ async def guard_item_name(db: AsyncSession, name_en: str, *, exclude: str | None
 
     if await db.scalar(statement):
         raise ConflictError(f"A menu item named '{name_en}' already exists.")
+
+
+async def guard_item_code(db: AsyncSession, menu_code: str, *, exclude: str | None = None) -> None:
+    statement = select(MenuItem.name_en).where(MenuItem.menu_code == menu_code)
+    if exclude:
+        statement = statement.where(MenuItem.item_id != exclude)
+
+    holder = await db.scalar(statement)
+    if holder:
+        raise ConflictError(f"Menu code {menu_code} is already used by {holder}.")

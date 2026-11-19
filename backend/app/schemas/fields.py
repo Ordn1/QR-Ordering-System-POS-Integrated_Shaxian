@@ -9,6 +9,8 @@ LATIN = "A-Za-zÀ-ÖØ-öø-ÿ"
 ALPHA = rf"^[{LATIN} '\-.]+$"
 ALPHANUMERIC = rf"^[{LATIN}0-9 '\-.()]+$"
 NUMERIC = r"^[0-9]+$"
+MENU_CODE = r"^[A-Z][0-9]{1,2}[a-z+]?$"
+HANZI = "^[㐀-鿿()（）]+$"
 CURRENCY = r"^[0-9]+(\.[0-9]{1,2})?$"
 
 FORBIDDEN_RANGES = (

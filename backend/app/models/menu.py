@@ -36,6 +36,10 @@ class MenuItem(Base):
         key_check("menu_items", "item_id", "MNU"),
         sa.CheckConstraint("price >= 0", name="chk_menu_items_price_non_negative"),
         sa.CheckConstraint("calories >= 0", name="chk_menu_items_calories_non_negative"),
+        sa.CheckConstraint(
+            "menu_code ~ '^[A-Z][0-9]{1,2}[a-z+]?$'", name="chk_menu_items_menu_code_format"
+        ),
+        sa.UniqueConstraint("menu_code", name="uq_menu_items_menu_code"),
     )
 
     item_id: Mapped[str] = mapped_column(
@@ -48,9 +52,11 @@ class MenuItem(Base):
         sa.ForeignKey("categories.cat_id", ondelete="RESTRICT"),
         nullable=False,
     )
+    menu_code: Mapped[str | None] = mapped_column(sa.String(4))
     name_en: Mapped[str] = mapped_column(sa.String(60), nullable=False)
     name_fil: Mapped[str] = mapped_column(sa.String(60), nullable=False)
     name_bis: Mapped[str] = mapped_column(sa.String(60), nullable=False)
+    name_zh: Mapped[str | None] = mapped_column(sa.String(30))
     description_en: Mapped[str | None] = mapped_column(sa.String(160))
     description_fil: Mapped[str | None] = mapped_column(sa.String(160))
     description_bis: Mapped[str | None] = mapped_column(sa.String(160))
