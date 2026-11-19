@@ -10,6 +10,7 @@ MENU_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public" / "menu"
 DEPTH_DIR = MENU_DIR / "depth"
 EDGE_SOFTEN = 1.5
 OPAQUE = 0.5
+PHOTO_TYPES = {".png", ".webp"}
 
 
 def device() -> str:
@@ -35,10 +36,10 @@ def main() -> None:
     estimator = pipeline("depth-estimation", model=MODEL, device=device())
     DEPTH_DIR.mkdir(exist_ok=True)
 
-    photos = sorted(MENU_DIR.glob("*.png"))
+    photos = sorted(path for path in MENU_DIR.iterdir() if path.suffix.lower() in PHOTO_TYPES)
     for path in photos:
         with Image.open(path) as photo:
-            depth_for(estimator, photo).save(DEPTH_DIR / path.name, optimize=True)
+            depth_for(estimator, photo).save(DEPTH_DIR / path.name, optimize=True, lossless=True)
         print(f"depth  {path.name}")
 
     print(f"\n{len(photos)} depth maps written to {DEPTH_DIR}")
