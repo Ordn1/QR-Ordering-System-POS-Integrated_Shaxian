@@ -51,6 +51,11 @@ alembic downgrade base && alembic upgrade head && python -m seeds.run
 
 ### What the seed contains
 
+- **The restaurant's real menu**: 60 dishes in 8 categories, with the code,
+  English and Chinese names and price from the shop's printed menu board, plus
+  Filipino and Bisaya names and descriptions. The board skips codes F5 and H2;
+  F4 Braised Beef Shank is seeded as sold out. Calories are left blank rather
+  than estimated. Source: `backend/seeds/menu.py`.
 - **Order history**: if `backend/seeds/transactions.csv` exists, it is
   loaded from that file. Otherwise the seed generates 48 orders over the 16
   days before you seed, from a fixed random seed. Generated orders are not
@@ -115,12 +120,16 @@ the item sheet spins a 3D model of the dish, and the cart is a serving tray.
 Accessibility mode, reduced motion, phones without WebGL2 and phones that run
 slowly all keep the flat photos instead.
 
-**Dish models** are built in code — no files to download or license. Every
-menu item's recipe lives in `frontend/src/lib/dishes/recipes.js`, and
-`/dev/dishes` shows each model turning beside its photo. A menu item's
-"3D model recipe" field in the admin editor names its recipe (for example `wonton`);
-the seed fills it in for every item. Tick "Served hot" for dishes that should
-steam.
+**Dish models** are built in code — no files to download or license. The
+recipes live in `frontend/src/lib/dishes/recipes.js`, and `/dev/dishes` shows
+each model turning beside its photo. A menu item's "3D model recipe" field in
+the admin editor names its recipe (for example `wonton`). 25 of the 60 dishes
+have one (D2 and D2+ share `fried-bihon`); the rest show their photo in relief. Tick "Served hot" for dishes
+that should steam.
+
+**Photos** live in `frontend/public/menu/`, one per dish, named after the
+English name in snake_case (`braised_pork_with_rice_and_soup.webp`): transparent
+WebP, 1024 px wide.
 
 **Depth maps** drive the relief on the menu cards. After adding or replacing a
 photo in `frontend/public/menu/`, regenerate them:

@@ -61,7 +61,7 @@ Check constraints:
 
 ## Table 12. Menu_items
 
-Every orderable item, with the trilingual names, nutrition and allergen disclosures required by the Menu Information Module.
+Every orderable item: its code from the printed menu board (A1, A3s, D2+), English, Filipino and Bisaya names plus the Chinese name, price, photo, and the nutrition and allergen disclosures required by the Menu Information Module.
 
 | Field Name | Data Type | Null | Default | Constraint |
 |---|---|---|---|---|
@@ -83,10 +83,13 @@ Every orderable item, with the trilingual names, nutrition and allergen disclosu
 | `created_at` | TIMESTAMPTZ | No | now() | — |
 | `model_filename` | VARCHAR(80) | Yes | — | — |
 | `is_hot` | BOOLEAN | No | false | — |
+| `menu_code` | VARCHAR(4) | Yes | — | UNIQUE |
+| `name_zh` | VARCHAR(30) | Yes | — | — |
 
 Check constraints:
 
 - `CHECK (((item_id)::text ~ '^MNU-[0-9]{4}$'::text))`
+- `CHECK (((menu_code)::text ~ '^[A-Z][0-9]{1,2}[a-z+]?$'::text))`
 - `CHECK ((calories >= 0))`
 - `CHECK ((price >= (0)::numeric))`
 

@@ -21,7 +21,7 @@ PURPOSE = {
  "tables":"Registers every physical table and the unique QR token printed on its marker. Referenced by sessions.",
  "staff_accounts":"Login credentials for the Service Crew and System Administrator roles. Passwords are never stored in plaintext.",
  "categories":"Menu category records and the order their tabs appear in. Referenced by menu_items.",
- "menu_items":"Every orderable item, with the trilingual names, nutrition and allergen disclosures required by the Menu Information Module.",
+ "menu_items":"Every orderable item: its code from the printed menu board (A1, A3s, D2+), English, Filipino and Bisaya names plus the Chinese name, price, photo, and the nutrition and allergen disclosures required by the Menu Information Module.",
  "sessions":"One ordering interaction from QR scan to checkout. Anchors transactions, devices, analytics and priority declarations. Demographic fields are populated by direct user input, never by a camera.",
  "session_devices":"Every phone that joins a table session. A Standard or single-device Priority session has one row; a Group session has two or more, enabling split-bill attribution.",
  "transactions":"Every placed order with its full tax and discount breakdown. Parent of transaction_items, payments and kitchen_queue, and the source read by the Apriori batch job.",
