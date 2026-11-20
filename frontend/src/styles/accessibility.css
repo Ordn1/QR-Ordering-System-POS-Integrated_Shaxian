@@ -1,4 +1,21 @@
-[data-ui-mode='accessible'] {
+[data-menu-size='list'] {
+  --font-xs: 14px;
+  --font-sm: 15px;
+  --font-base: 18px;
+  --font-md: 19px;
+  --font-lg: 24px;
+  --font-xl: 32px;
+  --font-btn: 17px;
+  --font-badge: 14px;
+
+  --tap-target: 48px;
+  --h-btn: 44px;
+  --h-icon-btn: 44px;
+  --h-input: 44px;
+  --h-badge: 28px;
+}
+
+[data-menu-size='large'] {
   --font-xs: 16px;
   --font-sm: 18px;
   --font-base: 22px;
@@ -15,91 +32,79 @@
   --space-4: 24px;
   --space-5: 32px;
 
-  --tap-target: 60px;
-  --h-btn: 60px;
-  --h-icon-btn: 60px;
-  --h-input: 60px;
+  --tap-target: 52px;
+  --h-btn: 52px;
+  --h-icon-btn: 52px;
+  --h-input: 52px;
   --h-badge: 34px;
-  --h-row: 60px;
-  --h-row-compact: 60px;
-  --h-row-comfortable: 68px;
+  --h-row: 52px;
+  --h-row-compact: 52px;
+  --h-row-comfortable: 60px;
+}
 
+[data-contrast='high'] {
   --text: #000000;
   --text-muted: #333333;
   --text-faint: #4B5563;
   --border: #767676;
   --border-strong: #000000;
-
   --green: #155636;
   --amber-strong: #6B460B;
 }
 
-[data-ui-mode='accessible'] .badge {
-  color: var(--text);
+[data-steady-taps='true'] {
+  --tap-target: 60px;
+  --h-btn: 60px;
+  --h-icon-btn: 60px;
+  --h-input: 60px;
+  --h-row: 60px;
+  --h-row-compact: 60px;
+  --h-row-comfortable: 68px;
 }
 
-[data-ui-mode='accessible'] .menu-grid,
-[data-ui-mode='accessible'] .kpi-grid {
+[data-menu-size='large'] .kpi-grid {
   grid-template-columns: 1fr;
 }
 
-[data-ui-mode='accessible'] .kpi-watermark {
+[data-menu-size='large'] .kpi-watermark {
   display: none;
 }
 
-[data-ui-mode='accessible'] .menu-item-row,
-[data-ui-mode='accessible'] .menu-item-side {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-3);
-}
-
-/* A 60px stepper and a 60px remove button fit side by side even at 390px, so
-   these stay on one row. Stacking them stretched the stepper's border to the
-   full width while its buttons kept their own size, leaving dead space inside
-   the box that read as an oversized plus. */
-[data-ui-mode='accessible'] .cart-line-controls {
+:is([data-menu-size='list'], [data-menu-size='large']) .cart-line-controls {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
 }
 
-[data-ui-mode='accessible'] .qty-stepper {
+:is([data-menu-size='list'], [data-menu-size='large']) .qty-stepper {
   flex: none;
 }
 
-[data-ui-mode='accessible'] .customer-header,
-[data-ui-mode='accessible'] .customer-page-head,
-[data-ui-mode='accessible'] .language-switch,
-[data-ui-mode='accessible'] .cart-line-body {
+:is([data-menu-size='list'], [data-menu-size='large']) .customer-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+:is([data-menu-size='list'], [data-menu-size='large']) .customer-page-head {
   flex-wrap: wrap;
 }
 
-[data-ui-mode='accessible'] .navbar-btn,
-[data-ui-mode='accessible'] .primary-btn,
-[data-ui-mode='accessible'] .secondary-btn,
-[data-ui-mode='accessible'] .ghost-btn,
-[data-ui-mode='accessible'] .wide-create-btn,
-[data-ui-mode='accessible'] .wide-edit-btn,
-[data-ui-mode='accessible'] .wide-delete-btn,
-[data-ui-mode='accessible'] .wide-view-btn,
-[data-ui-mode='accessible'] .icon-view-btn,
-[data-ui-mode='accessible'] .icon-edit-btn,
-[data-ui-mode='accessible'] .icon-delete-btn,
-[data-ui-mode='accessible'] .icon-create-btn,
-[data-ui-mode='accessible'] .remove-btn {
+:is([data-menu-size='list'], [data-menu-size='large'], [data-steady-taps='true'])
+  :is(.navbar-btn, .primary-btn, .secondary-btn, .ghost-btn, .wide-create-btn, .wide-edit-btn,
+    .wide-delete-btn, .wide-view-btn, .icon-view-btn, .icon-edit-btn, .icon-delete-btn,
+    .icon-create-btn, .remove-btn, .header-icon-btn, .toggle-btn) {
   min-height: var(--tap-target);
   min-width: var(--tap-target);
 }
 
-[data-ui-mode='accessible'] .navbar-btn {
+:is([data-menu-size='list'], [data-menu-size='large'], [data-steady-taps='true']) .navbar-btn {
   min-width: 0;
 }
 
-[data-ui-mode='accessible'] .primary-btn,
-[data-ui-mode='accessible'] .secondary-btn,
-[data-ui-mode='accessible'] .checkout-btn {
+:is([data-menu-size='list'], [data-menu-size='large'], [data-steady-taps='true'])
+  :is(.primary-btn, .secondary-btn, .checkout-btn, .add-to-cart-btn) {
   height: auto;
   min-height: var(--h-btn);
   padding-block: var(--space-2);
@@ -107,64 +112,36 @@
   text-align: center;
 }
 
-/* Single-column accessible rows stack the photo above the text, so it takes the
-   full width rather than staying a 112px thumbnail floating on the left. */
-[data-ui-mode='accessible'] .menu-item-photo {
-  width: 100%;
-  height: 180px;
-}
-
-/* White on --red measures 6.48:1, under the 7:1 body floor §15.2 sets for
-   accessible mode. The deeper brand red clears it at 9.25:1. */
-[data-ui-mode='accessible'] .bottom-bar-count {
-  background: var(--red-deep);
-}
-
-/* At accessible type sizes the header cannot hold the table number and three
-   language buttons on one line. Rather than let them wrap raggedly, stack them
-   deliberately: identity on top, then the three languages sharing the width. */
-[data-ui-mode='accessible'] .customer-header {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-2);
-}
-
-[data-ui-mode='accessible'] .language-switch {
-  flex-wrap: nowrap;
-}
-
-[data-ui-mode='accessible'] .language-switch .lang-btn {
-  flex: 1;
-  padding: 0 var(--space-2);
-}
-
-/* The icon belongs beside the first line of a wrapped message, not floating in
-   the middle of it. */
-[data-ui-mode='accessible'] .group-banner {
-  align-items: flex-start;
-}
-
-/* --red on white measures 6.48:1 — fine for standard mode's 4.5 floor, short of
-   the 7:1 §15.2 requires at accessible type. --red-deep reaches 9.25:1 and keeps
-   the active tab unmistakably brand red. Standard mode is untouched. */
-[data-ui-mode='accessible'] .menu-category-tab[aria-selected='true'] {
-  color: var(--red-deep);
-}
-
-[data-ui-mode='accessible'] .menu-category-tab-bar {
-  background: var(--red-deep);
-}
-
-[data-ui-mode='accessible'] .checkout-item-qty,
-[data-ui-mode='accessible'] .bottom-bar-item.active {
-  color: var(--red-deep);
-}
-
-[data-ui-mode='accessible'] .lang-toggle-sep {
+[data-contrast='high'] .badge {
   color: var(--text);
 }
 
-[data-ui-mode='accessible'] .illo,
-[data-ui-mode='accessible'] .illo * {
+[data-contrast='high'] .bottom-bar-count {
+  background: var(--red-deep);
+}
+
+[data-contrast='high'] .menu-category-tab[aria-selected='true'],
+[data-contrast='high'] .checkout-item-qty,
+[data-contrast='high'] .bottom-bar-item.active {
+  color: var(--red-deep);
+}
+
+[data-contrast='high'] .menu-category-tab-bar,
+[data-contrast='high'] .menu-card-add,
+[data-contrast='high'] .menu-code {
+  background: var(--red-deep);
+}
+
+[data-contrast='high'] .lang-toggle-sep {
+  color: var(--text);
+}
+
+[data-contrast='high'] :is(.menu-card, .item-detail-media, .tile) {
+  box-shadow: none;
+  outline: 1px solid var(--border-strong);
+}
+
+[data-contrast='high'] .illo,
+[data-contrast='high'] .illo * {
   animation: none !important;
 }

@@ -8,6 +8,7 @@ import { useDragTilt } from '../../hooks/useDragTilt';
 import { useShowcase } from '../../hooks/useShowcase';
 import { menuDepthUrl, menuImageUrl } from '../../lib/menuImage';
 import { MOVE } from '../../lib/motion';
+import { useUiStore } from '../../store/uiStore';
 import Badge from '../shared/Badge';
 import MenuCode from '../shared/MenuCode';
 
@@ -26,7 +27,9 @@ export default function MenuItemCard({
   const src = menuImageUrl(item.image_filename);
   const photo = useRef(null);
   const photoBox = useRef(null);
-  const showcase = useShowcase() && Boolean(src);
+  const menuSize = useUiStore((state) => state.display.menuSize);
+  const steadyTaps = useUiStore((state) => state.display.steadyTaps);
+  const showcase = useShowcase() && Boolean(src) && menuSize !== 'list';
   const { tilt, handlers } = useDragTilt();
   const [ready, setReady] = useState(false);
   const markReady = useCallback(() => setReady(true), []);
@@ -44,7 +47,7 @@ export default function MenuItemCard({
           className={`menu-card-photo${showcase && ready ? ' live' : ''}`}
           layoutId={`photo-${item.item_id}`}
           transition={MOVE}
-          {...(showcase ? handlers : {})}
+          {...(showcase && !steadyTaps ? handlers : {})}
         >
           {src ? (
             <motion.img ref={photo} src={src} alt="" loading="lazy" layout transition={MOVE} />
@@ -66,7 +69,12 @@ export default function MenuItemCard({
           <MenuCode code={item.menu_code} overlay />
         </motion.div>
         <div className="menu-card-body">
-          <h3 className="menu-card-name">{name}</h3>
+          <div className="menu-card-heading">
+            <h3 className="menu-card-name">{name}</h3>
+            <span className="menu-card-price-top numeric" aria-hidden="true">
+              {peso(item.price)}
+            </span>
+          </div>
           {item.name_zh ? (
             <p className="dish-name-zh" lang="zh-Hans">
               {item.name_zh}
@@ -88,7 +96,8 @@ export default function MenuItemCard({
             }}
             aria-label={t('menu.addToCart')}
           >
-            <Plus size={18} strokeWidth={2.5} />
+            <Plus size={18} strokeWidth={2.5} aria-hidden="true" />
+            <span className="menu-card-add-label">{t('menu.add')}</span>
           </button>
         ) : (
           <Badge value="sold out" label={t('menu.soldOut')} />

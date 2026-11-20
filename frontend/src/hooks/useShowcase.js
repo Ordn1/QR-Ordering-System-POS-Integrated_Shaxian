@@ -15,7 +15,7 @@ const SUPPORTED =
   hasWebGl2();
 
 export function useShowcase() {
-  const accessible = useUiStore((state) => state.uiMode) === 'accessible';
+  const highContrast = useUiStore((state) => state.display.highContrast);
   const declined = useUiStore((state) => state.showcaseDeclined);
-  return SUPPORTED && !accessible && !declined;
+  return SUPPORTED && !highContrast && !declined;
 }

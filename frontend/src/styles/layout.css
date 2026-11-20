@@ -178,9 +178,9 @@
   }
 }
 
-/* Accessible mode scales type up past the fixed bar height, which cropped the
+/* The largest size scales type up past the fixed bar height, which cropped the
    identity above and below the rule. The bar grows instead of cropping. */
-[data-ui-mode='accessible'] .navbar {
+[data-menu-size='large'] .navbar {
   height: auto;
   min-height: var(--h-navbar);
   flex-wrap: wrap;
@@ -188,7 +188,7 @@
   padding-block: var(--space-2);
 }
 
-[data-ui-mode='accessible'] .navbar-nav {
+[data-menu-size='large'] .navbar-nav {
   height: auto;
   flex-wrap: wrap;
 }

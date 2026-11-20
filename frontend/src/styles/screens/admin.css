@@ -14,7 +14,7 @@
   }
 }
 
-[data-ui-mode='accessible'] .form-grid {
+[data-menu-size='large'] .form-grid {
   grid-template-columns: 1fr;
 }
 
@@ -119,7 +119,7 @@
   color: var(--text-muted);
 }
 
-[data-ui-mode='accessible'] .tile-grid {
+[data-menu-size='large'] .tile-grid {
   grid-template-columns: 1fr;
 }
 
@@ -203,8 +203,8 @@
   color: var(--text-faint);
 }
 
-[data-ui-mode='accessible'] .pagination-step,
-[data-ui-mode='accessible'] .pagination-page {
+[data-menu-size='large'] .pagination-step,
+[data-menu-size='large'] .pagination-page {
   min-width: var(--tap-target);
   height: var(--tap-target);
 }

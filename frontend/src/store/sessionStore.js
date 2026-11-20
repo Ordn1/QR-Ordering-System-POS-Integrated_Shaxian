@@ -40,9 +40,23 @@ function recall(qrToken) {
   return null;
 }
 
+function displayOf(session) {
+  return {
+    menuSize: session.menu_size ?? 'grid',
+    highContrast: Boolean(session.is_high_contrast),
+    steadyTaps: Boolean(session.has_steady_taps),
+  };
+}
+
+const DISPLAY_FIELDS = {
+  menuSize: 'menu_size',
+  highContrast: 'is_high_contrast',
+  steadyTaps: 'has_steady_taps',
+};
+
 function applySession(session, { animate = true } = {}) {
   setDeviceToken(session.device_token);
-  useUiStore.getState().setUiMode(session.ui_mode_used, { animate });
+  useUiStore.getState().setDisplay(displayOf(session), { animate });
   useUiStore.getState().setLanguage(session.language_used);
   i18n.changeLanguage(session.language_used);
 }
@@ -134,6 +148,28 @@ export const useSessionStore = create((set, get) => ({
       language_used: language,
     });
     set({ session });
+  },
+
+  setDisplay: async (changes, source = 'button') => {
+    const current = get().session;
+    useUiStore.getState().setDisplay(changes, { animate: true });
+    if (!current) {
+      return null;
+    }
+    const payload = { source };
+    for (const [key, field] of Object.entries(DISPLAY_FIELDS)) {
+      if (key in changes) {
+        payload[field] = changes[key];
+      }
+    }
+    try {
+      const session = await sessionApi.savePreferences(current.session_id, payload);
+      set({ session });
+      return session;
+    } catch (error) {
+      useUiStore.getState().setDisplay(displayOf(current), { animate: true });
+      throw error;
+    }
   },
 
   setDisplayName: async (displayName) => {

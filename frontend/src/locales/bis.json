@@ -264,7 +264,12 @@
     "dietaryLabel": "Lagda sa pagkaon",
     "noneListed": "Walay nakalista",
     "viewPhoto": "Ipakita ang litrato",
-    "view3d": "Ipakita sa 3D"
+    "view3d": "Ipakita sa 3D",
+    "add": "Idugang",
+    "category": "Kategorya",
+    "chooseCategory": "Pagpili og kategorya",
+    "dishCount_one": "{{count}} ka putahe",
+    "dishCount_other": "{{count}} ka putahe"
   },
   "nav": {
     "menu": "Menu",
@@ -312,7 +317,16 @@
     "discountNote": "Ang mga senior citizen ug may kakulangan sa lawas naay 20% nga diskwento ug wala sakop sa VAT.",
     "pregnantNote": "Ang mga mabdos giuna sa pila. Walay diskwento nga ihatag.",
     "save": "Kumpirmaha",
-    "saved": "Na-aplay ang priority service"
+    "saved": "Na-aplay ang priority service",
+    "savedNone": "Walay priority nga gipili",
+    "savedDiscount": "Naghulat pa ang discount: ipakita ang ID sa cashier",
+    "idVerificationReminder": "Gitagana ang imong 20% discount ug VAT exemption hangtod masusi sa staff ang imong OSCA o PWD ID sa counter.",
+    "showPrivacyNotice": "Tan-awa ang Data Privacy Notice (RA 10173)",
+    "hidePrivacyNotice": "Tagoa ang Data Privacy Notice (RA 10173)",
+    "privacyHeading": "Data Privacy Act of 2012 (Republic Act No. 10173)",
+    "privacyBody1": "Walay camera, facial recognition o biometric tracking kini nga sistema. Boluntaryo ug kaugalingong deklarasyon ang priority status.",
+    "privacyBody2": "Kung ma-verify sa staff ang Senior Citizen (RA 9994) o PWD (RA 10754) discount, itala sa restawran ang numero sa imong ID, ngalan sa cardholder ug LGU nga nag-isyu para lang sa BIR tax audit.",
+    "privacyBody3": "Natago isip default ang mga numero sa ID ug ngalan sa screen sa staff ug gitipigan lang sulod sa panahon sa audit nga gitakda sa balaod."
   },
   "priorityStatus": {
     "standard": "Ordinaryo",
@@ -429,5 +443,21 @@
       "ready": "Kuhaa ang order sa counter",
       "completed": "Lami nga pagkaon"
     }
+  },
+  "display": {
+    "title": "Teksto ug mga button",
+    "size": "Gidak-on sa menu",
+    "sizes": {
+      "grid": "Grid",
+      "list": "Lista",
+      "large": "Dako"
+    },
+    "pinchHint": "Pwede usab nimo i-pinch ang menu aron padak-on o pagamyon kini.",
+    "contrast": "Taas nga contrast",
+    "contrastHint": "Mas itom nga teksto ug border. Gipalong ang naglihok nga hulagway sa pagkaon.",
+    "steadyTaps": "Mas dagkong button",
+    "steadyTapsHint": "Mas dagkong button, ug ang mga panel mosira lang pinaagi sa button.",
+    "done": "Human na",
+    "sizeNow": "Gidak-on sa menu: {{size}}"
   }
 }

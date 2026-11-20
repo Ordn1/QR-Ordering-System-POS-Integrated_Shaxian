@@ -264,7 +264,12 @@
     "dietaryLabel": "Dietary",
     "noneListed": "None listed",
     "viewPhoto": "Show the photo",
-    "view3d": "Show in 3D"
+    "view3d": "Show in 3D",
+    "add": "Add",
+    "category": "Category",
+    "chooseCategory": "Choose a category",
+    "dishCount_one": "{{count}} dish",
+    "dishCount_other": "{{count}} dishes"
   },
   "nav": {
     "menu": "Menu",
@@ -312,7 +317,16 @@
     "discountNote": "Senior citizens and persons with disability receive a 20% discount with VAT exemption.",
     "pregnantNote": "Pregnant diners are served ahead of the queue. No discount applies.",
     "save": "Confirm",
-    "saved": "Priority service applied"
+    "saved": "Priority service applied",
+    "savedNone": "No priority selected",
+    "savedDiscount": "Discount pending: show your ID at the cashier",
+    "idVerificationReminder": "Your 20% discount with VAT exemption is held until staff check your OSCA or PWD ID at the counter.",
+    "showPrivacyNotice": "View Data Privacy Notice (RA 10173)",
+    "hidePrivacyNotice": "Hide Data Privacy Notice (RA 10173)",
+    "privacyHeading": "Data Privacy Act of 2012 (Republic Act No. 10173)",
+    "privacyBody1": "This system uses no cameras, facial recognition or biometric tracking. Priority status is voluntary and self-declared.",
+    "privacyBody2": "When staff verify a Senior Citizen (RA 9994) or PWD (RA 10754) discount, the restaurant records your ID number, cardholder name and issuing LGU for BIR tax-audit compliance only.",
+    "privacyBody3": "ID numbers and names are masked on staff screens by default and kept only for the statutory audit period."
   },
   "priorityStatus": {
     "standard": "Standard",
@@ -429,5 +443,21 @@
       "ready": "Pick up your order at the counter",
       "completed": "Enjoy your meal"
     }
+  },
+  "display": {
+    "title": "Text and buttons",
+    "size": "Menu size",
+    "sizes": {
+      "grid": "Grid",
+      "list": "List",
+      "large": "Large"
+    },
+    "pinchHint": "You can also pinch the menu to make it bigger or smaller.",
+    "contrast": "High contrast",
+    "contrastHint": "Darker text and borders. Turns off the moving dish view.",
+    "steadyTaps": "Bigger buttons",
+    "steadyTapsHint": "Larger buttons, and panels close only with a button.",
+    "done": "Done",
+    "sizeNow": "Menu size: {{size}}"
   }
 }

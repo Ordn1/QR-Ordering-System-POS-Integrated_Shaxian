@@ -1,4 +1,4 @@
-import { Accessibility } from 'lucide-react';
+import { Accessibility, ChevronDown } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,13 +9,15 @@ import ItemDetailSheet from '../../components/customer/ItemDetailSheet';
 import MenuItemCard from '../../components/customer/MenuItemCard';
 import PriorityDeclaration from '../../components/customer/PriorityDeclaration';
 import Button from '../../components/shared/Button';
+import Modal from '../../components/shared/Modal';
 import { useShowcase } from '../../hooks/useShowcase';
 import { flyToCart } from '../../lib/flyToCart';
 import { DURATION, EASE_OUT, MOVE, OFFSET } from '../../lib/motion';
+import { watchPinch } from '../../lib/pinch';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
-import { useUiStore } from '../../store/uiStore';
+import { MENU_SIZES, useUiStore } from '../../store/uiStore';
 
 const MenuShowcase = lazy(() => import('../../components/customer/MenuShowcase'));
 
@@ -50,11 +52,14 @@ export default function CustomerMenuPage() {
   const [items, setItems] = useState([]);
   const [declaring, setDeclaring] = useState(false);
   const [viewing, setViewing] = useState(null);
+  const [picking, setPicking] = useState(false);
   const add = useCartStore((state) => state.add);
   const session = useSessionStore((state) => state.session);
-  const accessible = useUiStore((state) => state.uiMode) === 'accessible';
+  const menuSize = useUiStore((state) => state.display.menuSize);
+  const setDisplay = useSessionStore((state) => state.setDisplay);
   const showcase = useShowcase();
   const tabsRef = useRef(null);
+  const stageRef = useRef(null);
   const [shownCategory, setShownCategory] = useState(activeCategory);
   const [direction, setDirection] = useState(0);
 
@@ -77,6 +82,20 @@ export default function CustomerMenuPage() {
       }
     } catch { }
   }, [session?.session_id]);
+
+  useEffect(() => {
+    function resize(step) {
+      const current = MENU_SIZES.indexOf(useUiStore.getState().display.menuSize);
+      const next = MENU_SIZES[current + step];
+      if (!next) {
+        return;
+      }
+      setDisplay({ menuSize: next }, 'pinch')
+        .then(() => toast.info(t('display.sizeNow', { size: t(`display.sizes.${next}`) })))
+        .catch((error) => toast.error(error.message));
+    }
+    return watchPinch(stageRef.current, { onIn: () => resize(1), onOut: () => resize(-1) });
+  }, [setDisplay, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +132,7 @@ export default function CustomerMenuPage() {
   const nameKey = NAME_BY_LANGUAGE[i18n.language] ?? 'name_en';
   const descriptionKey = DESCRIPTION_BY_LANGUAGE[i18n.language] ?? 'description_en';
   const shown = items.filter((item) => item.cat_id === activeCategory);
-  const swap = { dir: direction, offset: accessible ? 0 : OFFSET.swap };
+  const swap = { dir: direction, offset: menuSize === 'large' ? 0 : OFFSET.swap };
 
   function onAdd(item, qty = 1, photo = null) {
     completed?.('add');
@@ -139,6 +158,21 @@ export default function CustomerMenuPage() {
           {t('priority.open')}
         </Button>
       </div>
+
+      <button
+        type="button"
+        className="menu-category-picker"
+        aria-haspopup="dialog"
+        onClick={() => setPicking(true)}
+      >
+        <span className="menu-category-picker-text">
+          <span className="menu-category-picker-label">{t('menu.category')}</span>
+          <span className="menu-category-picker-name">
+            {categories.find((category) => category.cat_id === activeCategory)?.[nameKey]}
+          </span>
+        </span>
+        <ChevronDown size={22} strokeWidth={1.75} aria-hidden="true" />
+      </button>
 
       <motion.div className="menu-category-tabs" role="tablist" ref={tabsRef} layoutScroll>
         {categories.map((category) => {
@@ -166,7 +200,7 @@ export default function CustomerMenuPage() {
         })}
       </motion.div>
 
-      <div className="menu-grid-stage">
+      <div className="menu-grid-stage" ref={stageRef}>
         <AnimatePresence mode="popLayout" initial={false} custom={swap}>
           <motion.div
             key={activeCategory ?? 'none'}
@@ -193,6 +227,32 @@ export default function CustomerMenuPage() {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {picking ? (
+        <Modal sheet title={t('menu.chooseCategory')} onClose={() => setPicking(false)}>
+          <div className="category-sheet-list">
+            {categories.map((category) => (
+              <button
+                key={category.cat_id}
+                type="button"
+                className="category-sheet-option"
+                aria-current={category.cat_id === activeCategory}
+                onClick={() => {
+                  setActiveCategory(category.cat_id);
+                  setPicking(false);
+                }}
+              >
+                {category[nameKey]}
+                <span className="category-sheet-count">
+                  {t('menu.dishCount', {
+                    count: items.filter((item) => item.cat_id === category.cat_id).length,
+                  })}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Modal>
+      ) : null}
 
       {declaring && session ? (
         <PriorityDeclaration onClose={() => setDeclaring(false)} />

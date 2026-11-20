@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 
 import { DURATION, SHEET } from '../../lib/motion';
 import { useToastStore } from '../../store/toastStore';
+import { useUiStore } from '../../store/uiStore';
 import ToastRegion from './ToastRegion';
 
 const FOCUSABLE =
@@ -35,6 +36,8 @@ export default function Modal({
   const openModal = useToastStore((state) => state.openModal);
   const closeModal = useToastStore((state) => state.closeModal);
   const dragControls = useDragControls();
+  const steadyTaps = useUiStore((state) => state.display.steadyTaps);
+  const draggable = sheet && !steadyTaps;
 
   useEffect(() => {
     openModal();
@@ -85,8 +88,8 @@ export default function Modal({
 
   const Backdrop = sheet ? motion.div : 'div';
   const Panel = sheet ? motion.div : 'div';
-  const startDrag = sheet ? (event) => dragControls.start(event) : undefined;
-  const sheetPanelProps = sheet
+  const startDrag = draggable ? (event) => dragControls.start(event) : undefined;
+  const sheetPanelProps = draggable
     ? {
         ...FADE,
         drag: 'y',
@@ -101,7 +104,9 @@ export default function Modal({
           }
         },
       }
-    : {};
+    : sheet
+      ? FADE
+      : {};
 
   return (
     <Backdrop
@@ -123,7 +128,7 @@ export default function Modal({
         ref={containerRef}
         {...sheetPanelProps}
       >
-        {sheet ? (
+        {draggable ? (
           <div className="modal-sheet-handle" onPointerDown={startDrag} aria-hidden="true" />
         ) : null}
         <ToastRegion inModal />

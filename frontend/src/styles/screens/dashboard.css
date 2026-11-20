@@ -83,7 +83,7 @@
   }
 }
 
-[data-ui-mode='accessible'] .dashboard-grid {
+[data-menu-size='large'] .dashboard-grid {
   grid-template-columns: 1fr;
 }
 

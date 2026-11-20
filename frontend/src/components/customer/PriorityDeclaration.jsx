@@ -9,6 +9,13 @@ import Modal from '../shared/Modal';
 
 const OPTIONS = ['standard', 'senior', 'pwd', 'pregnant'];
 
+const SAVED_TOAST = {
+  standard: 'priority.savedNone',
+  senior: 'priority.savedDiscount',
+  pwd: 'priority.savedDiscount',
+  pregnant: 'priority.saved',
+};
+
 export default function PriorityDeclaration({ onClose }) {
   const { t } = useTranslation();
   const session = useSessionStore((state) => state.session);
@@ -24,13 +31,7 @@ export default function PriorityDeclaration({ onClose }) {
     try {
       await declare(choice);
       onClose();
-      if (isDiscountable) {
-        toast.success(
-          'Priority discount applied. Please have your physical ID ready for staff verification later.',
-        );
-      } else {
-        toast.success(t('priority.saved'));
-      }
+      toast.success(t(SAVED_TOAST[choice]));
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -71,24 +72,9 @@ export default function PriorityDeclaration({ onClose }) {
       </div>
 
       {isDiscountable ? (
-        <div
-          style={{
-            marginTop: 'var(--space-4)',
-            padding: 'var(--space-3)',
-            border: '1px solid var(--border, #d6d3cd)',
-            background: 'var(--surface, #f7f5f0)',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 'var(--space-2)',
-          }}
-        >
-          <ShieldCheck size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-          <p style={{ margin: 0, fontSize: 'var(--font-sm)' }}>
-            {t('priority.idVerificationReminder', {
-              defaultValue:
-                'Your 20% discount + VAT exemption is applied automatically. Staff will verify your physical OSCA/PWD ID when serving or settling.',
-            })}
-          </p>
+        <div className="declaration-id-note">
+          <ShieldCheck size={18} strokeWidth={1.75} aria-hidden="true" />
+          <p>{t('priority.idVerificationReminder')}</p>
         </div>
       ) : null}
 
@@ -96,50 +82,17 @@ export default function PriorityDeclaration({ onClose }) {
         {choice === 'pregnant' ? t('priority.pregnantNote') : t('priority.discountNote')}
       </p>
 
-      <div style={{ marginTop: 'var(--space-3)' }}>
-        <Button
-          variant="ghost"
-          onClick={() => setShowPrivacy((prev) => !prev)}
-        >
-          {showPrivacy
-            ? t('priority.hidePrivacyNotice', { defaultValue: 'Hide Data Privacy Notice (RA 10173)' })
-            : t('priority.showPrivacyNotice', { defaultValue: 'View Data Privacy Notice (RA 10173)' })}
+      <div className="declaration-privacy">
+        <Button variant="ghost" onClick={() => setShowPrivacy((prev) => !prev)}>
+          {showPrivacy ? t('priority.hidePrivacyNotice') : t('priority.showPrivacyNotice')}
         </Button>
 
         {showPrivacy ? (
-          <div
-            className="stack-2"
-            style={{
-              marginTop: 'var(--space-2)',
-              padding: 'var(--space-3)',
-              border: '1px solid var(--border, #d6d3cd)',
-              background: 'var(--surface, #fafafa)',
-              fontSize: 'var(--font-sm)',
-            }}
-          >
-            <strong>
-              {t('priority.privacyHeading', {
-                defaultValue: 'Data Privacy Act of 2012 (Republic Act No. 10173)',
-              })}
-            </strong>
-            <p>
-              {t('priority.privacyBody1', {
-                defaultValue:
-                  'This system operates without cameras, facial recognition, or biometric tracking. Priority status is voluntary and self-declared.',
-              })}
-            </p>
-            <p>
-              {t('priority.privacyBody2', {
-                defaultValue:
-                  'When a Senior Citizen (RA 9994) or PWD (RA 10754) discount is verified by staff, the restaurant records your ID number, cardholder name, and issuing LGU strictly for BIR statutory tax-audit compliance.',
-              })}
-            </p>
-            <p>
-              {t('priority.privacyBody3', {
-                defaultValue:
-                  'ID numbers and names are masked on staff screens by default and retained only for the statutory audit period.',
-              })}
-            </p>
+          <div className="declaration-privacy-body stack-2">
+            <strong>{t('priority.privacyHeading')}</strong>
+            <p>{t('priority.privacyBody1')}</p>
+            <p>{t('priority.privacyBody2')}</p>
+            <p>{t('priority.privacyBody3')}</p>
           </div>
         ) : null}
       </div>

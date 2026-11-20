@@ -453,8 +453,8 @@
   }
 }
 
-[data-ui-mode='accessible'] .queue-stats,
-[data-ui-mode='accessible'] .queue-layout {
+[data-menu-size='large'] .queue-stats,
+[data-menu-size='large'] .queue-layout {
   grid-template-columns: 1fr;
 }
 
@@ -548,6 +548,6 @@
   text-align: center;
 }
 
-[data-ui-mode='accessible'] .cash-id-actions {
+[data-menu-size='large'] .cash-id-actions {
   flex-direction: column-reverse;
 }

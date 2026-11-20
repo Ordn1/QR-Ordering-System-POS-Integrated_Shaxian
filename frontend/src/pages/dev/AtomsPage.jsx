@@ -17,7 +17,7 @@ import Modal from '../../components/shared/Modal';
 import QtyStepper from '../../components/shared/QtyStepper';
 import SelectField from '../../components/shared/SelectField';
 import TextInput from '../../components/shared/TextInput';
-import { useUiStore } from '../../store/uiStore';
+import { MENU_SIZES, useUiStore } from '../../store/uiStore';
 import { toast } from '../../store/toastStore';
 
 const BRAND_TOKENS = [
@@ -83,8 +83,8 @@ const ROWS = [
 ];
 
 export default function AtomsPage() {
-  const uiMode = useUiStore((state) => state.uiMode);
-  const setUiMode = useUiStore((state) => state.setUiMode);
+  const display = useUiStore((state) => state.display);
+  const setDisplay = useUiStore((state) => state.setDisplay);
   const [quantity, setQuantity] = useState(2);
   const [name, setName] = useState('Wonton');
   const [openModal, setOpenModal] = useState(null);
@@ -110,18 +110,27 @@ export default function AtomsPage() {
   return (
     <>
       <div className="atoms-mode-bar">
-        <span className="eyebrow">UI mode</span>
+        <span className="eyebrow">Size</span>
+        {MENU_SIZES.map((size) => (
+          <Button
+            key={size}
+            variant={display.menuSize === size ? 'primary' : 'secondary'}
+            onClick={() => setDisplay({ menuSize: size })}
+          >
+            {size}
+          </Button>
+        ))}
         <Button
-          variant={uiMode === 'standard' ? 'primary' : 'secondary'}
-          onClick={() => setUiMode('standard')}
+          variant={display.highContrast ? 'primary' : 'secondary'}
+          onClick={() => setDisplay({ highContrast: !display.highContrast })}
         >
-          Standard
+          High contrast
         </Button>
         <Button
-          variant={uiMode === 'accessible' ? 'primary' : 'secondary'}
-          onClick={() => setUiMode('accessible')}
+          variant={display.steadyTaps ? 'primary' : 'secondary'}
+          onClick={() => setDisplay({ steadyTaps: !display.steadyTaps })}
         >
-          Accessible
+          Bigger buttons
         </Button>
       </div>
 

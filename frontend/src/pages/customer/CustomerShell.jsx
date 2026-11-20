@@ -1,9 +1,10 @@
-import { HelpCircle, Search } from 'lucide-react';
+import { ALargeSmall, HelpCircle, Search } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import BottomBar from '../../components/customer/BottomBar';
+import DisplaySheet from '../../components/customer/DisplaySheet';
 import GroupBanner from '../../components/customer/GroupBanner';
 import LanguageSwitch from '../../components/customer/LanguageSwitch';
 import NavHighlight from '../../components/customer/NavHighlight';
@@ -42,6 +43,7 @@ export default function CustomerShell() {
   const add = useCartStore((state) => state.add);
   const [activeCategory, setActiveCategory] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [showDisplay, setShowDisplay] = useState(false);
   const [allItems, setAllItems] = useState([]);
   const prevPathRef = useRef(pathname);
 
@@ -139,6 +141,14 @@ export default function CustomerShell() {
           >
             <Search size={20} strokeWidth={1.75} />
           </button>
+          <button
+            type="button"
+            className="header-icon-btn"
+            aria-label={t('display.title')}
+            onClick={() => setShowDisplay(true)}
+          >
+            <ALargeSmall size={22} strokeWidth={1.75} />
+          </button>
           <LanguageSwitch />
         </div>
       </header>
@@ -202,6 +212,8 @@ export default function CustomerShell() {
       ) : null}
 
       <BottomBar sessionPath={`/t/${qrToken}`} trackControl={guidance.trackControl} />
+
+      {showDisplay ? <DisplaySheet onClose={() => setShowDisplay(false)} /> : null}
 
       {showSearch ? (
         <SearchOverlay

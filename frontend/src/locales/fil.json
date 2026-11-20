@@ -264,7 +264,12 @@
     "dietaryLabel": "Panuntunan sa pagkain",
     "noneListed": "Walang nakalista",
     "viewPhoto": "Ipakita ang larawan",
-    "view3d": "Ipakita sa 3D"
+    "view3d": "Ipakita sa 3D",
+    "add": "Idagdag",
+    "category": "Kategorya",
+    "chooseCategory": "Pumili ng kategorya",
+    "dishCount_one": "{{count}} putahe",
+    "dishCount_other": "{{count}} putahe"
   },
   "nav": {
     "menu": "Menu",
@@ -312,7 +317,16 @@
     "discountNote": "Ang mga senior citizen at may kapansanan ay may 20% diskwento at hindi sakop ng VAT.",
     "pregnantNote": "Ang mga buntis ay inuuna sa pila. Walang diskwentong ibinibigay.",
     "save": "Kumpirmahin",
-    "saved": "Naaplay ang priority service"
+    "saved": "Naaplay ang priority service",
+    "savedNone": "Walang priority na pinili",
+    "savedDiscount": "Nakabinbin ang discount: ipakita ang ID sa cashier",
+    "idVerificationReminder": "Nakareserba ang iyong 20% discount at VAT exemption hanggang masuri ng staff ang iyong OSCA o PWD ID sa counter.",
+    "showPrivacyNotice": "Tingnan ang Data Privacy Notice (RA 10173)",
+    "hidePrivacyNotice": "Itago ang Data Privacy Notice (RA 10173)",
+    "privacyHeading": "Data Privacy Act of 2012 (Republic Act No. 10173)",
+    "privacyBody1": "Walang camera, facial recognition o biometric tracking ang sistemang ito. Boluntaryo at sariling deklarasyon ang priority status.",
+    "privacyBody2": "Kapag na-verify ng staff ang Senior Citizen (RA 9994) o PWD (RA 10754) discount, itinatala ng restawran ang numero ng iyong ID, pangalan ng cardholder at LGU na nag-isyu para lamang sa BIR tax audit.",
+    "privacyBody3": "Nakatago bilang default ang mga numero ng ID at pangalan sa screen ng staff at itinatago lamang sa panahon ng audit na itinakda ng batas."
   },
   "priorityStatus": {
     "standard": "Karaniwan",
@@ -429,5 +443,21 @@
       "ready": "Kunin ang order sa counter",
       "completed": "Masarap na kainan"
     }
+  },
+  "display": {
+    "title": "Teksto at mga button",
+    "size": "Laki ng menu",
+    "sizes": {
+      "grid": "Grid",
+      "list": "Listahan",
+      "large": "Malaki"
+    },
+    "pinchHint": "Puwede mo ring i-pinch ang menu para palakihin o paliitin ito.",
+    "contrast": "Mataas na contrast",
+    "contrastHint": "Mas maitim na teksto at border. Pinapatay ang gumagalaw na larawan ng pagkain.",
+    "steadyTaps": "Mas malalaking button",
+    "steadyTapsHint": "Mas malalaking button, at nagsasara lang ang mga panel gamit ang button.",
+    "done": "Tapos na",
+    "sizeNow": "Laki ng menu: {{size}}"
   }
 }

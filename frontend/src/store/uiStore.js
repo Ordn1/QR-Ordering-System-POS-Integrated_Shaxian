@@ -9,8 +9,21 @@ function recallView() {
   return saved === 'list' || saved === 'tiles' ? saved : 'tiles';
 }
 
-function applyUiMode(uiMode) {
-  document.documentElement.setAttribute('data-ui-mode', uiMode);
+export const DEFAULT_DISPLAY = { menuSize: 'grid', highContrast: false, steadyTaps: false };
+
+export const MENU_SIZES = ['grid', 'list', 'large'];
+
+function applyDisplay({ menuSize, highContrast, steadyTaps }) {
+  const root = document.documentElement;
+  root.setAttribute('data-menu-size', menuSize);
+  root.setAttribute('data-contrast', highContrast ? 'high' : 'standard');
+  root.setAttribute('data-steady-taps', steadyTaps ? 'true' : 'false');
+}
+
+function sameDisplay(a, b) {
+  return (
+    a.menuSize === b.menuSize && a.highContrast === b.highContrast && a.steadyTaps === b.steadyTaps
+  );
 }
 
 function applyLanguage(language) {
@@ -18,7 +31,7 @@ function applyLanguage(language) {
 }
 
 export const useUiStore = create((set, get) => ({
-  uiMode: 'standard',
+  display: DEFAULT_DISPLAY,
   language: 'en',
   adminView: recallView(),
   showcaseDeclined: false,
@@ -29,18 +42,20 @@ export const useUiStore = create((set, get) => ({
     set({ adminView });
   },
 
-  setUiMode: (uiMode, { animate = false } = {}) => {
-    const morph =
-      animate &&
-      uiMode !== get().uiMode &&
-      typeof document.startViewTransition === 'function' &&
-      !prefersReducedMotion();
-    if (morph) {
-      document.startViewTransition(() => applyUiMode(uiMode));
-    } else {
-      applyUiMode(uiMode);
+  setDisplay: (changes, { animate = false } = {}) => {
+    const current = get().display;
+    const display = { ...current, ...changes };
+    if (sameDisplay(current, display)) {
+      return;
     }
-    set({ uiMode });
+    const morph =
+      animate && typeof document.startViewTransition === 'function' && !prefersReducedMotion();
+    if (morph) {
+      document.startViewTransition(() => applyDisplay(display));
+    } else {
+      applyDisplay(display);
+    }
+    set({ display });
   },
 
   declineShowcase: () => set({ showcaseDeclined: true }),
@@ -53,5 +68,5 @@ export const useUiStore = create((set, get) => ({
   },
 }));
 
-applyUiMode(useUiStore.getState().uiMode);
+applyDisplay(useUiStore.getState().display);
 applyLanguage(useUiStore.getState().language);
