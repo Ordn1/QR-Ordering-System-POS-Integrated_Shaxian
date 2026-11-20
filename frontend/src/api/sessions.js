@@ -26,3 +26,9 @@ export const requestAssistance = (sessionId, reason = 'asked') =>
   api.post(`/sessions/${sessionId}/assistance`, { reason });
 
 export const readAssistance = (sessionId) => api.get(`/sessions/${sessionId}/assistance`);
+
+export const addCompanion = (sessionId, companion) =>
+  api.post(`/sessions/${sessionId}/companions`, companion);
+
+export const removeCompanion = (sessionId, companionId) =>
+  api.delete(`/sessions/${sessionId}/companions/${companionId}`);

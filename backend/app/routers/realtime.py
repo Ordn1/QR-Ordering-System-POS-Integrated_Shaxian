@@ -26,6 +26,7 @@ async def table_socket(websocket: WebSocket, session_id: int, device: str = "") 
             select(SessionDevice).where(
                 SessionDevice.session_id == session_id,
                 SessionDevice.device_token == token,
+                SessionDevice.managed_by_device_id.is_(None),
             )
         )
 

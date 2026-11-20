@@ -20,6 +20,11 @@ class PendingVerificationRead(BaseModel):
     log_id: int
     device_id: int
     declared_status: PriorityStatus
+    device_number: int | None = None
+    display_name: str | None = None
+    is_companion: bool = False
+    managed_by_number: int | None = None
+    managed_by_name: str | None = None
 
 
 class VerificationWrite(BaseModel):
@@ -97,9 +102,12 @@ class PriorityVerifyWrite(BaseModel):
 class PaymentShareStatusRead(BaseModel):
     payment_id: int
     device_id: int | None
-    device_number: int
+    device_number: int | None
     is_host: bool
     is_me: bool
+    display_name: str | None = None
+    is_companion: bool = False
+    managed_by_me: bool = False
     amount: Decimal
     method: PaymentMethod
     status: PaymentStatus

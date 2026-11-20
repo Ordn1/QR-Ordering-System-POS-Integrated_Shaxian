@@ -16,7 +16,8 @@ import Button from '../../components/shared/Button';
 import Money from '../../components/shared/Money';
 import { peso, queueLabel } from '../../lib/format';
 import { DURATION, MOVE, prefersReducedMotion } from '../../lib/motion';
-import { useCartStore } from '../../store/cartStore';
+import { cartPayload, useCartStore } from '../../store/cartStore';
+import { companionName } from '../../lib/shareLabel';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
 
@@ -28,7 +29,7 @@ const ROW_REVEAL = {
 };
 
 function ownItems(lines) {
-  return lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity }));
+  return cartPayload(lines);
 }
 
 export default function CheckoutPage() {
@@ -56,6 +57,11 @@ export default function CheckoutPage() {
   const deducting =
     Boolean(quote?.discount_applied) && settledQuote !== quote && !prefersReducedMotion();
   const onlineBlocked = quote ? !quote.online_allowed : false;
+  const discountedShares = (quote?.shares ?? []).filter((share) => Number(share.discount_amount) > 0);
+  const companionOnlyDiscount =
+    discountedShares.length > 0 && discountedShares.every((share) => share.pays_at_cashier)
+      ? discountedShares[0]
+      : null;
   const chosenMethod = onlineBlocked ? 'cashier' : method;
 
   useEffect(() => {
@@ -78,11 +84,9 @@ export default function CheckoutPage() {
       setLoadingScope(true);
       try {
         if (lines.length > 0) {
-          await syncDeviceCart(
-            session.session_id,
-            lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity })),
-            i18n.language,
-          ).catch(() => { });
+          await syncDeviceCart(session.session_id, cartPayload(lines), i18n.language).catch(
+            () => { },
+          );
         }
 
         const tableCart = await fetchTableCart(session.session_id, i18n.language);
@@ -285,7 +289,14 @@ export default function CheckoutPage() {
           {displayLines.map((line, idx) => (
             <li key={`${line.item_id}-${idx}`} className="checkout-item-row">
               <span className="checkout-item-qty">{line.quantity}×</span>
-              <span className="checkout-item-name">{line.name}</span>
+              <span className="checkout-item-name">
+                {line.name}
+                {line.for_device_id ? (
+                  <span className="checkout-item-for">
+                    {t('people.forName', { name: companionName(session, line.for_device_id) })}
+                  </span>
+                ) : null}
+              </span>
               <span className="checkout-item-price numeric">
                 {peso(Number(line.price) * line.quantity)}
               </span>
@@ -362,12 +373,29 @@ export default function CheckoutPage() {
           </dl>
         ) : null}
 
+        {quote?.shares?.some((share) => share.pays_at_cashier) ? (
+          <ul className="checkout-people">
+            {quote.shares
+              .filter((share) => share.pays_at_cashier)
+              .map((share) => (
+                <li key={share.device_id} className="checkout-person">
+                  <span>{t('people.paysAtCashier', { name: share.display_name })}</span>
+                  <span className="numeric">
+                    <Money value={share.net_amount} />
+                  </span>
+                </li>
+              ))}
+          </ul>
+        ) : null}
+
         <AnimatePresence initial={false}>
           {quote?.discount_applied && !deducting ? (
             <motion.p className="checkout-discount-note checkout-reveal" {...ROW_REVEAL}>
-              {quote.discount_status === 'pending'
-                ? t('checkout.discountPending')
-                : t('priority.discountNote')}
+              {companionOnlyDiscount
+                ? t('people.discountPending', { name: companionOnlyDiscount.display_name })
+                : quote.discount_status === 'pending'
+                  ? t('checkout.discountPending')
+                  : t('priority.discountNote')}
             </motion.p>
           ) : null}
         </AnimatePresence>

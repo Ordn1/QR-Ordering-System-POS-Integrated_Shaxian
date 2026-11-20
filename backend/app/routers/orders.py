@@ -1,16 +1,18 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Query
-from sqlalchemy import select
 
 from app.core.customer import CurrentDevice
 from app.core.deps import AdminStaff, AnyStaff, DbSession
 from app.core.exceptions import PermissionError
-from app.models import Session, SessionDevice, Table
+from app.models import Session, Table
 from app.models.enums import Language, PaymentMethod, PaymentStatus
 from app.schemas.checkout import (
     OrderCreate,
     PaymentShareRead,
     QuoteCreate,
     QuoteRead,
+    QuoteShareRead,
     ReceiptLine,
     ReceiptRead,
 )
@@ -47,17 +49,7 @@ async def build_receipt(
     fallback_to_cashier: bool = False,
 ) -> ReceiptRead:
     transaction, rows, payments = await order_service.get_receipt(db, txn_id)
-    devices = list(
-        await db.scalars(
-            select(SessionDevice)
-            .where(SessionDevice.session_id == transaction.session_id)
-            .order_by(SessionDevice.joined_at.asc(), SessionDevice.device_id.asc())
-        )
-    )
-    dev_meta = {
-        dev.device_id: (idx, dev.is_host)
-        for idx, dev in enumerate(devices, start=1)
-    }
+    labels = await session_service.device_labels(db, {transaction.session_id})
 
     my_payment = next(
         (p for p in payments if p.device_id == current_device_id),
@@ -73,8 +65,7 @@ async def build_receipt(
         PaymentShareRead(
             payment_id=p.payment_id,
             device_id=p.device_id,
-            device_number=dev_meta.get(p.device_id, (1, False))[0],
-            is_host=dev_meta.get(p.device_id, (1, False))[1],
+            **order_service.share_label(labels.get(p.device_id), current_device_id),
             is_me=p.device_id == current_device_id,
             amount=p.amount,
             method=p.method,
@@ -160,13 +151,38 @@ async def quote_order(
         db,
         session_id,
         device,
-        [(line.item_id, line.quantity, None) for line in payload.items],
+        [(line.item_id, line.quantity, line.for_device_id) for line in payload.items],
         payload.checkout_scope,
     )
     line_devices = {line.device_id for line in priced.lines}
     declarations = await session_service.declarations_for(db, session_id, line_devices)
     pending = await session_service.pending_discount_devices(db, session_id)
     paying_for = line_devices if payload.checkout_scope == "table" else {device.device_id}
+    labels = await session_service.device_labels(db, {session_id})
+    companions = await session_service.companion_ids(db, session_id, device.device_id)
+    totals: dict[int, tuple[Decimal, Decimal]] = {}
+    for line in priced.lines:
+        net, discount = totals.get(line.device_id, (Decimal("0.00"), Decimal("0.00")))
+        totals[line.device_id] = (net + line.line_net, discount + line.discount_amount)
+    shares = [
+        QuoteShareRead(
+            device_id=owner,
+            device_number=labels[owner].device_number if owner in labels else None,
+            display_name=labels[owner].display_name if owner in labels else None,
+            is_me=owner == device.device_id,
+            is_companion=owner in labels and labels[owner].managed_by_device_id is not None,
+            managed_by_me=owner in companions,
+            net_amount=net,
+            discount_amount=discount,
+            pays_at_cashier=owner in companions,
+        )
+        for owner, (net, discount) in totals.items()
+    ]
+    my_net = (
+        priced.net_amount
+        if payload.checkout_scope == "table"
+        else totals.get(device.device_id, (Decimal("0.00"), Decimal("0.00")))[0]
+    )
     return QuoteRead(
         gross_amount=priced.gross_amount,
         vatable_sales=priced.vatable_sales,
@@ -177,7 +193,9 @@ async def quote_order(
         item_count=priced.item_count,
         discount_applied=priced.discount_amount > 0,
         discount_status=session_service.discount_status(declarations),
-        online_allowed=not (pending & paying_for),
+        online_allowed=my_net > 0 and not (pending & paying_for),
+        my_net_amount=my_net,
+        shares=shares,
     )
 
 
@@ -189,7 +207,7 @@ async def place_order(
         db,
         session_id,
         device,
-        [(line.item_id, line.quantity, None) for line in payload.items],
+        [(line.item_id, line.quantity, line.for_device_id) for line in payload.items],
         payload.payment_method,
         payload.checkout_scope,
     )

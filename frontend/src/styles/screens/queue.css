@@ -590,3 +590,7 @@
   font-size: var(--font-sm);
   color: var(--text-muted);
 }
+
+.cash-id-person {
+  font-weight: var(--weight-heading);
+}

@@ -417,7 +417,8 @@
     "assistWaiting": "naghulat {{count}} min",
     "assistOffered": "gidawat ang tanyag nga tabang",
     "assistAcknowledge": "Paingon na ko",
-    "assistOnTheWay": "Nahibalo na ang Lamesa {{table}} nga paingon ka"
+    "assistOnTheWay": "Nahibalo na ang Lamesa {{table}} nga paingon ka",
+    "claimCompanion": "{{name}} (gidugang sa Telepono {{number}})"
   },
   "status": {
     "title": "Kahimtang sa order",
@@ -480,7 +481,9 @@
     "priorityTitle": "Senior, PWD o mabdos?",
     "priorityBody": "Priority service ug ang 20% discount.",
     "crewTitle": "Tawag og crew",
-    "crewBody": "Adunay staff gikan sa counter nga moduol sa inyong lamesa."
+    "crewBody": "Adunay staff gikan sa counter nga moduol sa inyong lamesa.",
+    "personTitle": "Pagdugang og tawo nga walay telepono",
+    "personBody": "Usa ka senior o PWD sa inyong lamesa nga walay telepono. Adunay discount ang ilang mga order."
   },
   "keypad": {
     "title": "Pag-order gamit ang code",
@@ -519,5 +522,37 @@
       "detail": "Adunay staff gikan sa counter nga moduol sa inyong lamesa.",
       "yes": "Tawag og crew"
     }
+  },
+  "people": {
+    "title": "Mga tawo niining lamesa nga walay telepono",
+    "none": "Nag-order para sa senior o PWD nga walay telepono? Idugang sila diri aron adunay discount ang ilang mga order.",
+    "add": "Pagdugang og tawo nga walay telepono",
+    "addTitle": "Pagdugang og tawo nga walay telepono",
+    "addPrompt": "Adunay kaugalingong discount ang ilang mga order. Ikaw ang mo-order para nila gikan niining telepono.",
+    "addConfirm": "Idugang",
+    "nameLabel": "Ngalan",
+    "nameHint": "Tawag ninyo kanila, sama sa Lola",
+    "nameRequired": "Pagbutang og ngalan.",
+    "statusLabel": "Sila usa ka",
+    "idNote": "Susihon ang ilang ID sa cashier, ug didto bayaran ang ilang bahin.",
+    "added": "Nadugang si {{name}}. Para kang {{name}} ang imong idugang karon.",
+    "remove": "Tangtanga si {{name}}",
+    "orderingFor": "Nag-order para kang",
+    "me": "Ako",
+    "forName": "para kang {{name}}",
+    "addingFor": "Gidugang para kang {{name}}",
+    "shareName": "{{name}} (walay telepono)",
+    "paysAtCashier": "{{name}} · bayaran sa cashier uban ang ilang ID",
+    "status": {
+      "senior": "Senior",
+      "pwd": "PWD"
+    },
+    "discount": {
+      "pending": "Susihon ang ID sa cashier",
+      "verified": "Nasusi na ang ID",
+      "rejected": "Walay balidong ID, bug-os nga presyo",
+      "none": ""
+    },
+    "discountPending": "Gi-apply una ang discount ni {{name}}. Ipakita ang ilang senior citizen o PWD ID sa counter aron mapadayon kini."
   }
 }

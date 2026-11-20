@@ -17,6 +17,7 @@ import OrderProgress from '../../components/customer/progress/OrderProgress';
 import Badge from '../../components/shared/Badge';
 import Button from '../../components/shared/Button';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import { shareLabel } from '../../lib/shareLabel';
 import { peso, queueLabel } from '../../lib/format';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
@@ -135,9 +136,7 @@ export default function StatusPage() {
                     {shares.map((share) => (
                       <li key={share.payment_id} className="status-split-share-row">
                         <span className="status-split-share-name">
-                          {share.is_host
-                            ? t('split.deviceHost', { number: share.device_number })
-                            : t('split.device', { number: share.device_number })}
+                          {shareLabel(share, t)}
                           {share.is_me ? ' (You)' : ''}
                         </span>
                         <Badge value={share.status} domain="payment" />

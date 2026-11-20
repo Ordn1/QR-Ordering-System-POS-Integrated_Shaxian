@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { setDeviceToken } from '../api/client';
 import * as sessionApi from '../api/sessions';
 import i18n from '../lib/i18n';
+import { useCartStore } from './cartStore';
 import { toast } from './toastStore';
 import { useUiStore } from './uiStore';
 
@@ -56,6 +57,9 @@ const DISPLAY_FIELDS = {
 
 function applySession(session, { animate = true } = {}) {
   setDeviceToken(session.device_token);
+  useCartStore
+    .getState()
+    .retainFor(new Set((session.companions ?? []).map((person) => person.device_id)));
   useUiStore.getState().setDisplay(displayOf(session), { animate });
   useUiStore.getState().setLanguage(session.language_used);
   i18n.changeLanguage(session.language_used);
@@ -170,6 +174,23 @@ export const useSessionStore = create((set, get) => ({
       useUiStore.getState().setDisplay(displayOf(current), { animate: true });
       throw error;
     }
+  },
+
+  addCompanion: async (displayName, declaredStatus) => {
+    const session = await sessionApi.addCompanion(get().session.session_id, {
+      display_name: displayName,
+      declared_status: declaredStatus,
+    });
+    applySession(session);
+    set({ session });
+    return session;
+  },
+
+  removeCompanion: async (companionId) => {
+    const session = await sessionApi.removeCompanion(get().session.session_id, companionId);
+    applySession(session);
+    set({ session });
+    return session;
   },
 
   setDisplayName: async (displayName) => {

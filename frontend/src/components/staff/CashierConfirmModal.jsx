@@ -7,6 +7,7 @@ import Badge from '../shared/Badge';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
 import TextInput from '../shared/TextInput';
+import { claimLabel } from '../../lib/shareLabel';
 
 const BILLS = [100, 200, 500, 1000];
 
@@ -39,6 +40,7 @@ function IdCheck({ claim, busy, onRecord }) {
     <fieldset className="cash-id-check">
       <legend className="cash-id-legend">
         <span className="eyebrow">{t('staff.idCheckTitle')}</span>
+        <span className="cash-id-person">{claimLabel(claim, t)}</span>
         <Badge value={claim.declared_status} />
       </legend>
 

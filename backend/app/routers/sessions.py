@@ -6,6 +6,8 @@ from app.models import Session, SessionDevice, Table
 from app.models.enums import Language, PriorityStatus, UiMode
 from app.schemas.assistance import AssistanceRead, AssistanceWrite
 from app.schemas.session import (
+    CompanionRead,
+    CompanionWrite,
     DeclarationWrite,
     DeviceProfileWrite,
     PreferencesWrite,
@@ -29,6 +31,18 @@ async def to_read(
     mine = await session_service.device_declaration(db, session.session_id, device.device_id)
     my_status = mine.declared_status if mine is not None else PriorityStatus.STANDARD
     standard_display = session_service.display_is_default(device)
+    companions = [
+        CompanionRead(
+            device_id=companion.device_id,
+            display_name=companion.display_name,
+            declared_status=log.declared_status if log is not None else PriorityStatus.SENIOR,
+            discount_status=session_service.discount_status([log] if log is not None else []),
+            has_ordered=has_ordered,
+        )
+        for companion, log, has_ordered in await session_service.managed_companions(
+            db, session.session_id, device.device_id
+        )
+    ]
     return SessionRead(
         session_id=session.session_id,
         table_id=session.table_id,
@@ -46,6 +60,7 @@ async def to_read(
         is_high_contrast=device.is_high_contrast,
         has_steady_taps=device.has_steady_taps,
         display_chosen=device.display_chosen_at is not None,
+        companions=companions,
         language_used=session.language_used,
         discount_eligible=bool(mine is not None and mine.discount_eligible),
         discount_status=session_service.discount_status([mine] if mine is not None else []),
@@ -160,7 +175,7 @@ async def sync_device_cart(
         db,
         session_id,
         device,
-        [(line.item_id, line.quantity, None) for line in payload.items],
+        [(line.item_id, line.quantity, line.for_device_id) for line in payload.items],
     )
     await events.publish_cart_changed(session_id)
     return await session_service.get_table_cart(
@@ -189,3 +204,30 @@ async def ask_for_help(
 async def read_help(session_id: int, db: DbSession, device: CurrentDevice) -> AssistanceRead | None:
     request = await assistance_service.current_request(db, session_id, device)
     return assistance_service.to_read(request) if request is not None else None
+
+
+@router.post("/{session_id}/companions", response_model=SessionRead, status_code=201)
+async def add_companion(
+    session_id: int, payload: CompanionWrite, db: DbSession, device: CurrentDevice
+) -> SessionRead:
+    """Add a senior or PWD diner who has no phone, so their items carry their discount."""
+    session = await session_service.add_companion(
+        db, session_id, device, payload.display_name, payload.declared_status
+    )
+    table = await db.get(Table, session.table_id)
+    read_model = await to_read(db, session, device, table)
+    await events.publish_session_changed(session_id)
+    await events.publish_cart_changed(session_id)
+    return read_model
+
+
+@router.delete("/{session_id}/companions/{companion_id}", response_model=SessionRead)
+async def remove_companion(
+    session_id: int, companion_id: int, db: DbSession, device: CurrentDevice
+) -> SessionRead:
+    session = await session_service.remove_companion(db, session_id, device, companion_id)
+    table = await db.get(Table, session.table_id)
+    read_model = await to_read(db, session, device, table)
+    await events.publish_session_changed(session_id)
+    await events.publish_cart_changed(session_id)
+    return read_model

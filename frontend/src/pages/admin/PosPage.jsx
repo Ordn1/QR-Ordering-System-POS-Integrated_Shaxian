@@ -36,6 +36,7 @@ import AssistanceAlerts from '../../components/staff/AssistanceAlerts';
 import { peso, queueLabel, shortDate } from '../../lib/format';
 import { menuImageUrl } from '../../lib/menuImage';
 import { toast } from '../../store/toastStore';
+import { claimLabel } from '../../lib/shareLabel';
 
 const BILLS = [100, 200, 500, 1000];
 const PRIORITY_OPTIONS = [
@@ -313,9 +314,7 @@ export default function PosPage() {
     if (!recalledOrder) {
       return;
     }
-    const needsIdVerification =
-      recalledOrder.declared_priority_status !== 'standard' &&
-      !recalledOrder.id_verified;
+    const needsIdVerification = (recalledOrder.pending_verifications?.length ?? 0) > 0;
 
     if (needsIdVerification) {
       if (!/^[0-9]{4}$/.test(idLast4.trim())) {
@@ -893,7 +892,8 @@ export default function PosPage() {
                       </Button>
                     </div>
 
-                    {recalledOrder.declared_priority_status !== 'standard' ? (
+                    {recalledOrder.declared_priority_status !== 'standard' ||
+                    recalledOrder.pending_verifications?.length ? (
                       <div
                         className="stack-2"
                         style={{
@@ -911,15 +911,18 @@ export default function PosPage() {
                         >
                           <strong style={{ fontSize: 'var(--font-sm)' }}>
                             Senior / PWD ID ({recalledOrder.declared_priority_status.toUpperCase()})
+                            {recalledOrder.pending_verifications?.length
+                              ? ` · ${claimLabel(recalledOrder.pending_verifications[0], t)}`
+                              : ''}
                           </strong>
-                          {recalledOrder.id_verified ? (
+                          {!recalledOrder.pending_verifications?.length ? (
                             <Badge value="paid" label={`Verified (•••• ${recalledOrder.id_last4})`} />
                           ) : (
                             <Badge value="pending" label="Inspect Physical ID" />
                           )}
                         </div>
 
-                        {!recalledOrder.id_verified ? (
+                        {recalledOrder.pending_verifications?.length ? (
                           <>
                             <div
                               style={{

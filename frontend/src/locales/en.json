@@ -417,7 +417,8 @@
     "assistWaiting": "waiting {{count}} min",
     "assistOffered": "accepted an offer of help",
     "assistAcknowledge": "On my way",
-    "assistOnTheWay": "Table {{table}} knows you're coming"
+    "assistOnTheWay": "Table {{table}} knows you're coming",
+    "claimCompanion": "{{name}} (added by Phone {{number}})"
   },
   "status": {
     "title": "Order status",
@@ -480,7 +481,9 @@
     "priorityTitle": "Senior, PWD or pregnant?",
     "priorityBody": "Priority service and the 20% discount.",
     "crewTitle": "Ask a crew member",
-    "crewBody": "Someone from the counter comes to your table."
+    "crewBody": "Someone from the counter comes to your table.",
+    "personTitle": "Add someone without a phone",
+    "personBody": "A senior or PWD at your table who has no phone. Their items get their discount."
   },
   "keypad": {
     "title": "Order by code",
@@ -519,5 +522,37 @@
       "detail": "Someone from the counter will come to your table.",
       "yes": "Call a crew member"
     }
+  },
+  "people": {
+    "title": "People at this table without a phone",
+    "none": "Ordering for a senior or PWD who has no phone? Add them here so their items get their discount.",
+    "add": "Add someone without a phone",
+    "addTitle": "Add someone without a phone",
+    "addPrompt": "Their items will carry their own discount. You order for them from this phone.",
+    "addConfirm": "Add",
+    "nameLabel": "Name",
+    "nameHint": "What your table calls them, like Lola",
+    "nameRequired": "Enter a name.",
+    "statusLabel": "They are a",
+    "idNote": "Their ID is checked at the cashier, and their share is paid there.",
+    "added": "{{name}} added. Dishes you add now are for {{name}}.",
+    "remove": "Remove {{name}}",
+    "orderingFor": "Ordering for",
+    "me": "Me",
+    "forName": "for {{name}}",
+    "addingFor": "Adding for {{name}}",
+    "shareName": "{{name}} (no phone)",
+    "paysAtCashier": "{{name}} · paid at the cashier with their ID",
+    "status": {
+      "senior": "Senior",
+      "pwd": "PWD"
+    },
+    "discount": {
+      "pending": "ID checked at the cashier",
+      "verified": "ID checked",
+      "rejected": "No valid ID, full price",
+      "none": ""
+    },
+    "discountPending": "{{name}}'s discount is applied for now. Show their senior citizen or PWD ID at the counter to keep it."
   }
 }

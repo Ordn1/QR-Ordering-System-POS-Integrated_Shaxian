@@ -11,6 +11,7 @@ from app.schemas.session import DiscountStatus
 class OrderLineWrite(BaseModel):
     item_id: str = Field(min_length=8, max_length=8, pattern=r"^MNU-[0-9]{4}$")
     quantity: SmallPositive
+    for_device_id: int | None = Field(default=None, ge=1)
 
 
 class OrderCreate(BaseModel):
@@ -39,6 +40,20 @@ class QuoteRead(BaseModel):
     discount_applied: bool
     discount_status: DiscountStatus = "none"
     online_allowed: bool = True
+    my_net_amount: Decimal = Decimal("0.00")
+    shares: list["QuoteShareRead"] = Field(default_factory=list)
+
+
+class QuoteShareRead(BaseModel):
+    device_id: int
+    device_number: int | None
+    display_name: str | None = None
+    is_me: bool
+    is_companion: bool
+    managed_by_me: bool
+    net_amount: Decimal
+    discount_amount: Decimal
+    pays_at_cashier: bool
 
 
 class ReceiptLine(BaseModel):
@@ -54,9 +69,12 @@ class ReceiptLine(BaseModel):
 class PaymentShareRead(BaseModel):
     payment_id: int
     device_id: int | None
-    device_number: int
+    device_number: int | None
     is_host: bool
     is_me: bool
+    display_name: str | None = None
+    is_companion: bool = False
+    managed_by_me: bool = False
     amount: Decimal
     method: PaymentMethod
     status: PaymentStatus

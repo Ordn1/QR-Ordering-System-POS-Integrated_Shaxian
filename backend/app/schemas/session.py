@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import (
     Language,
@@ -45,6 +45,27 @@ class DeviceProfileWrite(BaseModel):
 class SessionCartLineWrite(BaseModel):
     item_id: str = Field(min_length=8, max_length=8, pattern=r"^MNU-[0-9]{4}$")
     quantity: SmallPositive
+    for_device_id: int | None = Field(default=None, ge=1)
+
+
+class CompanionWrite(BaseModel):
+    display_name: DisplayName
+    declared_status: PriorityStatus
+
+    @field_validator("declared_status")
+    @classmethod
+    def discountable(cls, value: PriorityStatus) -> PriorityStatus:
+        if value not in (PriorityStatus.SENIOR, PriorityStatus.PWD):
+            raise ValueError("Only a senior citizen or a person with disability can be added.")
+        return value
+
+
+class CompanionRead(BaseModel):
+    device_id: int
+    display_name: str | None
+    declared_status: PriorityStatus
+    discount_status: "DiscountStatus"
+    has_ordered: bool
 
 
 class SessionCartWrite(BaseModel):
@@ -62,10 +83,15 @@ class DeviceCartLineRead(BaseModel):
 
 class DeviceShareRead(BaseModel):
     device_id: int
-    device_number: int
+    device_number: int | None
     display_name: str | None = None
     is_host: bool
     is_me: bool
+    is_companion: bool = False
+    managed_by_device_id: int | None = None
+    managed_by_number: int | None = None
+    managed_by_me: bool = False
+    declared_status: PriorityStatus | None = None
     subtotal: Decimal
     payment_status: PaymentStatus | None = None
     lines: list[DeviceCartLineRead]
@@ -100,6 +126,7 @@ class SessionRead(BaseModel):
     is_high_contrast: bool = False
     has_steady_taps: bool = False
     display_chosen: bool = False
+    companions: list[CompanionRead] = Field(default_factory=list)
     language_used: Language
     discount_eligible: bool
     discount_status: DiscountStatus = "none"

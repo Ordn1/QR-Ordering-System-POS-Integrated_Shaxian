@@ -2696,3 +2696,125 @@
     transform: translate(-50%, var(--space-2));
   }
 }
+
+/* --- People without a phone ------------------------------------------------ */
+
+.ordering-for {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.ordering-for-label {
+  font-size: var(--font-xs);
+  font-weight: var(--weight-heading);
+  color: var(--text-muted);
+}
+
+.ordering-for-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ordering-for-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target);
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  font-size: var(--font-btn);
+  font-weight: var(--weight-heading);
+}
+
+.ordering-for-option[aria-pressed='true'] {
+  color: var(--red);
+  box-shadow: inset 0 calc(-1 * var(--seal-bar)) 0 var(--red);
+}
+
+.ordering-for-status {
+  font-size: var(--font-xs);
+  font-weight: var(--weight-body, 400);
+  color: var(--text-muted);
+}
+
+.item-detail-for {
+  margin-top: var(--space-3);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-heading);
+  color: var(--red);
+}
+
+.cart-group + .cart-group {
+  margin-top: var(--space-4);
+}
+
+.cart-group-title {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-heading);
+  text-transform: none;
+  color: var(--text);
+}
+
+.cart-people {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.cart-people-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cart-person {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.cart-person-name {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: var(--weight-heading);
+}
+
+.cart-person-note {
+  font-size: var(--font-xs);
+  font-weight: var(--weight-body, 400);
+  color: var(--text-muted);
+}
+
+.checkout-item-for {
+  display: block;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.checkout-people {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) 0 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.checkout-person {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--font-sm);
+}

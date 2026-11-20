@@ -15,6 +15,7 @@ import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
+import { shareLabel } from '../../lib/shareLabel';
 
 export default function SplitBillPage() {
   const { t, i18n } = useTranslation();
@@ -140,12 +141,11 @@ export default function SplitBillPage() {
       ) : (
         <div className="split-shares-container">
           {shares.map((share) => {
-            const defaultLabel = share.is_host
-              ? t('split.deviceHost', { number: share.device_number })
-              : t('split.device', { number: share.device_number });
-            const titleLabel = share.display_name
-              ? `${share.display_name} (${defaultLabel})`
-              : defaultLabel;
+            const defaultLabel = shareLabel(share, t);
+            const titleLabel =
+              share.display_name && !share.is_companion
+                ? `${share.display_name} (${defaultLabel})`
+                : defaultLabel;
 
             return (
               <section className="split-share-card" key={share.device_id}>
@@ -162,7 +162,10 @@ export default function SplitBillPage() {
                       <Badge value={share.payment_status} domain="payment" />
                     ) : null}
                     <span className="split-share-total numeric">{peso(share.subtotal)}</span>
-                    {session?.is_host && !share.is_me && share.payment_status !== 'paid' ? (
+                    {session?.is_host &&
+                    !share.is_me &&
+                    !share.is_companion &&
+                    share.payment_status !== 'paid' ? (
                       <IconButton
                         variant="delete"
                         label={t('group.removeDevice', {

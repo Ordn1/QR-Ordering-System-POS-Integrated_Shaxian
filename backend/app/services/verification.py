@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.models import AuditLog, Payment, PriorityVerificationLog, Transaction, TransactionItem
-from app.models.enums import PaymentStatus
+from app.models.enums import PaymentStatus, TxnStatus
 from app.services import order as order_service
 from app.services import queue as queue_service
 
@@ -106,6 +106,21 @@ async def record_check(
     await db.flush()
 
     await order_service.reprice_device_lines(db, transaction, log.device_id)
+    others = list(
+        await db.scalars(
+            select(Transaction)
+            .join(TransactionItem, TransactionItem.txn_id == Transaction.txn_id)
+            .where(
+                Transaction.session_id == transaction.session_id,
+                Transaction.txn_id != txn_id,
+                Transaction.status != TxnStatus.VOIDED,
+                TransactionItem.device_id == log.device_id,
+            )
+            .distinct()
+        )
+    )
+    for other in others:
+        await order_service.reprice_device_lines(db, other, log.device_id)
 
     db.add(
         AuditLog(
@@ -121,6 +136,7 @@ async def record_check(
                 "discount_eligible": log.discount_eligible,
                 "net_amount": str(transaction.net_amount),
                 "discount_amount": str(transaction.discount_amount),
+                "also_repriced": [other.txn_id for other in others],
             },
         )
     )

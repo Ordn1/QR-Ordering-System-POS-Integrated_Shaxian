@@ -7,6 +7,9 @@ import { peso } from '../../lib/format';
 import { useShowcase } from '../../hooks/useShowcase';
 import { menuDepthUrl, menuImageUrl } from '../../lib/menuImage';
 import { DURATION, MOVE } from '../../lib/motion';
+import { companionName } from '../../lib/shareLabel';
+import { useCartStore } from '../../store/cartStore';
+import { useSessionStore } from '../../store/sessionStore';
 import { onVoicesChanged, speak, stopSpeaking, voiceFor } from '../../lib/speech';
 import Badge from '../shared/Badge';
 import MenuCode from '../shared/MenuCode';
@@ -19,6 +22,8 @@ const DishStage = lazy(() => import('./DishStage'));
 export default function ItemDetailSheet({ item, name, description, onAdd, onClose }) {
   const { t, i18n } = useTranslation();
   const [, setVoicesLoaded] = useState(0);
+  const orderingFor = useCartStore((state) => state.orderingFor);
+  const forName = companionName(useSessionStore((state) => state.session), orderingFor);
   const voice = voiceFor(i18n.language);
   const [qty, setQty] = useState(1);
   const photo = useRef(null);
@@ -124,6 +129,8 @@ export default function ItemDetailSheet({ item, name, description, onAdd, onClos
       ) : null}
 
       {description ? <p className="item-detail-description">{description}</p> : null}
+
+      {forName ? <p className="item-detail-for">{t('people.addingFor', { name: forName })}</p> : null}
 
       {voice ? (
         <Button variant="secondary" icon={Volume2} onClick={readAloud}>

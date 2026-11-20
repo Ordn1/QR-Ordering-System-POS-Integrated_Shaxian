@@ -53,6 +53,8 @@ export default function CustomerMenuPage() {
   const [viewing, setViewing] = useState(null);
   const [picking, setPicking] = useState(false);
   const add = useCartStore((state) => state.add);
+  const orderingFor = useCartStore((state) => state.orderingFor);
+  const setOrderingFor = useCartStore((state) => state.setOrderingFor);
   const session = useSessionStore((state) => state.session);
   const menuSize = useUiStore((state) => state.display.menuSize);
   const setDisplay = useSessionStore((state) => state.setDisplay);
@@ -157,6 +159,28 @@ export default function CustomerMenuPage() {
           {t('priority.open')}
         </Button>
       </div>
+
+      {session?.companions?.length ? (
+        <div className="ordering-for" role="group" aria-label={t('people.orderingFor')}>
+          <span className="ordering-for-label">{t('people.orderingFor')}</span>
+          <div className="ordering-for-options">
+            {[{ device_id: null, display_name: t('people.me') }, ...session.companions].map((person) => (
+              <button
+                key={person.device_id ?? 'me'}
+                type="button"
+                className="ordering-for-option"
+                aria-pressed={orderingFor === person.device_id}
+                onClick={() => setOrderingFor(person.device_id)}
+              >
+                {person.display_name}
+                {person.declared_status ? (
+                  <span className="ordering-for-status">{t(`people.status.${person.declared_status}`)}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <button
         type="button"

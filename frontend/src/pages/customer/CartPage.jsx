@@ -1,4 +1,4 @@
-import { Split, Users, UtensilsCrossed } from 'lucide-react';
+import { Split, UserPlus, Users, UtensilsCrossed } from 'lucide-react';
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
@@ -12,7 +12,8 @@ import { useShowcase } from '../../hooks/useShowcase';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { peso } from '../../lib/format';
 import { menuImageUrl } from '../../lib/menuImage';
-import { useCartStore } from '../../store/cartStore';
+import { cartPayload, lineKey, useCartStore } from '../../store/cartStore';
+import { toast } from '../../store/toastStore';
 import { useSessionStore } from '../../store/sessionStore';
 
 const CartTray = lazy(() => import('../../components/customer/CartTray'));
@@ -22,7 +23,8 @@ export default function CartPage() {
   const showcase = useShowcase();
   const { qrToken } = useParams();
   const navigate = useNavigate();
-  const { trackControl } = useOutletContext();
+  const { trackControl, addPerson } = useOutletContext();
+  const removeCompanion = useSessionStore((state) => state.removeCompanion);
   const session = useSessionStore((state) => state.session);
   const lines = useCartStore((state) => state.lines);
   const setQuantity = useCartStore((state) => state.setQuantity);
@@ -75,11 +77,7 @@ export default function CartPage() {
     setNavigating(true);
     try {
       if (lines.length > 0) {
-        await syncDeviceCart(
-          session.session_id,
-          lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity })),
-          i18n.language,
-        );
+        await syncDeviceCart(session.session_id, cartPayload(lines), i18n.language);
       }
     } catch {
     } finally {
@@ -89,6 +87,20 @@ export default function CartPage() {
       targetScope || (session?.group_mode ? 'split' : 'single');
     navigate(`/t/${qrToken}/checkout?scope=${scopeParam}`);
   }
+
+  const companions = session?.companions ?? [];
+  const groups = [
+    { id: null, title: companions.length ? t('people.me') : null },
+    ...companions.map((person) => ({
+      id: person.device_id,
+      title: `${person.display_name} · ${t(`people.status.${person.declared_status}`)}`,
+    })),
+  ]
+    .map((group) => ({
+      ...group,
+      lines: lines.filter((line) => (line.for_device_id ?? null) === group.id),
+    }))
+    .filter((group) => group.lines.length > 0);
 
   const hasActiveSplit = tableCart?.active_txn_id != null;
   const unpaidTotal = Number(tableCart?.unpaid_total ?? 0);
@@ -161,42 +173,47 @@ export default function CartPage() {
         </div>
       ) : (
         <>
-          <ul className="cart-list">
-            {lines.map((line) => {
-              const src = menuImageUrl(line.image_filename);
-              return (
-                <li className="cart-line" key={line.item_id}>
-                  <div className="cart-line-thumb">
-                    {src ? (
-                      <img src={src} alt="" loading="lazy" />
-                    ) : (
-                      <UtensilsCrossed className="menu-item-photo-empty" size={20} strokeWidth={1.5} />
-                    )}
-                  </div>
-                  <div className="cart-line-info">
-                    <div className="cart-line-head">
-                      <span className="cart-line-name">{line.name}</span>
-                      <span className="cart-line-price numeric">
-                        <Money value={Number(line.price) * line.quantity} />
-                      </span>
-                    </div>
-                    <div className="cart-line-controls">
-                      <QtyStepper
-                        value={line.quantity}
-                        onChange={(next) => setQuantity(line.item_id, next)}
-                        itemLabel={line.name}
-                      />
-                      <IconButton
-                        variant="remove"
-                        label={t('cart.remove', { name: line.name })}
-                        onClick={() => remove(line.item_id)}
-                      />
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          {groups.map((group) => (
+            <section className="cart-group" key={group.id ?? 'me'}>
+              {group.title ? <h2 className="cart-group-title">{group.title}</h2> : null}
+              <ul className="cart-list">
+                {group.lines.map((line) => {
+                  const src = menuImageUrl(line.image_filename);
+                  return (
+                    <li className="cart-line" key={lineKey(line)}>
+                      <div className="cart-line-thumb">
+                        {src ? (
+                          <img src={src} alt="" loading="lazy" />
+                        ) : (
+                          <UtensilsCrossed className="menu-item-photo-empty" size={20} strokeWidth={1.5} />
+                        )}
+                      </div>
+                      <div className="cart-line-info">
+                        <div className="cart-line-head">
+                          <span className="cart-line-name">{line.name}</span>
+                          <span className="cart-line-price numeric">
+                            <Money value={Number(line.price) * line.quantity} />
+                          </span>
+                        </div>
+                        <div className="cart-line-controls">
+                          <QtyStepper
+                            value={line.quantity}
+                            onChange={(next) => setQuantity(line.item_id, next, line.for_device_id)}
+                            itemLabel={line.name}
+                          />
+                          <IconButton
+                            variant="remove"
+                            label={t('cart.remove', { name: line.name })}
+                            onClick={() => remove(line.item_id, line.for_device_id)}
+                          />
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
 
           <div className="cart-summary-card">
             <div className="cart-summary-row">
@@ -240,6 +257,35 @@ export default function CartPage() {
           </div>
         </>
       )}
+      <section className="cart-people">
+        <h2 className="cart-group-title">{t('people.title')}</h2>
+        {companions.length ? (
+          <ul className="cart-people-list">
+            {companions.map((person) => (
+              <li key={person.device_id} className="cart-person">
+                <span className="cart-person-name">
+                  {person.display_name} · {t(`people.status.${person.declared_status}`)}
+                  <span className="cart-person-note">{t(`people.discount.${person.discount_status}`)}</span>
+                </span>
+                {person.has_ordered ? null : (
+                  <IconButton
+                    variant="remove"
+                    label={t('people.remove', { name: person.display_name })}
+                    onClick={() =>
+                      removeCompanion(person.device_id).catch((error) => toast.error(error.message))
+                    }
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="cart-person-note">{t('people.none')}</p>
+        )}
+        <Button variant="secondary" icon={UserPlus} onClick={addPerson}>
+          {t('people.add')}
+        </Button>
+      </section>
     </main>
   );
 }

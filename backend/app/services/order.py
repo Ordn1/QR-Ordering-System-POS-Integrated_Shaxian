@@ -162,17 +162,69 @@ async def next_queue_number(db: AsyncSession) -> int:
 
 
 def _resolve_lines(
-    session_id: int, device: SessionDevice, checkout_scope: str
+    session_id: int, payer_ids: set[int], checkout_scope: str
 ) -> list[tuple[str, int, int]]:
-    """Read the synced carts the scope covers. Each line keeps the phone it belongs to."""
+    """Read the synced carts the scope covers. Each line keeps the person it belongs to."""
     if checkout_scope in ("table", "split"):
         return session_service.get_all_session_cart_lines(session_id)
-    return [
-        (item_id, quantity, device.device_id)
-        for item_id, quantity in session_service.get_device_cart_lines(
-            session_id, device.device_id
+    return session_service.get_group_cart_lines(session_id, payer_ids)
+
+
+async def _payer_ids(db: AsyncSession, session_id: int, device: SessionDevice) -> set[int]:
+    """The phone placing the order and the people it added without a phone."""
+    return {device.device_id} | await session_service.companion_ids(
+        db, session_id, device.device_id
+    )
+
+
+def _share_payments(
+    transaction: Transaction,
+    priced: "PricedOrder",
+    payer: SessionDevice,
+    method: PaymentMethod,
+    companion_ids: set[int],
+) -> tuple[list[Payment], Payment | None]:
+    """One payment share per person on the order.
+
+    The paying phone uses the method it chose. People without a phone pay at the
+    cashier, where their ID is checked. Other phones choose how to pay later.
+    """
+    totals: dict[int, tuple[Decimal, Decimal]] = {}
+    for line in priced.lines:
+        owner = line.device_id or payer.device_id
+        net, discount = totals.get(owner, (Decimal("0.00"), Decimal("0.00")))
+        totals[owner] = (net + line.line_net, discount + line.discount_amount)
+
+    payments: list[Payment] = []
+    for owner, (net, discount) in totals.items():
+        if net <= Decimal("0.00"):
+            continue
+        if owner == payer.device_id:
+            owner_method = method
+            reference = "CASHIER-CONFIRMED" if method is PaymentMethod.CASHIER else None
+        elif owner in companion_ids:
+            owner_method = PaymentMethod.CASHIER
+            reference = "CASHIER-CONFIRMED"
+        else:
+            owner_method = PaymentMethod.CASHIER
+            reference = "AWAITING-CHOICE"
+        payments.append(
+            Payment(
+                txn_id=transaction.txn_id,
+                device_id=owner,
+                method=owner_method,
+                amount=net,
+                discount_applied=discount,
+                status=PaymentStatus.PENDING,
+                aggregator_ref=reference,
+                paid_at=None,
+            )
         )
-    ]
+
+    active = next((p for p in payments if p.device_id == payer.device_id), None)
+    if active is None:
+        active = next((p for p in payments if p.device_id in companion_ids), None)
+    return payments, active
 
 
 async def find_open_table_transaction(
@@ -338,6 +390,7 @@ async def build_cart(
 
     if requested:
         await session_service.write_payer_carts(db, session_id, device, requested)
+    payer_ids = await _payer_ids(db, session_id, device)
 
     if checkout_scope in ("split", "table"):
         open_txn = await find_open_table_transaction(db, session_id)
@@ -350,9 +403,7 @@ async def build_cart(
                 )
             )
             if checkout_scope == "split":
-                my_tx_rows = [
-                    r for r in tx_rows if r.device_id == device.device_id
-                ]
+                my_tx_rows = [r for r in tx_rows if r.device_id in payer_ids]
                 if my_tx_rows:
                     return [
                         CartLine(
@@ -390,7 +441,7 @@ async def build_cart(
                         for r in unpaid_tx_rows
                     ]
 
-    resolved = _resolve_lines(session_id, device, checkout_scope)
+    resolved = _resolve_lines(session_id, payer_ids, checkout_scope)
     if not resolved:
         raise BusinessRuleError("Your cart is empty. Add an item before checking out.")
 
@@ -448,6 +499,8 @@ async def place_order(
 
     if requested:
         await session_service.write_payer_carts(db, session_id, device, requested)
+    payer_ids = await _payer_ids(db, session_id, device)
+    companion_ids = payer_ids - {device.device_id}
 
     effective_scope = checkout_scope
     if ordering_session.group_mode and effective_scope == "single":
@@ -464,6 +517,15 @@ async def place_order(
     existing_txn = await find_open_table_transaction(db, session_id)
 
     if effective_scope == "split" and existing_txn is not None:
+        companion_payment: Payment | None = None
+        for companion_id in sorted(companion_ids):
+            companion_lines = session_service.get_device_cart_lines(session_id, companion_id)
+            if companion_lines:
+                companion = await db.get(SessionDevice, companion_id)
+                companion_payment = await _append_device_items_to_transaction(
+                    db, existing_txn, session_id, companion, companion_lines, PaymentMethod.CASHIER
+                )
+
         my_payment = await db.scalar(
             select(Payment).where(
                 Payment.txn_id == existing_txn.txn_id,
@@ -473,6 +535,8 @@ async def place_order(
         my_live_lines = session_service.get_device_cart_lines(session_id, device.device_id)
 
         if my_payment is None:
+            if not my_live_lines and companion_payment is not None:
+                return existing_txn, companion_payment
             if not my_live_lines:
                 raise BusinessRuleError(
                     "Add an item to your cart first, or choose Pay Remaining Balance to settle the table."
@@ -548,9 +612,18 @@ async def place_order(
             await db.refresh(primary)
             return existing_txn, primary
 
-    resolved = _resolve_lines(session_id, device, effective_scope)
+    resolved = _resolve_lines(session_id, payer_ids, effective_scope)
     if not resolved:
         raise BusinessRuleError("Your cart is empty. Add an item before checking out.")
+    if (
+        method is PaymentMethod.ONLINE
+        and effective_scope != "table"
+        and not any(owner == device.device_id for _, _, owner in resolved)
+    ):
+        raise BusinessRuleError(
+            "Only your own items can be paid online. Items for people without a phone "
+            "are paid at the cashier, where their ID is checked."
+        )
 
     eligible = await session_service.discount_devices(db, session_id)
     items = {
@@ -611,39 +684,7 @@ async def place_order(
 
     await queue_service.place_in_queue(db, transaction)
 
-    active_payment: Payment | None = None
-
-    if effective_scope == "split":
-        device_totals: dict[int, tuple[Decimal, Decimal]] = {}
-        for line in priced.lines:
-            dev_id = line.device_id or device.device_id
-            prev_net, prev_disc = device_totals.get(dev_id, (Decimal("0.00"), Decimal("0.00")))
-            device_totals[dev_id] = (prev_net + line.line_net, prev_disc + line.discount_amount)
-
-        for dev_id, (dev_net, dev_disc) in device_totals.items():
-            if dev_net <= Decimal("0.00"):
-                continue
-            is_initiating_device = dev_id == device.device_id
-            pay_row = Payment(
-                txn_id=transaction.txn_id,
-                device_id=dev_id,
-                method=method if is_initiating_device else PaymentMethod.CASHIER,
-                amount=dev_net,
-                discount_applied=dev_disc,
-                status=PaymentStatus.PENDING,
-                aggregator_ref=(
-                    ("CASHIER-CONFIRMED" if method is PaymentMethod.CASHIER else None)
-                    if is_initiating_device
-                    else "AWAITING-CHOICE"
-                ),
-                paid_at=None,
-            )
-            db.add(pay_row)
-            if is_initiating_device or active_payment is None:
-                active_payment = pay_row
-
-        session_service.clear_table_cart(session_id)
-    else:
+    if effective_scope == "table":
         active_payment = Payment(
             txn_id=transaction.txn_id,
             device_id=device.device_id,
@@ -655,10 +696,17 @@ async def place_order(
             paid_at=None,
         )
         db.add(active_payment)
-        if effective_scope == "table":
+        session_service.clear_table_cart(session_id)
+    else:
+        shares, active_payment = _share_payments(
+            transaction, priced, device, method, companion_ids
+        )
+        db.add_all(shares)
+        if effective_scope == "split":
             session_service.clear_table_cart(session_id)
         else:
-            session_service.clear_device_cart(session_id, device.device_id)
+            for payer_id in payer_ids:
+                session_service.clear_device_cart(session_id, payer_id)
 
     # Commit
     await db.commit()
@@ -738,6 +786,22 @@ async def reprice_device_lines(
         setattr(transaction, column, getattr(priced, column))
 
 
+def share_label(label: "session_service.DeviceLabel | None", current_device_id: int | None) -> dict:
+    """How a payment share names its person: a phone number, or the person a phone added."""
+    if label is None:
+        return {"device_number": None, "is_host": False}
+    return {
+        "device_number": label.device_number,
+        "is_host": label.is_host,
+        "display_name": label.display_name,
+        "is_companion": label.managed_by_device_id is not None,
+        "managed_by_me": (
+            label.managed_by_device_id is not None
+            and label.managed_by_device_id == current_device_id
+        ),
+    }
+
+
 def aggregate_payment_status(payments: list[Payment]) -> PaymentStatus:
     if not payments:
         return PaymentStatus.PENDING
@@ -800,18 +864,7 @@ async def session_order_status(
     for p in all_payments:
         payments_by_txn.setdefault(p.txn_id, []).append(p)
 
-    # Read
-    devices = list(
-        await db.scalars(
-            select(SessionDevice)
-            .where(SessionDevice.session_id == session_id)
-            .order_by(SessionDevice.joined_at.asc(), SessionDevice.device_id.asc())
-        )
-    )
-    dev_meta = {
-        dev.device_id: (idx, dev.is_host)
-        for idx, dev in enumerate(devices, start=1)
-    }
+    labels = await session_service.device_labels(db, {session_id})
 
     result = []
     for txn in txns:
@@ -836,8 +889,7 @@ async def session_order_status(
             {
                 "payment_id": p.payment_id,
                 "device_id": p.device_id,
-                "device_number": dev_meta.get(p.device_id, (1, False))[0],
-                "is_host": dev_meta.get(p.device_id, (1, False))[1],
+                **share_label(labels.get(p.device_id), current_device_id),
                 "is_me": p.device_id == current_device_id,
                 "amount": p.amount,
                 "method": p.method,

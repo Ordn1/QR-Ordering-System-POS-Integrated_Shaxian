@@ -5,6 +5,7 @@ import {
   Hash,
   MousePointerClick,
   Search,
+  UserPlus,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +14,7 @@ import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-rou
 import AssistOffer from '../../components/customer/AssistOffer';
 import BottomBar from '../../components/customer/BottomBar';
 import CodeKeypad from '../../components/customer/CodeKeypad';
+import CompanionForm from '../../components/customer/CompanionForm';
 import DisplaySheet from '../../components/customer/DisplaySheet';
 import GroupBanner from '../../components/customer/GroupBanner';
 import HelpSheet from '../../components/customer/HelpSheet';
@@ -28,7 +30,7 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 import { listItems } from '../../api/menu';
 import { readAssistance, requestAssistance, syncDeviceCart } from '../../api/sessions';
 import { peso } from '../../lib/format';
-import { useCartStore } from '../../store/cartStore';
+import { cartPayload, useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
 
@@ -61,6 +63,7 @@ export default function CustomerShell() {
   const [showHelp, setShowHelp] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
   const [declaring, setDeclaring] = useState(false);
+  const [addingPerson, setAddingPerson] = useState(false);
   const openDeclaration = useCallback(() => setDeclaring(true), []);
   const [crewCall, setCrewCall] = useState(null);
   const crewStatus = useRef(null);
@@ -89,11 +92,7 @@ export default function CustomerShell() {
     if (!session?.session_id) {
       return;
     }
-    syncDeviceCart(
-      session.session_id,
-      lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity })),
-      i18n.language,
-    ).catch(() => { });
+    syncDeviceCart(session.session_id, cartPayload(lines), i18n.language).catch(() => { });
   }, [session?.session_id, lines, i18n.language]);
 
   const sessionId = session?.session_id;
@@ -245,6 +244,13 @@ export default function CustomerShell() {
       body: t('help.priorityBody'),
       onSelect: openDeclaration,
     },
+    {
+      key: 'person',
+      icon: UserPlus,
+      title: t('help.personTitle'),
+      body: t('help.personBody'),
+      onSelect: () => setAddingPerson(true),
+    },
   ];
 
   if (!session) {
@@ -312,6 +318,7 @@ export default function CustomerShell() {
           trackControl: guidance.trackControl,
           completed: guidance.completed,
           openDeclaration,
+          addPerson: () => setAddingPerson(true),
         }}
       />
 
@@ -380,6 +387,8 @@ export default function CustomerShell() {
       ) : null}
 
       {declaring ? <PriorityDeclaration onClose={() => setDeclaring(false)} /> : null}
+
+      {addingPerson ? <CompanionForm onClose={() => setAddingPerson(false)} /> : null}
 
       {showSearch ? (
         <SearchOverlay

@@ -33,6 +33,7 @@ from app.services import assistance as assistance_service
 from app.services import order as order_service
 from app.services import pos as pos_service
 from app.services import queue as queue_service
+from app.services import session as session_service
 from app.services import verification as verification_service
 from app.websocket import events
 
@@ -73,6 +74,19 @@ async def acknowledge_assistance(
     return assistance_service.to_read(request)
 
 
+def claim_read(log: PriorityVerificationLog, label) -> PendingVerificationRead:
+    return PendingVerificationRead(
+        log_id=log.log_id,
+        device_id=log.device_id,
+        declared_status=log.declared_status,
+        device_number=label.device_number if label else None,
+        display_name=label.display_name if label else None,
+        is_companion=bool(label and label.managed_by_device_id is not None),
+        managed_by_number=label.managed_by_number if label else None,
+        managed_by_name=label.managed_by_name if label else None,
+    )
+
+
 async def build_entries(db: DbSession, rows: list) -> list[QueueEntryRead]:
     if not rows:
         return []
@@ -89,6 +103,7 @@ async def build_entries(db: DbSession, rows: list) -> list[QueueEntryRead]:
         payments_by_txn.setdefault(p.txn_id, []).append(p)
 
     pending = await verification_service.pending_checks(db, [txn for _, txn, _ in rows])
+    labels = await session_service.device_labels(db, {session.session_id for _, _, session in rows})
     item_rows = await db.execute(
         select(TransactionItem, MenuItem)
         .join(MenuItem, MenuItem.item_id == TransactionItem.item_id)
@@ -156,7 +171,7 @@ async def build_entries(db: DbSession, rows: list) -> list[QueueEntryRead]:
                 entered_queue_at=slot.entered_queue_at,
                 prep_started_at=slot.prep_started_at,
                 pending_verifications=[
-                    PendingVerificationRead.model_validate(log)
+                    claim_read(log, labels.get(log.device_id))
                     for log in pending.get(txn.txn_id, [])
                 ],
                 items=items_by_txn.get(txn.txn_id, []),

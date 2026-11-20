@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -34,6 +34,7 @@ from app.models.enums import (
 from app.schemas.session import DeviceCartLineRead, DeviceShareRead, TableCartRead
 
 DISCOUNTABLE = (PriorityStatus.SENIOR, PriorityStatus.PWD)
+MAX_COMPANIONS_PER_PHONE = 4
 DEFAULT_DISPLAY = {"menu_size": MenuSize.GRID, "is_high_contrast": False, "has_steady_taps": False}
 DECLARED_DISPLAY = {"menu_size": MenuSize.LIST, "has_steady_taps": True}
 CENTAVO = Decimal("0.01")
@@ -99,6 +100,7 @@ async def open_session(
             select(SessionDevice).where(
                 SessionDevice.session_id == active.session_id,
                 SessionDevice.device_token == device_token,
+                SessionDevice.managed_by_device_id.is_(None),
             )
         )
         if known is not None:
@@ -127,6 +129,7 @@ async def authorize_device(db: AsyncSession, session_id: int, device_token: UUID
         select(SessionDevice).where(
             SessionDevice.session_id == session_id,
             SessionDevice.device_token == device_token,
+            SessionDevice.managed_by_device_id.is_(None),
         )
     )
     if device is None:
@@ -179,10 +182,15 @@ async def remove_session_device(
     )
     if target is None:
         raise NotFoundError("That device is no longer part of this table session.")
+    if target.managed_by_device_id is not None:
+        raise BusinessRuleError("Remove that person from the phone that added them.")
 
-    await _ensure_removable(db, {target_device_id})
-    await _drop_declarations(db, {target_device_id})
-    clear_device_cart(session_id, target_device_id)
+    leaving = {target_device_id} | await companion_ids(db, session_id, target_device_id)
+    await _ensure_removable(db, leaving)
+    await _drop_declarations(db, leaving)
+    for device_id in leaving:
+        clear_device_cart(session_id, device_id)
+    await db.execute(delete(SessionDevice).where(SessionDevice.managed_by_device_id == target_device_id))
     await db.delete(target)
     await db.flush()
 
@@ -325,7 +333,9 @@ async def _latest_declared_status(db: AsyncSession, session_id: int) -> Priority
     return latest or PriorityStatus.STANDARD
 
 
-async def _ensure_removable(db: AsyncSession, device_ids: set[int]) -> None:
+async def _ensure_removable(
+    db: AsyncSession, device_ids: set[int], who: str = "That phone"
+) -> None:
     """A phone with items on an order or a payment share is part of the record and stays."""
     on_record = await db.scalar(
         select(func.count()).select_from(TransactionItem).where(
@@ -336,7 +346,7 @@ async def _ensure_removable(db: AsyncSession, device_ids: set[int]) -> None:
     )
     if on_record:
         raise BusinessRuleError(
-            "That phone already has items on an order at this table, so it can't be removed."
+            f"{who} already has items on an order at this table, so they can't be removed."
         )
 
 
@@ -436,6 +446,17 @@ async def device_count(db: AsyncSession, session_id: int) -> int:
     )
 
 
+def seat_order(devices: list[SessionDevice]) -> list[SessionDevice]:
+    """Phones in the order they joined, each followed by the people it added."""
+    ordered: list[SessionDevice] = []
+    for phone in (device for device in devices if device.managed_by_device_id is None):
+        ordered.append(phone)
+        ordered.extend(
+            device for device in devices if device.managed_by_device_id == phone.device_id
+        )
+    return ordered
+
+
 @dataclass(frozen=True)
 class DeviceLabel:
     device_number: int | None
@@ -487,19 +508,163 @@ async def device_labels(db: AsyncSession, session_ids: set[int]) -> dict[int, De
     }
 
 
+async def companion_ids(db: AsyncSession, session_id: int, manager_id: int) -> set[int]:
+    """People without a phone that this phone added to the table."""
+    return set(
+        await db.scalars(
+            select(SessionDevice.device_id).where(
+                SessionDevice.session_id == session_id,
+                SessionDevice.managed_by_device_id == manager_id,
+            )
+        )
+    )
+
+
 async def write_payer_carts(
     db: AsyncSession,
     session_id: int,
     device: SessionDevice,
     lines: list[tuple[str, int, int | None]],
-) -> None:
-    """Replace the caller's synced cart. A phone may only write lines for itself."""
-    for _, _, target in lines:
-        if target not in (None, device.device_id):
-            raise PermissionError("You can only order for yourself from this phone.")
-    update_device_cart(
-        session_id, device.device_id, [(item_id, quantity) for item_id, quantity, _ in lines]
+) -> set[int]:
+    """Replace the carts of the caller and of everyone it added without a phone.
+
+    Each line names who it is for. A phone may order for itself and for the people it
+    added, never for another phone. Returns the phone and its people.
+    """
+    payers = {device.device_id} | await companion_ids(db, session_id, device.device_id)
+    grouped: dict[int, list[tuple[str, int]]] = {payer: [] for payer in payers}
+    for item_id, quantity, target in lines:
+        owner = target or device.device_id
+        if owner not in grouped:
+            raise PermissionError(
+                "You can only order for yourself or for people you added from this phone."
+            )
+        grouped[owner].append((item_id, quantity))
+    for owner, owner_lines in grouped.items():
+        update_device_cart(session_id, owner, owner_lines)
+    return payers
+
+
+def get_group_cart_lines(session_id: int, device_ids: set[int]) -> list[tuple[str, int, int]]:
+    carts = _TABLE_CARTS.get(session_id, {})
+    return [
+        (item_id, quantity, device_id)
+        for device_id in sorted(device_ids)
+        for item_id, quantity in carts.get(device_id, [])
+    ]
+
+
+async def managed_companions(
+    db: AsyncSession, session_id: int, manager_id: int
+) -> list[tuple[SessionDevice, PriorityVerificationLog | None, bool]]:
+    """The people this phone added, each with their declaration and whether they ordered."""
+    companions = list(
+        await db.scalars(
+            select(SessionDevice)
+            .where(
+                SessionDevice.session_id == session_id,
+                SessionDevice.managed_by_device_id == manager_id,
+            )
+            .order_by(SessionDevice.joined_at, SessionDevice.device_id)
+        )
     )
+    if not companions:
+        return []
+    ids = {companion.device_id for companion in companions}
+    logs = {
+        log.device_id: log
+        for log in await db.scalars(
+            select(PriorityVerificationLog).where(PriorityVerificationLog.device_id.in_(ids))
+        )
+    }
+    ordered = set(
+        await db.scalars(
+            select(TransactionItem.device_id).where(TransactionItem.device_id.in_(ids)).distinct()
+        )
+    )
+    return [
+        (companion, logs.get(companion.device_id), companion.device_id in ordered)
+        for companion in companions
+    ]
+
+
+async def add_companion(
+    db: AsyncSession,
+    session_id: int,
+    manager: SessionDevice,
+    display_name: str,
+    declared: PriorityStatus,
+) -> Session:
+    """Add a senior or PWD diner who has no phone. Their items carry their own discount."""
+    session = await get_session(db, session_id)
+    if session.ended_at is not None:
+        raise BusinessRuleError("That table session has ended. Scan the QR code again.")
+    if declared not in DISCOUNTABLE:
+        raise BusinessRuleError("Only a senior citizen or a person with disability can be added.")
+
+    await db.execute(
+        select(SessionDevice.device_id)
+        .where(SessionDevice.device_id == manager.device_id)
+        .with_for_update()
+    )
+    if len(await companion_ids(db, session_id, manager.device_id)) >= MAX_COMPANIONS_PER_PHONE:
+        raise BusinessRuleError(
+            f"One phone can add up to {MAX_COMPANIONS_PER_PHONE} people without a phone."
+        )
+
+    companion = SessionDevice(
+        session_id=session_id,
+        managed_by_device_id=manager.device_id,
+        is_host=False,
+        display_name=display_name.strip(),
+    )
+    db.add(companion)
+    await db.flush()
+    db.add(
+        PriorityVerificationLog(
+            session_id=session_id,
+            device_id=companion.device_id,
+            declared_status=declared,
+            id_presented=False,
+            discount_eligible=True,
+        )
+    )
+    session.declared_priority_status = declared
+    session.session_type = resolve_session_type(declared, session.group_mode)
+    await db.commit()
+    await db.refresh(session)
+    return session
+
+
+async def remove_companion(
+    db: AsyncSession, session_id: int, manager: SessionDevice, companion_id: int
+) -> Session:
+    session = await get_session(db, session_id)
+    companion = await db.scalar(
+        select(SessionDevice).where(
+            SessionDevice.session_id == session_id,
+            SessionDevice.device_id == companion_id,
+            SessionDevice.managed_by_device_id.is_not(None),
+        )
+    )
+    if companion is None:
+        raise NotFoundError("That person is no longer at this table.")
+    if companion.managed_by_device_id != manager.device_id:
+        raise PermissionError("Only the phone that added that person can remove them.")
+
+    await _ensure_removable(db, {companion_id}, who="That person")
+    await _drop_declarations(db, {companion_id})
+    clear_device_cart(session_id, companion_id)
+    await db.delete(companion)
+    await db.flush()
+
+    session.declared_priority_status = await _latest_declared_status(db, session_id)
+    session.session_type = resolve_session_type(
+        session.declared_priority_status, session.group_mode
+    )
+    await db.commit()
+    await db.refresh(session)
+    return session
 
 
 # Update
@@ -542,13 +707,40 @@ async def get_table_cart(
     language: str = "en",
 ) -> TableCartRead:
     ordering_session = await get_session(db, session_id)
-    devices = list(
-        await db.scalars(
-            select(SessionDevice)
-            .where(SessionDevice.session_id == session_id)
-            .order_by(SessionDevice.joined_at.asc(), SessionDevice.device_id.asc())
+    devices = seat_order(
+        list(
+            await db.scalars(
+                select(SessionDevice)
+                .where(SessionDevice.session_id == session_id)
+                .order_by(SessionDevice.joined_at.asc(), SessionDevice.device_id.asc())
+            )
         )
     )
+    phone_count = sum(1 for dev in devices if dev.managed_by_device_id is None)
+    labels = await device_labels(db, {session_id})
+    companion_status = {
+        log.device_id: log.declared_status
+        for log in await declarations_for(
+            db,
+            session_id,
+            {dev.device_id for dev in devices if dev.managed_by_device_id is not None},
+        )
+    }
+
+    def share(dev: SessionDevice, **fields) -> DeviceShareRead:
+        return DeviceShareRead(
+            device_id=dev.device_id,
+            device_number=labels[dev.device_id].device_number,
+            display_name=dev.display_name,
+            is_host=dev.is_host,
+            is_me=dev.device_id == current_device_id,
+            is_companion=dev.managed_by_device_id is not None,
+            managed_by_device_id=dev.managed_by_device_id,
+            managed_by_number=labels[dev.device_id].managed_by_number,
+            managed_by_me=dev.managed_by_device_id == current_device_id,
+            declared_status=companion_status.get(dev.device_id),
+            **fields,
+        )
 
     def item_name(item: MenuItem) -> str:
         return {
@@ -617,7 +809,7 @@ async def get_table_cart(
         my_share_total = Decimal("0.00")
         unpaid_total = Decimal("0.00")
 
-        for index, dev in enumerate(devices, start=1):
+        for dev in devices:
             dev_pay = pay_by_dev.get(dev.device_id)
             share_lines: list[DeviceCartLineRead] = []
             for line, menu_item in tx_items:
@@ -664,22 +856,11 @@ async def get_table_cart(
             if is_me and pay_status != PaymentStatus.PAID:
                 my_share_total = share_sub
 
-            shares.append(
-                DeviceShareRead(
-                    device_id=dev.device_id,
-                    device_number=index,
-                    display_name=dev.display_name,
-                    is_host=dev.is_host,
-                    is_me=is_me,
-                    subtotal=share_sub,
-                    payment_status=pay_status,
-                    lines=share_lines,
-                )
-            )
+            shares.append(share(dev, subtotal=share_sub, payment_status=pay_status, lines=share_lines))
 
         return TableCartRead(
             session_id=session_id,
-            device_count=len(devices),
+            device_count=phone_count,
             table_total=table_total,
             my_share_total=my_share_total,
             unpaid_total=unpaid_total,
@@ -691,7 +872,7 @@ async def get_table_cart(
     table_total = Decimal("0.00")
     my_share_total = Decimal("0.00")
 
-    for index, dev in enumerate(devices, start=1):
+    for dev in devices:
         raw_lines = session_carts.get(dev.device_id, [])
         share_lines = []
         share_subtotal = Decimal("0.00")
@@ -717,22 +898,11 @@ async def get_table_cart(
         if is_me:
             my_share_total = share_subtotal
 
-        shares.append(
-            DeviceShareRead(
-                device_id=dev.device_id,
-                device_number=index,
-                display_name=dev.display_name,
-                is_host=dev.is_host,
-                is_me=is_me,
-                subtotal=share_subtotal,
-                payment_status=None,
-                lines=share_lines,
-            )
-        )
+        shares.append(share(dev, subtotal=share_subtotal, payment_status=None, lines=share_lines))
 
     return TableCartRead(
         session_id=session_id,
-        device_count=len(devices),
+        device_count=phone_count,
         table_total=table_total,
         my_share_total=my_share_total,
         unpaid_total=table_total,
