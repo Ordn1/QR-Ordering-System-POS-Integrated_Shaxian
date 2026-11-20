@@ -87,15 +87,9 @@ async def verification_detail(
 async def record_event(
     session_id: int, payload: EventWrite, db: DbSession, device: CurrentDevice
 ) -> None:
-    metadata = {
-        key: value
-        for key, value in (
-            ("item_id", payload.item_id),
-            ("dwell_seconds", payload.dwell_seconds),
-            ("signals", payload.signals),
-        )
-        if value is not None
-    }
+    metadata = payload.model_dump(
+        mode="json", exclude={"event_type", "screen_id"}, exclude_none=True
+    )
     await analytics_service.record(
         db, session_id, payload.event_type, payload.screen_id, metadata or None
     )

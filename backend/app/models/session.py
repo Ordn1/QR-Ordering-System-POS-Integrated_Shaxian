@@ -8,10 +8,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 from app.models.enums import (
     LANGUAGE,
+    MENU_SIZE,
     PRIORITY_STATUS,
     SESSION_TYPE,
     UI_MODE,
     Language,
+    MenuSize,
     PriorityStatus,
     SessionType,
     UiMode,
@@ -83,6 +85,21 @@ class Session(Base):
 
 class SessionDevice(Base):
     __tablename__ = "session_devices"
+    __table_args__ = (
+        sa.CheckConstraint(
+            "managed_by_device_id IS NULL OR NOT is_host",
+            name="chk_session_devices_companion_not_host",
+        ),
+        sa.CheckConstraint(
+            "managed_by_device_id <> device_id",
+            name="chk_session_devices_not_self_managed",
+        ),
+        sa.Index(
+            "idx_session_devices_managed_by",
+            "managed_by_device_id",
+            postgresql_where=sa.text("managed_by_device_id IS NOT NULL"),
+        ),
+    )
 
     device_id: Mapped[int] = mapped_column(
         sa.BigInteger,
@@ -107,5 +124,25 @@ class SessionDevice(Base):
     )
     display_name: Mapped[str | None] = mapped_column(sa.String(30))
     is_host: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.false())
+    managed_by_device_id: Mapped[int | None] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            "session_devices.device_id",
+            ondelete="CASCADE",
+            name="fk_session_devices_managed_by",
+        ),
+    )
+    menu_size: Mapped[MenuSize] = mapped_column(
+        MENU_SIZE,
+        nullable=False,
+        server_default=MenuSize.GRID.value,
+    )
+    is_high_contrast: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, server_default=sa.false()
+    )
+    has_steady_taps: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, server_default=sa.false()
+    )
+    display_chosen_at: Mapped[datetime | None] = mapped_column(sa.TIMESTAMP(timezone=True))
 
     session: Mapped[Session] = relationship(back_populates="devices")

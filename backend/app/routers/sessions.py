@@ -26,12 +26,7 @@ async def to_read(
     triggers = await analytics_service.trigger_history(db, session.session_id)
     mine = await session_service.device_declaration(db, session.session_id, device.device_id)
     my_status = mine.declared_status if mine is not None else PriorityStatus.STANDARD
-    if my_status is not PriorityStatus.STANDARD:
-        ui_mode = UiMode.ACCESSIBLE
-    elif session.group_mode:
-        ui_mode = UiMode.STANDARD
-    else:
-        ui_mode = session.ui_mode_used
+    standard_display = session_service.display_is_default(device)
     return SessionRead(
         session_id=session.session_id,
         table_id=session.table_id,
@@ -44,7 +39,11 @@ async def to_read(
         declared_priority_status=my_status,
         session_type=session.session_type,
         group_mode=session.group_mode,
-        ui_mode_used=ui_mode,
+        ui_mode_used=UiMode.STANDARD if standard_display else UiMode.ACCESSIBLE,
+        menu_size=device.menu_size,
+        is_high_contrast=device.is_high_contrast,
+        has_steady_taps=device.has_steady_taps,
+        display_chosen=device.display_chosen_at is not None,
         language_used=session.language_used,
         discount_eligible=bool(mine is not None and mine.discount_eligible),
         discount_status=session_service.discount_status([mine] if mine is not None else []),
@@ -88,8 +87,17 @@ async def declare(
 async def preferences(
     session_id: int, payload: PreferencesWrite, db: DbSession, device: CurrentDevice
 ) -> SessionRead:
+    changes = payload.model_dump(
+        include={"menu_size", "is_high_contrast", "has_steady_taps"}, exclude_none=True
+    )
     session = await session_service.set_preferences(
-        db, session_id, payload.language_used, payload.ui_mode_used
+        db,
+        session_id,
+        device,
+        payload.language_used,
+        changes,
+        payload.source,
+        payload.screen_id,
     )
     table = await db.get(Table, session.table_id)
     return await to_read(db, session, device, table)

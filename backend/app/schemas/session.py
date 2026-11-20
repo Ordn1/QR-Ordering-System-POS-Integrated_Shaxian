@@ -4,12 +4,20 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import Language, PaymentStatus, PriorityStatus, SessionType, UiMode
+from app.models.enums import (
+    Language,
+    MenuSize,
+    PaymentStatus,
+    PriorityStatus,
+    SessionType,
+    UiMode,
+)
 from app.schemas.fields import ALPHANUMERIC, SmallPositive, sized
 
 DisplayName = sized(30, ALPHANUMERIC)
 
 DiscountStatus = Literal["none", "pending", "verified", "rejected"]
+DisplaySource = Literal["pinch", "button", "offer"]
 
 
 class SessionOpen(BaseModel):
@@ -23,7 +31,11 @@ class DeclarationWrite(BaseModel):
 
 class PreferencesWrite(BaseModel):
     language_used: Language | None = None
-    ui_mode_used: UiMode | None = None
+    menu_size: MenuSize | None = None
+    is_high_contrast: bool | None = None
+    has_steady_taps: bool | None = None
+    source: DisplaySource = "button"
+    screen_id: str | None = Field(default=None, max_length=40)
 
 
 class DeviceProfileWrite(BaseModel):
@@ -84,6 +96,10 @@ class SessionRead(BaseModel):
     session_type: SessionType
     group_mode: bool
     ui_mode_used: UiMode
+    menu_size: MenuSize = MenuSize.GRID
+    is_high_contrast: bool = False
+    has_steady_taps: bool = False
+    display_chosen: bool = False
     language_used: Language
     discount_eligible: bool
     discount_status: DiscountStatus = "none"

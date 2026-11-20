@@ -1,4 +1,5 @@
 from app.models.analytics import AnalyticsEvent
+from app.models.assistance import AssistanceRequest
 from app.models.audit import AuditLog
 from app.models.menu import Category, MenuItem
 from app.models.order import Transaction, TransactionItem
@@ -13,6 +14,7 @@ from app.models.verification import PriorityVerificationLog
 __all__ = [
     "AnalyticsEvent",
     "AprioriRule",
+    "AssistanceRequest",
     "AuditLog",
     "Category",
     "KitchenQueue",

@@ -40,6 +40,10 @@ class BusinessRuleError(AppError):
     status_code = 400
 
 
+class RateLimitError(AppError):
+    status_code = 429
+
+
 def correlation_id() -> str:
     raw = secrets.token_hex(4).upper()
     return f"{raw[:4]}-{raw[4:]}"

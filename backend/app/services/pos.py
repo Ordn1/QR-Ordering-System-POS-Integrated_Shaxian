@@ -133,13 +133,9 @@ async def create_counter_order(
             else SessionType.STANDARD
         ),
         group_mode=False,
-        ui_mode_used=(
-            UiMode.ACCESSIBLE
-            if declared is not PriorityStatus.STANDARD
-            else UiMode.STANDARD
-        ),
+        ui_mode_used=UiMode.STANDARD,
         language_used=Language.EN,
-        accessibility_accepted=declared is not PriorityStatus.STANDARD,
+        accessibility_accepted=False,
     )
     db.add(ordering_session)
     await db.flush()

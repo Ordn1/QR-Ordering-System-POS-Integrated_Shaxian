@@ -71,6 +71,25 @@ class EventType(str, Enum):
     RECOMMENDATION_SHOWN = "recommendation_shown"
     RECOMMENDATION_ACCEPTED = "recommendation_accepted"
     RECOMMENDATION_DISMISSED = "recommendation_dismissed"
+    ZOOM_DETECTED = "zoom_detected"
+    MISSED_TAP = "missed_tap"
+    ASSIST_OFFERED = "assist_offered"
+    ASSIST_ACCEPTED = "assist_accepted"
+    ASSIST_DECLINED = "assist_declined"
+    DISPLAY_CHANGED = "display_changed"
+    CREW_CALLED = "crew_called"
+    CODE_ENTERED = "code_entered"
+
+
+class MenuSize(str, Enum):
+    GRID = "grid"
+    LIST = "list"
+    LARGE = "large"
+
+
+class AssistanceReason(str, Enum):
+    ASKED = "asked"
+    OFFERED = "offered"
 
 
 def pg_enum(python_enum: type[Enum], name: str) -> postgresql.ENUM:
@@ -93,6 +112,8 @@ PAYMENT_METHOD = pg_enum(PaymentMethod, "payment_method_enum")
 PAYMENT_STATUS = pg_enum(PaymentStatus, "payment_status_enum")
 PRINT_STATUS = pg_enum(PrintStatus, "print_status_enum")
 EVENT_TYPE = pg_enum(EventType, "event_type_enum")
+MENU_SIZE = pg_enum(MenuSize, "menu_size_enum")
+ASSISTANCE_REASON = pg_enum(AssistanceReason, "assistance_reason_enum")
 
 ENUM_DEFINITIONS: tuple[tuple[str, tuple[str, ...]], ...] = tuple(
     (pg_type.name, tuple(member.value for member in pg_type.enum_class))
@@ -108,5 +129,7 @@ ENUM_DEFINITIONS: tuple[tuple[str, tuple[str, ...]], ...] = tuple(
         PAYMENT_STATUS,
         PRINT_STATUS,
         EVENT_TYPE,
+        MENU_SIZE,
+        ASSISTANCE_REASON,
     )
 )

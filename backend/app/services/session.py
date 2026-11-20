@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.exceptions import BusinessRuleError, NotFoundError, PermissionError
 from app.models import (
+    AnalyticsEvent,
     MenuItem,
     Payment,
     PriorityVerificationLog,
@@ -19,7 +20,9 @@ from app.models import (
     TransactionItem,
 )
 from app.models.enums import (
+    EventType,
     Language,
+    MenuSize,
     OccupancyStatus,
     PaymentStatus,
     PriorityStatus,
@@ -30,6 +33,8 @@ from app.models.enums import (
 from app.schemas.session import DeviceCartLineRead, DeviceShareRead, TableCartRead
 
 DISCOUNTABLE = (PriorityStatus.SENIOR, PriorityStatus.PWD)
+DEFAULT_DISPLAY = {"menu_size": MenuSize.GRID, "is_high_contrast": False, "has_steady_taps": False}
+DECLARED_DISPLAY = {"menu_size": MenuSize.LIST, "has_steady_taps": True}
 CENTAVO = Decimal("0.01")
 
 _TABLE_CARTS: dict[int, dict[int, list[tuple[str, int]]]] = defaultdict(dict)
@@ -239,29 +244,73 @@ async def declare_priority(
 
     session.declared_priority_status = session_status
     session.session_type = resolve_session_type(session_status, session.group_mode)
-    session.accessibility_accepted = session_status is not PriorityStatus.STANDARD
-    session.ui_mode_used = (
-        UiMode.ACCESSIBLE if session_status is not PriorityStatus.STANDARD else UiMode.STANDARD
-    )
+
+    if device.display_chosen_at is None:
+        preset = DECLARED_DISPLAY if declared in DISCOUNTABLE else DEFAULT_DISPLAY
+        apply_display(db, session, device, preset, "declaration")
 
     await db.commit()
     await db.refresh(session)
+    await db.refresh(device)
     return session
+
+
+def display_is_default(device: SessionDevice) -> bool:
+    return all(getattr(device, setting) == value for setting, value in DEFAULT_DISPLAY.items())
+
+
+def apply_display(
+    db: AsyncSession,
+    session: Session,
+    device: SessionDevice,
+    changes: dict[str, MenuSize | bool],
+    source: str,
+    screen_id: str | None = None,
+) -> bool:
+    """Change one phone's display settings, logging each real change for the dashboard."""
+    changed = False
+    for setting, value in changes.items():
+        if getattr(device, setting) == value:
+            continue
+        setattr(device, setting, value)
+        changed = True
+        db.add(
+            AnalyticsEvent(
+                session_id=session.session_id,
+                event_type=EventType.DISPLAY_CHANGED,
+                screen_id=screen_id,
+                metadata_={
+                    "setting": setting,
+                    "value": value.value if isinstance(value, MenuSize) else value,
+                    "source": source,
+                },
+            )
+        )
+    if not display_is_default(device):
+        session.ui_mode_used = UiMode.ACCESSIBLE
+        if source in ("offer", "declaration"):
+            session.accessibility_accepted = True
+    return changed
 
 
 async def set_preferences(
     db: AsyncSession,
     session_id: int,
+    device: SessionDevice,
     language: Language | None,
-    ui_mode: UiMode | None,
+    changes: dict[str, MenuSize | bool],
+    source: str,
+    screen_id: str | None = None,
 ) -> Session:
     session = await get_session(db, session_id)
     if language is not None:
         session.language_used = language
-    if ui_mode is not None:
-        session.ui_mode_used = ui_mode
+    if changes:
+        apply_display(db, session, device, changes, source, screen_id)
+        device.display_chosen_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(session)
+    await db.refresh(device)
     return session
 
 
