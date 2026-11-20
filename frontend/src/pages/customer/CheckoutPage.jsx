@@ -27,6 +27,10 @@ const ROW_REVEAL = {
   transition: MOVE,
 };
 
+function ownItems(lines) {
+  return lines.map((line) => ({ item_id: line.item_id, quantity: line.quantity }));
+}
+
 export default function CheckoutPage() {
   const { t, i18n } = useTranslation();
   const { qrToken } = useParams();
@@ -140,14 +144,9 @@ export default function CheckoutPage() {
           return;
         }
 
-        const itemsForQuote = effectiveLines.map((line) => ({
-          item_id: line.item_id,
-          quantity: line.quantity,
-        }));
-
         const nextQuote = await quoteOrder(
           session.session_id,
-          itemsForQuote,
+          ownItems(lines),
           resolvedScope,
         );
         if (!cancelled && !placedRef.current) {
@@ -215,11 +214,7 @@ export default function CheckoutPage() {
   async function submit() {
     setPlacing(true);
     try {
-      const sourceLines = displayLines.length > 0 ? displayLines : lines;
-      const itemsToSend = sourceLines.map((line) => ({
-        item_id: line.item_id,
-        quantity: line.quantity,
-      }));
+      const itemsToSend = ownItems(lines);
 
       const langCode = ['en', 'fil', 'bis'].includes(i18n.language)
         ? i18n.language

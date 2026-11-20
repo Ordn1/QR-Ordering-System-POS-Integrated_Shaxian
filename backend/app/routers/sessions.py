@@ -146,10 +146,11 @@ async def sync_device_cart(
     db: DbSession,
     device: CurrentDevice,
 ) -> TableCartRead:
-    session_service.update_device_cart(
+    await session_service.write_payer_carts(
+        db,
         session_id,
-        device.device_id,
-        [(line.item_id, line.quantity) for line in payload.items],
+        device,
+        [(line.item_id, line.quantity, None) for line in payload.items],
     )
     await events.publish_cart_changed(session_id)
     return await session_service.get_table_cart(

@@ -161,28 +161,18 @@ async def next_queue_number(db: AsyncSession) -> int:
     return highest + 1
 
 
-def _resolve_requested_with_devices(
-    session_id: int,
-    device: SessionDevice,
-    requested: list[tuple[str, int]],
-    checkout_scope: str,
+def _resolve_lines(
+    session_id: int, device: SessionDevice, checkout_scope: str
 ) -> list[tuple[str, int, int]]:
-    if requested:
-        session_service.update_device_cart(session_id, device.device_id, requested)
-
+    """Read the synced carts the scope covers. Each line keeps the phone it belongs to."""
     if checkout_scope in ("table", "split"):
-        all_lines = session_service.get_all_session_cart_lines(session_id)
-        if all_lines:
-            return all_lines
-
-    if requested:
-        return [(item_id, qty, device.device_id) for item_id, qty in requested]
-
-    saved_dev_lines = session_service.get_device_cart_lines(session_id, device.device_id)
-    if saved_dev_lines:
-        return [(item_id, qty, device.device_id) for item_id, qty in saved_dev_lines]
-
-    return session_service.get_all_session_cart_lines(session_id)
+        return session_service.get_all_session_cart_lines(session_id)
+    return [
+        (item_id, quantity, device.device_id)
+        for item_id, quantity in session_service.get_device_cart_lines(
+            session_id, device.device_id
+        )
+    ]
 
 
 async def find_open_table_transaction(
@@ -334,204 +324,20 @@ async def _append_device_items_to_transaction(
     return pay_row
 
 
-async def get_table_cart(
-    db: AsyncSession,
-    session_id: int,
-    current_device_id: int,
-    language: str = "en",
-) -> dict:
-    ordering_session = await session_service.get_session(db, session_id)
-    devices = list(
-        await db.scalars(
-            select(SessionDevice)
-            .where(SessionDevice.session_id == session_id)
-            .order_by(SessionDevice.joined_at.asc(), SessionDevice.device_id.asc())
-        )
-    )
-    eligible = await session_service.discount_devices(db, session_id)
-
-    open_txn = await find_open_table_transaction(db, session_id)
-    tx_items_by_device: dict[int, list[tuple[TransactionItem, MenuItem]]] = {}
-    payment_by_device: dict[int, Payment] = {}
-
-    if open_txn is not None:
-        rows = await db.execute(
-            select(TransactionItem, MenuItem)
-            .join(MenuItem, MenuItem.item_id == TransactionItem.item_id)
-            .where(TransactionItem.txn_id == open_txn.txn_id)
-            .order_by(TransactionItem.txi_id)
-        )
-        for line, menu_item in rows.all():
-            dev_key = line.device_id or (devices[0].device_id if devices else current_device_id)
-            tx_items_by_device.setdefault(dev_key, []).append((line, menu_item))
-
-        payments = list(
-            await db.scalars(
-                select(Payment).where(Payment.txn_id == open_txn.txn_id)
-            )
-        )
-        for p in payments:
-            if p.device_id is not None:
-                payment_by_device[p.device_id] = p
-
-    raw_carts = session_service._TABLE_CARTS.get(session_id, {})
-    all_item_ids = {
-        item_id
-        for lines in raw_carts.values()
-        for item_id, _ in lines
-    }
-    items_map: dict[str, MenuItem] = {}
-    if all_item_ids:
-        items_map = {
-            item.item_id: item
-            for item in await db.scalars(
-                select(MenuItem).where(MenuItem.item_id.in_(all_item_ids))
-            )
-        }
-
-    def _local_name(item: MenuItem) -> str:
-        return {
-            "en": item.name_en,
-            "fil": item.name_fil,
-            "bis": item.name_bis,
-        }.get(language, item.name_en)
-
-    shares = []
-    combined_lines: list[CartLine] = []
-
-    for idx, dev in enumerate(devices, start=1):
-        dev_pay = payment_by_device.get(dev.device_id)
-        dev_tx_lines = tx_items_by_device.get(dev.device_id, [])
-        dev_mem_lines = raw_carts.get(dev.device_id, [])
-
-        share_lines_out = []
-        dev_cart_lines: list[CartLine] = []
-
-        if dev_tx_lines:
-            for tx_line, menu_item in dev_tx_lines:
-                c_line = CartLine(
-                    item_id=tx_line.item_id,
-                    quantity=tx_line.quantity,
-                    unit_price=tx_line.unit_price,
-                    discount_eligible=tx_line.is_discounted,
-                    device_id=dev.device_id,
-                )
-                dev_cart_lines.append(c_line)
-                if dev_pay is None or dev_pay.status != PaymentStatus.PAID:
-                    combined_lines.append(c_line)
-                share_lines_out.append(
-                    {
-                        "item_id": tx_line.item_id,
-                        "name": _local_name(menu_item),
-                        "quantity": tx_line.quantity,
-                        "unit_price": tx_line.unit_price,
-                        "subtotal": tx_line.subtotal,
-                    }
-                )
-        else:
-            for item_id, qty in dev_mem_lines:
-                item = items_map.get(item_id)
-                if item is None or not item.is_available:
-                    continue
-                line_gross = money(item.price * qty)
-                c_line = CartLine(
-                    item_id=item.item_id,
-                    quantity=qty,
-                    unit_price=item.price,
-                    discount_eligible=dev.device_id in eligible,
-                    device_id=dev.device_id,
-                )
-                dev_cart_lines.append(c_line)
-                combined_lines.append(c_line)
-                share_lines_out.append(
-                    {
-                        "item_id": item.item_id,
-                        "name": _local_name(item),
-                        "quantity": qty,
-                        "unit_price": item.price,
-                        "subtotal": line_gross,
-                    }
-                )
-
-        if dev_cart_lines:
-            priced_dev = price_order(dev_cart_lines)
-            dev_sub = priced_dev.gross_amount
-            dev_net = dev_pay.amount if dev_pay is not None else priced_dev.net_amount
-            dev_cnt = priced_dev.item_count
-        else:
-            dev_sub = Decimal("0.00")
-            dev_net = Decimal("0.00")
-            dev_cnt = 0
-
-        if dev_pay is not None:
-            p_status = dev_pay.status.value
-            p_id = dev_pay.payment_id
-        else:
-            p_status = "unORDERED" if not dev_cart_lines else "pending"
-            p_id = None
-
-        shares.append(
-            {
-                "device_id": dev.device_id,
-                "device_number": idx,
-                "display_name": dev.display_name,
-                "is_host": dev.is_host,
-                "is_me": dev.device_id == current_device_id,
-                "item_count": dev_cnt,
-                "subtotal": dev_sub,
-                "net_share": dev_net,
-                "payment_status": p_status,
-                "payment_id": p_id,
-                "lines": share_lines_out,
-            }
-        )
-
-    if combined_lines:
-        priced_table = price_order(combined_lines)
-        t_gross = priced_table.gross_amount
-        t_vatable = priced_table.vatable_sales
-        t_exempt = priced_table.vat_exempt_sales
-        t_vat = priced_table.vat_amount
-        t_disc = priced_table.discount_amount
-        t_net = priced_table.net_amount
-        t_cnt = priced_table.item_count
-    else:
-        t_gross = Decimal("0.00")
-        t_vatable = Decimal("0.00")
-        t_exempt = Decimal("0.00")
-        t_vat = Decimal("0.00")
-        t_disc = Decimal("0.00")
-        t_net = Decimal("0.00")
-        t_cnt = 0
-
-    return {
-        "session_id": ordering_session.session_id,
-        "group_mode": ordering_session.group_mode,
-        "discount_applied": eligible,
-        "item_count": t_cnt,
-        "gross_amount": t_gross,
-        "vatable_sales": t_vatable,
-        "vat_exempt_sales": t_exempt,
-        "vat_amount": t_vat,
-        "discount_amount": t_disc,
-        "net_amount": t_net,
-        "open_txn_id": open_txn.txn_id if open_txn is not None else None,
-        "open_queue_number": open_txn.queue_number if open_txn is not None else None,
-        "shares": shares,
-    }
-
-
 async def build_cart(
     db: AsyncSession,
     session_id: int,
     device: SessionDevice,
-    requested: list[tuple[str, int]],
+    requested: list[tuple[str, int, int | None]],
     checkout_scope: str = "single",
 ) -> list[CartLine]:
     """Resolve requested item_ids against the live menu and the session's entitlement."""
     ordering_session = await session_service.get_session(db, session_id)
     if ordering_session.ended_at is not None:
         raise BusinessRuleError("That table session has ended. Scan the QR code again.")
+
+    if requested:
+        await session_service.write_payer_carts(db, session_id, device, requested)
 
     if checkout_scope in ("split", "table"):
         open_txn = await find_open_table_transaction(db, session_id)
@@ -584,9 +390,7 @@ async def build_cart(
                         for r in unpaid_tx_rows
                     ]
 
-    resolved = _resolve_requested_with_devices(
-        session_id, device, requested, checkout_scope
-    )
+    resolved = _resolve_lines(session_id, device, checkout_scope)
     if not resolved:
         raise BusinessRuleError("Your cart is empty. Add an item before checking out.")
 
@@ -622,7 +426,7 @@ async def quote_order(
     db: AsyncSession,
     session_id: int,
     device: SessionDevice,
-    requested: list[tuple[str, int]],
+    requested: list[tuple[str, int, int | None]],
     checkout_scope: str = "single",
 ) -> PricedOrder:
     """Price a cart without recording anything, so checkout can show tax and discount."""
@@ -633,7 +437,7 @@ async def place_order(
     db: AsyncSession,
     session_id: int,
     device: SessionDevice,
-    requested: list[tuple[str, int]],
+    requested: list[tuple[str, int, int | None]],
     method: PaymentMethod,
     checkout_scope: str = "single",
 ) -> tuple[Transaction, Payment]:
@@ -643,7 +447,7 @@ async def place_order(
         raise BusinessRuleError("That table session has ended. Scan the QR code again.")
 
     if requested:
-        session_service.update_device_cart(session_id, device.device_id, requested)
+        await session_service.write_payer_carts(db, session_id, device, requested)
 
     effective_scope = checkout_scope
     if ordering_session.group_mode and effective_scope == "single":
@@ -666,9 +470,7 @@ async def place_order(
                 Payment.device_id == device.device_id,
             )
         )
-        my_live_lines = requested or session_service.get_device_cart_lines(
-            session_id, device.device_id
-        )
+        my_live_lines = session_service.get_device_cart_lines(session_id, device.device_id)
 
         if my_payment is None:
             if not my_live_lines:
@@ -746,9 +548,7 @@ async def place_order(
             await db.refresh(primary)
             return existing_txn, primary
 
-    resolved = _resolve_requested_with_devices(
-        session_id, device, requested, effective_scope
-    )
+    resolved = _resolve_lines(session_id, device, effective_scope)
     if not resolved:
         raise BusinessRuleError("Your cart is empty. Add an item before checking out.")
 

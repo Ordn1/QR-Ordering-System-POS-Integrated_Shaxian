@@ -157,6 +157,7 @@ async def create_counter_order(
         db.add(
             PriorityVerificationLog(
                 session_id=ordering_session.session_id,
+                device_id=device.device_id,
                 declared_status=declared,
                 id_presented=discount_eligible,
                 id_last4=(payload.id_last4 or "").strip() if discount_eligible else None,

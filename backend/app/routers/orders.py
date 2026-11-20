@@ -160,7 +160,7 @@ async def quote_order(
         db,
         session_id,
         device,
-        [(line.item_id, line.quantity) for line in payload.items],
+        [(line.item_id, line.quantity, None) for line in payload.items],
         payload.checkout_scope,
     )
     line_devices = {line.device_id for line in priced.lines}
@@ -189,14 +189,18 @@ async def place_order(
         db,
         session_id,
         device,
-        [(line.item_id, line.quantity) for line in payload.items],
+        [(line.item_id, line.quantity, None) for line in payload.items],
         payload.payment_method,
         payload.checkout_scope,
     )
 
     checkout_url: str | None = None
     fallback_to_cashier = False
-    if payload.payment_method is PaymentMethod.ONLINE and active_payment is not None:
+    if (
+        payload.payment_method is PaymentMethod.ONLINE
+        and active_payment is not None
+        and active_payment.device_id == device.device_id
+    ):
         checkout_url, fallback_to_cashier = await payment_service.initiate_online_payment(
             db, transaction, active_payment, payload.origin_url
         )

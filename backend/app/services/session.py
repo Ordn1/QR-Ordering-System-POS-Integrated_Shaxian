@@ -174,22 +174,15 @@ async def remove_session_device(
     if target is None:
         raise NotFoundError("That device is no longer part of this table session.")
 
-    paid_or_ordered = await db.scalar(
-        select(func.count())
-        .select_from(Payment)
-        .where(Payment.device_id == target_device_id)
-    )
-    if paid_or_ordered:
-        raise BusinessRuleError(
-            "That phone already has a recorded payment share on this table and cannot be removed."
-        )
-
+    await _ensure_removable(db, {target_device_id})
+    await _drop_declarations(db, {target_device_id})
     clear_device_cart(session_id, target_device_id)
     await db.delete(target)
     await db.flush()
 
     remaining = await device_count(db, session_id)
     session.group_mode = remaining > 1
+    session.declared_priority_status = await _latest_declared_status(db, session_id)
     session.session_type = resolve_session_type(
         session.declared_priority_status, session.group_mode
     )
@@ -240,13 +233,7 @@ async def declare_priority(
     await db.flush()
 
     if declared is PriorityStatus.STANDARD:
-        latest = await db.scalar(
-            select(PriorityVerificationLog.declared_status)
-            .where(PriorityVerificationLog.session_id == session_id)
-            .order_by(PriorityVerificationLog.log_id.desc())
-            .limit(1)
-        )
-        session_status = latest or PriorityStatus.STANDARD
+        session_status = await _latest_declared_status(db, session_id)
     else:
         session_status = declared
 
@@ -276,6 +263,48 @@ async def set_preferences(
     await db.commit()
     await db.refresh(session)
     return session
+
+
+async def _latest_declared_status(db: AsyncSession, session_id: int) -> PriorityStatus:
+    latest = await db.scalar(
+        select(PriorityVerificationLog.declared_status)
+        .where(PriorityVerificationLog.session_id == session_id)
+        .order_by(PriorityVerificationLog.log_id.desc())
+        .limit(1)
+    )
+    return latest or PriorityStatus.STANDARD
+
+
+async def _ensure_removable(db: AsyncSession, device_ids: set[int]) -> None:
+    """A phone with items on an order or a payment share is part of the record and stays."""
+    on_record = await db.scalar(
+        select(func.count()).select_from(TransactionItem).where(
+            TransactionItem.device_id.in_(device_ids)
+        )
+    ) or await db.scalar(
+        select(func.count()).select_from(Payment).where(Payment.device_id.in_(device_ids))
+    )
+    if on_record:
+        raise BusinessRuleError(
+            "That phone already has items on an order at this table, so it can't be removed."
+        )
+
+
+async def _drop_declarations(db: AsyncSession, device_ids: set[int]) -> None:
+    logs = list(
+        await db.scalars(
+            select(PriorityVerificationLog).where(
+                PriorityVerificationLog.device_id.in_(device_ids)
+            )
+        )
+    )
+    if any(log.verified_at is not None for log in logs):
+        raise BusinessRuleError(
+            "That phone's ID was already checked at the counter, so it stays on this table."
+        )
+    for log in logs:
+        await db.delete(log)
+    await db.flush()
 
 
 async def device_declaration(
@@ -352,6 +381,21 @@ async def device_count(db: AsyncSession, session_id: int) -> int:
         select(func.count()).select_from(SessionDevice).where(
             SessionDevice.session_id == session_id
         )
+    )
+
+
+async def write_payer_carts(
+    db: AsyncSession,
+    session_id: int,
+    device: SessionDevice,
+    lines: list[tuple[str, int, int | None]],
+) -> None:
+    """Replace the caller's synced cart. A phone may only write lines for itself."""
+    for _, _, target in lines:
+        if target not in (None, device.device_id):
+            raise PermissionError("You can only order for yourself from this phone.")
+    update_device_cart(
+        session_id, device.device_id, [(item_id, quantity) for item_id, quantity, _ in lines]
     )
 
 
