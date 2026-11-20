@@ -2635,3 +2635,64 @@
   flex: none;
   color: var(--red);
 }
+
+/* --- Assistance offer ------------------------------------------------------ */
+
+.assist-offer {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bottom-bar-h) + var(--space-3));
+  z-index: 46;
+  display: grid;
+  gap: var(--space-3);
+  width: calc(100% - var(--space-4) * 2);
+  max-width: calc(var(--phone-max) - var(--space-4) * 2);
+  padding: var(--space-4);
+  background: var(--cream);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-raised);
+  transform: translateX(-50%);
+  animation: assist-offer-in var(--duration-enter) var(--ease-out);
+}
+
+.assist-offer-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.assist-offer-icon {
+  flex: none;
+  color: var(--red);
+}
+
+.assist-offer-question {
+  font-size: var(--font-md);
+  font-weight: var(--weight-heading);
+}
+
+.assist-offer-detail {
+  margin-top: var(--space-1);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.assist-offer-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.assist-offer-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@keyframes assist-offer-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, var(--space-2));
+  }
+}

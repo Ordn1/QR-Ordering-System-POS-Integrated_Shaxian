@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
+import AssistOffer from '../../components/customer/AssistOffer';
 import BottomBar from '../../components/customer/BottomBar';
 import CodeKeypad from '../../components/customer/CodeKeypad';
 import DisplaySheet from '../../components/customer/DisplaySheet';
@@ -20,6 +21,7 @@ import NavHighlight from '../../components/customer/NavHighlight';
 import PriorityDeclaration from '../../components/customer/PriorityDeclaration';
 import RecommendationOverlay from '../../components/customer/RecommendationOverlay';
 import SearchOverlay from '../../components/customer/SearchOverlay';
+import { useAssistance } from '../../hooks/useAssistance';
 import { useConfusionSignals } from '../../hooks/useConfusionSignals';
 import { useNavGuidance } from '../../hooks/useNavGuidance';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -150,6 +152,13 @@ export default function CustomerShell() {
     handleSocketMessage,
   );
 
+  const assistance = useAssistance({
+    sessionId,
+    screenId: routeOf(pathname),
+    onCrew: callCrew,
+  });
+  const proposeCrew = useCallback(() => assistance.propose('crew'), [assistance]);
+
   const { suggestions, observeItem, recordBack, accept, dismiss } = useConfusionSignals({
     sessionId: session?.session_id,
     language: i18n.language,
@@ -157,6 +166,7 @@ export default function CustomerShell() {
     activeCategory,
     triggerCount: session?.trigger_count,
     lastTriggerAt: session?.last_trigger_at,
+    onEscalate: proposeCrew,
   });
 
   useEffect(() => {
@@ -325,7 +335,15 @@ export default function CustomerShell() {
 
       <NavHighlight target={guidance.target} onDismiss={guidance.clear} />
 
-      {totalCount > 0 && routeOf(pathname) === 'menu' ? (
+      <AssistOffer
+        offer={assistance.offer}
+        undo={assistance.undo}
+        onAccept={assistance.accept}
+        onDecline={assistance.decline}
+        onUndo={assistance.revert}
+      />
+
+      {totalCount > 0 && routeOf(pathname) === 'menu' && !assistance.offer && !assistance.undo ? (
         <div className="floating-cart-pill-wrap">
           <button
             type="button"

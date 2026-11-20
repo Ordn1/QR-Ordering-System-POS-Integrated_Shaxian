@@ -499,5 +499,25 @@
     "called": "Tinawag na ang isang crew",
     "coming": "May crew na papunta sa Mesa {{number}}",
     "onTheWay": "Papunta na ang crew"
+  },
+  "assist": {
+    "noThanks": "Huwag na",
+    "changed": "Nabago ang menu",
+    "undo": "Ibalik",
+    "display": {
+      "question": "Palakihin ang menu?",
+      "detail": "Mas malaking teksto at mas kaunting putahe sa bawat screen. Puwede mo itong ibalik anumang oras.",
+      "yes": "Palakihin"
+    },
+    "taps": {
+      "question": "Palakihin ang mga button?",
+      "detail": "Mas madaling pindutin. Nagsasara lang ang mga panel gamit ang button.",
+      "yes": "Mas malalaking button"
+    },
+    "crew": {
+      "question": "Gusto mo bang tulungan ka ng crew?",
+      "detail": "May lalapit na staff mula sa counter sa inyong mesa.",
+      "yes": "Tumawag ng crew"
+    }
   }
 }

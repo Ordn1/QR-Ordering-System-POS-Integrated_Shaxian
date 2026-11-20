@@ -499,5 +499,25 @@
     "called": "A crew member has been asked to come",
     "coming": "A crew member is coming to Table {{number}}",
     "onTheWay": "A crew member is on the way"
+  },
+  "assist": {
+    "noThanks": "No thanks",
+    "changed": "Menu changed",
+    "undo": "Undo",
+    "display": {
+      "question": "Make the menu bigger?",
+      "detail": "Bigger text and fewer dishes on each screen. You can change it back any time.",
+      "yes": "Make it bigger"
+    },
+    "taps": {
+      "question": "Make the buttons bigger?",
+      "detail": "Easier to tap. Panels close only with a button.",
+      "yes": "Bigger buttons"
+    },
+    "crew": {
+      "question": "Would you like a crew member to help?",
+      "detail": "Someone from the counter will come to your table.",
+      "yes": "Call a crew member"
+    }
   }
 }

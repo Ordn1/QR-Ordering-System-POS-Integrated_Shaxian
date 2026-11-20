@@ -499,5 +499,25 @@
     "called": "Gitawag na ang usa ka crew",
     "coming": "Adunay crew nga paingon sa Lamesa {{number}}",
     "onTheWay": "Paingon na ang crew"
+  },
+  "assist": {
+    "noThanks": "Ayaw na lang",
+    "changed": "Nausab ang menu",
+    "undo": "Ibalik",
+    "display": {
+      "question": "Padak-on ang menu?",
+      "detail": "Mas dakong teksto ug mas gamay nga putahe sa matag screen. Pwede nimo ni ibalik bisan kanus-a.",
+      "yes": "Padak-a"
+    },
+    "taps": {
+      "question": "Padak-on ang mga button?",
+      "detail": "Mas sayon pindoton. Ang mga panel mosira lang pinaagi sa button.",
+      "yes": "Mas dagkong button"
+    },
+    "crew": {
+      "question": "Gusto ka ba nga tabangan sa crew?",
+      "detail": "Adunay staff gikan sa counter nga moduol sa inyong lamesa.",
+      "yes": "Tawag og crew"
+    }
   }
 }

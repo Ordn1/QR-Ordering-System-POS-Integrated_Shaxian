@@ -11,6 +11,7 @@ import {
   DWELL_VISIBILITY_RATIO,
   REQUIRED_SIGNALS,
 } from '../lib/confusionConfig';
+import { recall, remember } from '../lib/sessionMemory';
 
 const SIGNAL_EVENT = {
   dwell: 'dwell_timeout',
@@ -19,6 +20,10 @@ const SIGNAL_EVENT = {
   revisit: 'category_revisit',
 };
 
+function dismissedBefore(key) {
+  return key !== null && recall(key) === '1';
+}
+
 export function useConfusionSignals({
   sessionId,
   language,
@@ -26,8 +31,15 @@ export function useConfusionSignals({
   activeCategory,
   triggerCount,
   lastTriggerAt,
+  onEscalate,
 }) {
   const [suggestions, setSuggestions] = useState(null);
+  const escalateRef = useRef(onEscalate);
+  const dismissedKey = sessionId ? `shaxian.rec_dismissed.${sessionId}` : null;
+
+  useEffect(() => {
+    escalateRef.current = onEscalate;
+  }, [onEscalate]);
 
   const cartRef = useRef(cart);
 
@@ -90,6 +102,11 @@ export function useConfusionSignals({
       triggers.current += 1;
       lastTrigger.current = now;
 
+      if (dismissedBefore(dismissedKey)) {
+        escalateRef.current?.();
+        return;
+      }
+
       fetchRecommendations(sessionId, cartRef.current, language)
         .then((response) => {
           if (response.suggestions.length === 0) {
@@ -104,7 +121,7 @@ export function useConfusionSignals({
         })
         .catch(() => { });
     },
-    [language, log, sessionId],
+    [dismissedKey, language, log, sessionId],
   );
 
   const fireOnce = useCallback(
@@ -240,7 +257,8 @@ export function useConfusionSignals({
   const dismiss = useCallback(() => {
     log({ event_type: 'recommendation_dismissed', screen_id: 'menu' });
     setSuggestions(null);
-  }, [log]);
+    remember(dismissedKey, '1');
+  }, [dismissedKey, log]);
 
   return { suggestions, observeItem, recordBack, accept, dismiss };
 }
