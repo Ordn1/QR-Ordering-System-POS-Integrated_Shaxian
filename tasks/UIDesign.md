@@ -45,7 +45,7 @@ It appears in exactly seven places and nowhere else:
 - In a modal header, before the title
 - As the required-field marker on forms
 - On the order-status stepper, marking each reached step; a step reached by a live update is *stamped* in (§14)
-- As the menu-code chip (`A1`, `A3s`, `D2+`) in the top-left corner of a dish photo — the code from the shop's printed menu board, bold white on solid `--red`, sharp-cornered, `--h-badge` tall. It appears on the admin menu table and cards and on the customer menu card and item sheet. White on `--red` is about 6.5:1, so the small type passes AA; it scales with the badge tokens in accessibility mode
+- As the menu-code chip (`A1`, `A3s`, `D2+`) in the top-left corner of a dish photo — the code from the shop's printed menu board, bold white on solid `--red`, sharp-cornered, `--h-badge` tall. It appears on the admin menu table and cards and on the customer menu card and item sheet. White on `--red` is about 6.5:1, so the small type passes AA; it scales with the badge tokens at the bigger menu sizes
 
 It is never decorative. It always marks *this one, here*. Used more freely it becomes wallpaper and stops meaning anything.
 
@@ -73,13 +73,13 @@ On the customer ordering screens, and only there, the dishes themselves are show
 
 **The dish kit.** Menu items can have a 3D model built in code from the house tableware — the gold speckled calligraphy bowl, the rounded-square plate, the porcelain rice bowl, the steel steamer, the clay jar — and its toppings. Nothing is downloaded or licensed. Each model is tuned side by side with its photo at `/dev/dishes`. A menu item's `model_filename` names its built-in recipe (`wonton`); an item with no recipe, or an unknown name, uses the relief — its photo raised by a depth map from `backend/jobs/depth_maps.py`.
 
-It is a progressive upgrade. The flat photo renders first and stays underneath, and the 3D fades in over it once loaded. It is off in accessibility mode, with reduced motion, without WebGL2, on devices reporting under 4 GB of memory, and for the rest of the session once the frame rate stays low. Staff and admin screens never use it.
+It is a progressive upgrade. The flat photo renders first and stays underneath, and the 3D fades in over it once loaded. It stays on at every menu size, because the bigger sizes are the same restaurant seen closer (§15). It is off with high contrast, with reduced motion, without WebGL2, on devices reporting under 4 GB of memory, and for the rest of the session once the frame rate stays low. The List size skips the card relief, whose thumbnails are too small for it, and Bigger buttons turns off drag-tilt. Staff and admin screens never use it.
 
 ### 1.4 Stage illustrations
 
 The receipt and order-status screens show where the order is with one illustration per stage. They are the only illustrations in the product, and they carry information: each picture is the order's state, the same fact as the caption under it and the stepper below it. §1.2's ban on decorative illustration therefore does not reach them, and nothing else may borrow the exception. They are flat SVG with CSS motion, so they show on every phone, in both modes, with no 3D.
 
-**Style: soft-shaded flat.** Rounded shapes in token colors only (`--illo-*`, `--dish-*`, `--red`, `--green`, `--cream`); one darker shade on the side away from the light and one white highlight toward it; light from the top left; every object stands on a soft ground shadow. No outlines, no gradients, and no text except the queue number on the ticket. Each is drawn on a 200×160 grid on `--cream`, at most `--illo-width` wide, and scales as one image: its colors and label size come from `--illo-*` tokens, so accessibility mode does not thicken or enlarge the drawing. The seal pressed on the ticket is a drawing of the chop the brand's square comes from, not the 6px mark of §1.1.
+**Style: soft-shaded flat.** Rounded shapes in token colors only (`--illo-*`, `--dish-*`, `--red`, `--green`, `--cream`); one darker shade on the side away from the light and one white highlight toward it; light from the top left; every object stands on a soft ground shadow. No outlines, no gradients, and no text except the queue number on the ticket. Each is drawn on a 200×160 grid on `--cream`, at most `--illo-width` wide, and scales as one image: its colors and label size come from `--illo-*` tokens, so the bigger menu sizes do not thicken or enlarge the drawing. The seal pressed on the ticket is a drawing of the chop the brand's square comes from, not the 6px mark of §1.1.
 
 | Order state | Illustration | Idle loop | Arrival (live update only) | Tap |
 |---|---|---|---|---|
@@ -571,7 +571,7 @@ Page header: h1 left, primary action right, `--space-6` below.
 | Select | Lucide `ChevronDown` right, 16px |
 | Checkbox / radio | 18px, radius 0 (**including radio** — no exceptions), `--ink` when checked |
 
-Labels sit above inputs, never beside. Vertical stacking survives accessibility mode and narrow phones without reflow.
+Labels sit above inputs, never beside. Vertical stacking survives the bigger menu sizes and narrow phones without reflow.
 
 ---
 
@@ -602,7 +602,7 @@ Every animation explains a state change: where something went, or what just chan
 | Press | 80ms | `--ease-press` | Buttons and tabs scale to `--press-scale`; steppers, the add button and bottom-bar items to `--press-scale-sm` |
 | Tab slide | 240ms | `--ease-out` | The active category tab's 3px `--red` bar slides to the new tab; the menu grid enters from that side |
 | Fly-to-bag | 450ms | `--ease-out` | The added dish's photo arcs into the Cart tab, then the count bumps |
-| Shared-element morph | 240ms | `--ease-out` | A menu card's photo grows into the item sheet and back; accessibility mode reflows in place |
+| Shared-element morph | 240ms | `--ease-out` | A menu card's photo grows into the item sheet and back; a menu size change reflows in place |
 | Number roll | 240ms | `--ease-out` | Cart count, cart, split-bill and checkout amounts — digits roll to the new value (`<Money>`) |
 | Layout reorder | 240ms | `--ease-out` | Staff queue rows slide to their new position when the queue re-sorts |
 | Seal stamp | `--duration-seal` press + `--duration-stamp` ink | `--ease-press` then `--ease-out` | The order-status step reached by a live update, and a just-placed receipt, stamp in red (see §1.1) |
@@ -631,67 +631,66 @@ Motion components additionally sit under `<MotionConfig reducedMotion="user">`, 
 
 **Showcase motion** (§1.3) follows the same no-overshoot rule, using critically damped easing: relief rises over 0.9s; a dish drops onto the tray over 0.55s and lifts away over 0.4s; the item sheet's model makes one 360° reveal over 1.4s, then turns slowly until touched. Idle sway stays under 2°. Steam is the one continuous effect, and only on dishes marked hot.
 
-**The stage illustrations** (§1.4) are the one place continuous loops, overshoot and squash-and-stretch are allowed, and only inside the illustration area, where they show work happening. They use transform and opacity only, and pause while the card is scrolled off screen. Timing tokens (`base.css`): `--illo-flicker` 0.5s (flames), `--illo-beat` 1.5s (wok toss, hops, sparks), `--illo-drift` 2.6s (steam), `--illo-breath` 3.4s (sway, coin, bell), `--illo-ring` 1.2s (a ring, a coin flip), `--illo-enter` 1.3s (ticket feed, stamp), `--illo-pop` 0.5s, `--illo-burst` 1.6s (sparkles, confetti), `--illo-stagger` 70ms between pieces; `--ease-pop` overshoots, `--ease-swing` drives the loops and `--ease-slam` the stamp's fall. Arrival beats: the ticket feeds in four steps and the coin pops at 1.1s; the stamp lands at 0.42s, the seal appears under it and its ink ring spreads to `--ink-spread`; the flames ignite before the food drops in; the bell rings at once; the check pops as the bowl lands, its tick draws, then confetti. A new stage replaces the old one with a fade and scale (`SWAP` in `lib/motion.js`); sounds and the ready vibration are timed to the hit (`CUES` in `lib/progress.js`). Reduced motion and accessibility mode show every illustration settled, with no loops.
+**The stage illustrations** (§1.4) are the one place continuous loops, overshoot and squash-and-stretch are allowed, and only inside the illustration area, where they show work happening. They use transform and opacity only, and pause while the card is scrolled off screen. Timing tokens (`base.css`): `--illo-flicker` 0.5s (flames), `--illo-beat` 1.5s (wok toss, hops, sparks), `--illo-drift` 2.6s (steam), `--illo-breath` 3.4s (sway, coin, bell), `--illo-ring` 1.2s (a ring, a coin flip), `--illo-enter` 1.3s (ticket feed, stamp), `--illo-pop` 0.5s, `--illo-burst` 1.6s (sparkles, confetti), `--illo-stagger` 70ms between pieces; `--ease-pop` overshoots, `--ease-swing` drives the loops and `--ease-slam` the stamp's fall. Arrival beats: the ticket feeds in four steps and the coin pops at 1.1s; the stamp lands at 0.42s, the seal appears under it and its ink ring spreads to `--ink-spread`; the flames ignite before the food drops in; the bell rings at once; the check pops as the bowl lands, its tick draws, then confetti. A new stage replaces the old one with a fade and scale (`SWAP` in `lib/motion.js`); sounds and the ready vibration are timed to the hit (`CUES` in `lib/progress.js`). Reduced motion and high contrast show every illustration settled, with no loops.
 
 ---
 
-## 15. Accessibility mode
+## 15. Display settings
 
-Set `data-ui-mode="accessible"` on `<html>`. Every shared atom rescales automatically because every atom is built from tokens. See `CodeStructure.md` §5.5.
+There is no separate accessible skin. Every phone has three display settings, saved on its `session_devices` row, and `uiStore` mirrors them onto `<html>`:
 
-The showcase layer (§1.3) is off in this mode: the flat photos are what a low-vision reader needs.
+| Setting | Attribute | Values |
+|---|---|---|
+| Menu size | `data-menu-size` | `grid` · `list` · `large` |
+| High contrast | `data-contrast` | `standard` · `high` |
+| Bigger buttons | `data-steady-taps` | `false` · `true` |
+
+Every shared atom rescales because every atom is built from tokens. See `CodeStructure.md` §5.5. The rule: **the regular menu, done well, is better for everybody.** A bigger size is the same menu seen closer — same colours, same photos, same 3D — never a printout.
+
+**How a setting changes.** All of these morph in place with the view-transition used elsewhere, and none reloads the page.
+
+- **Pinch the menu.** Fingers apart is one size bigger, together is one size smaller. The menu area takes `touch-action: pan-y`, so the page itself doesn't zoom there; browser zoom still works everywhere else.
+- **The Aa button** in the header opens Text and buttons. This is the single-pointer alternative WCAG 2.5.1 requires.
+- **An offer** from the menu when it sees a diner struggling (§16.1).
+- **A declaration.** Senior and PWD start on List with Bigger buttons, but only on a phone that has not chosen its own settings. Pregnant changes nothing on screen.
 
 ### 15.1 Token overrides
 
 ```css
-[data-ui-mode="accessible"] {
-  --font-xs:   16px;
-  --font-sm:   18px;
-  --font-base: 22px;
-  --font-md:   26px;
-  --font-lg:   30px;
-  --font-xl:   38px;
-
-  --leading-base: 1.7;
-  --space-3: 16px;
-  --space-4: 24px;
-  --space-5: 32px;
-
-  --tap-target: 60px;
-
-  --text:        #000000;
-  --text-muted:  #333333;
-  --border:      #767676;
-  --border-strong: #000000;
-}
+[data-menu-size='list']  { --font-base: 18px; /* about ×1.2 */  --tap-target: 48px; --h-btn: 44px; }
+[data-menu-size='large'] { --font-base: 22px; /* xs 16 … xl 38 */ --leading-base: 1.7;
+                           --space-3: 16px; --space-4: 24px; --space-5: 32px;
+                           --tap-target: 52px; --h-btn: 52px; }
+[data-contrast='high']   { --text: #000; --text-muted: #333; --border: #767676; --border-strong: #000; }
+[data-steady-taps='true']{ --tap-target: 60px; --h-btn: 60px; --h-input: 60px; --h-row: 60px; }
 ```
+
+`src/styles/accessibility.css` holds the full blocks.
 
 ### 15.2 Contrast
 
 **Body text is near-black on white. Red is reserved for headings and large type only.**
 
-`--red` on `--cream` measures roughly 4.2:1 — acceptable for large display type, below WCAG AA for body. In accessible mode a senior reads item descriptions at 22px, so red body text is not permissible. Brand red survives in accessible mode only as headings, the seal mark, and active indicators.
+`--red` on `--cream` measures roughly 4.2:1 — acceptable for large display type, below WCAG AA for body. Under high contrast, active tabs, the bottom-bar count, the add button and the code chip use `--red-deep` (9.25:1 on white). High contrast also turns the 3D off: the flat photos are what a low-vision reader needs.
 
-Every accessible-mode pairing must clear **7:1 (AAA)** for body and **4.5:1** for large text.
+Every high-contrast pairing must clear **7:1 (AAA)** for body and **4.5:1** for large text.
 
-### 15.3 Structural overrides
+### 15.3 The three menu sizes
 
-```css
-[data-ui-mode="accessible"] .menu-grid       { grid-template-columns: 1fr; }
-[data-ui-mode="accessible"] .kpi-grid        { grid-template-columns: 1fr; }
-[data-ui-mode="accessible"] .navbar-btn,
-[data-ui-mode="accessible"] .primary-btn,
-[data-ui-mode="accessible"] .icon-view-btn   { min-height: var(--tap-target); }
-[data-ui-mode="accessible"] .kpi-watermark   { display: none; }
-```
+| Size | Layout | Add button | Categories |
+|---|---|---|---|
+| Grid | Two columns | `--tap-target` square + | Horizontal tabs |
+| List | One column. A 104px photo beside the name, Chinese name and description. About four dishes per screen (§17.3) | Labelled **Add** | Two-column grid of tabs, every category visible |
+| Large | One column. Name and price first, then a 4:3 photo, then a full-width **Add** | Full width | One picker button opening a sheet of categories |
 
-The watermark is hidden — decorative overlap reduces legibility at scale.
+At List and Large the "MENU" heading is visually hidden, and the header stacks: table number, then the actions. At Large, dish names and prices reach about 200% of Grid (WCAG 1.4.4).
 
-The whole layer stays under roughly sixty lines. **Never create a parallel `.accessible-*` class for an atom that already exists.**
+The whole layer stays under roughly two hundred lines. **Never create a parallel `.accessible-*` class for an atom that already exists.**
 
-### 15.4 Baseline, both modes
+### 15.4 Baseline, every setting
 
-- Every interactive target ≥ 44px (60px accessible)
+- Every interactive target ≥ 44px; 60px with Bigger buttons
+- Bigger buttons also turns off drag gestures: sheets close only with a button, and cards don't tilt
 - Visible focus on every focusable element; focus order follows visual order
 - Every icon-only button carries `aria-label`
 - Color never the sole carrier of meaning
@@ -707,19 +706,38 @@ Shared tokens, separate components. A diner's phone is not an admin console: no 
 | Aspect | Treatment |
 |---|---|
 | Layout | Single column, phone-first, 100% width to 480px |
-| Navigation | Fixed bottom bar — Menu · Cart · Status |
+| Header | Table number · code keypad (`#`) · search · Aa · EN/FIL/BIS |
+| Navigation | Fixed bottom bar — Menu · Cart · Status · Help |
 | Brand | Leans further in — `--cream` page background, `--red` category markers |
-| Menu item | Two-column card; the photo is a showcase relief (§1.3), flat in accessible mode |
-| Item sheet | Bottom sheet; the photo morphs from the card, then the showcase stage takes over |
-| Category tabs | Horizontal scroll, active tab carries the 3px `--red` bar |
-| Cart | Showcase tray above line rows with `.qty-stepper` and `.remove-btn` |
+| Menu item | Card in one of three sizes (§15.3); the photo is a showcase relief (§1.3) |
+| Item sheet | Bottom sheet; the photo morphs from the card, then the showcase stage takes over. A Read aloud button appears when the phone has a voice for the language |
+| Category tabs | Horizontal scroll at Grid, a two-column grid at List, a picker at Large; the active one carries the 3px `--red` bar |
+| Help sheet | Show me how to order · Order by menu code · Make the menu easier to read · Ask a crew member · Senior, PWD or pregnant? · Add someone without a phone |
+| Code keypad | Readout in the code-chip style, the menu's letters, a 3×4 digit grid; `s` and `+` appear only when a code needs them |
+| Ordering for | Shown above the tabs once a phone added someone without a phone: Me · Lola · … Every add follows it |
+| Cart | Showcase tray above line rows grouped by person, then People at this table |
 | Recommendation overlay | Bottom sheet, sharp top edge, three items maximum, dismissible |
+| Offer bar | Cream card docked above the bottom bar: a question, No thanks and a yes. Never blocks the menu |
+| Crew strip | Under the header while a crew member is coming |
 | Order status | The stage illustration card (§1.4) above a vertical stepper, current step marked by the `--red` seal square |
-| Tap targets | 48px minimum, 60px accessible |
+| Tap targets | 48px minimum, 60px with Bigger buttons |
 
 The customer surface is the one place cream may serve as a page background — a menu should feel like a menu. Working surfaces stay white.
 
 **The recommendation overlay is the capstone element's visible face.** It appears only when two confusion signals fire concurrently (`ProjectOverview.md` §5.3), shows at most three items, always offers dismissal, and never blocks the menu beneath. An overlay that interrupts is a worse problem than the choice paralysis it was built to relieve.
+
+### 16.1 The menu that notices, then offers
+
+Signals of struggle lead to an offer, never to a change on their own (`ProjectOverview.md` §6.3). Each kind of offer appears at most once per visit, and an accepted change can be undone for six seconds.
+
+| What the menu sees | Offer |
+|---|---|
+| Two of the four confusion signals (dwell, back, cart abandon, category revisit) | The recommendation overlay, as specified |
+| The page zoomed past 1.2× for a second | "Make the menu bigger?" — one size up |
+| Three taps in a minute that land within 12px of a control but not on it | "Make the buttons bigger?" — Bigger buttons on |
+| Confusion again after a recommendation was dismissed | "Would you like a crew member to help?" instead of more dishes |
+
+Every offer and answer is an `analytics_events` row, and the admin dashboard's "Help offered by the menu" card counts them.
 
 ---
 
@@ -854,7 +872,7 @@ Visual inconsistency compounds: one rounded card, one contained icon, one 10px m
 
 6. **Do you understand modals** — cream header with the seal square, white body, white footer with right-aligned buttons, **no X**, and dismissal via footer button, Esc, and backdrop click?
 
-7. **Do you understand accessibility mode** — token overrides only, body text near-black on white, red restricted to headings and large type, and that parallel `.accessible-*` classes are forbidden?
+7. **Do you understand the display settings** — three menu sizes, high contrast and bigger buttons as token overrides only, offers that never switch anything on their own, red restricted to headings and large type, and that parallel `.accessible-*` classes are forbidden?
 
 8. **Do you understand the motion budget** — hover, glow, and modal fade, and nothing else?
 

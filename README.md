@@ -84,6 +84,16 @@ Discounted shares are paid at the cashier, and cash cannot be confirmed
 while a check is still pending. Pregnant diners get queue priority without
 a discount, so they skip the check.
 
+**People without a phone.** A phone can add a senior or PWD diner who has no
+phone ("Lola · Senior") from Help or the cart. The menu then shows "Ordering
+for: Me · Lola", and her dishes:
+- carry her discount;
+- are grouped under her name;
+- are paid at the cashier, where the crew sees "Lola (added by Phone 1)" on
+  the ID check.
+
+A phone can add up to four people, and only for itself.
+
 ## Frontend
 
 ```bash
@@ -93,7 +103,7 @@ npm run dev        # http://localhost:5173
 ```
 
 The design system is browsable at `/dev/atoms` — every shared atom in every
-variant. Toggle accessible mode from the bar at the top of that page.
+variant. Switch the menu size, high contrast and bigger buttons from the bar at the top of that page.
 
 ### Dwell threshold during a live walkthrough
 
@@ -108,6 +118,44 @@ VITE_DWELL_THRESHOLD_SEC=10 npm run dev
 Unset, it is 45 seconds. Nothing else about confusion detection changes: two
 distinct signals are still required, inside the same 120-second window.
 
+### The adaptive menu
+
+There is no separate senior screen. Each phone has its own display settings:
+- **Menu size:** Grid, List (four dishes per screen) or Large (name and price
+  first, big photo, full-width Add);
+- **High contrast**;
+- **Bigger buttons.**
+
+Diners change them in three ways:
+- by pinching the menu;
+- from the **Aa** button in the header;
+- by accepting an offer.
+
+A senior or PWD declaration starts the phone on List with bigger buttons;
+pregnant changes nothing on screen.
+
+The menu offers help when it sees a diner struggling. Nothing changes until
+the diner taps yes:
+
+| What the menu sees | Offer |
+|---|---|
+| The page zoomed with two fingers | Make the menu bigger |
+| Three taps that just miss a button | Make the buttons bigger |
+| Confusion again after dismissing suggested dishes | Ask a crew member |
+
+The **Help** tab in the bottom bar collects everything:
+- the step-by-step guide;
+- **ordering by menu code** on a keypad (A, 3, s gives Steamed Dumpling);
+- text and buttons;
+- **asking a crew member**, which shows on the kitchen queue and the POS with
+  an "On my way" button;
+- the priority declaration;
+- adding someone without a phone.
+
+The dish sheet reads a dish aloud when the phone has a voice for the
+language. The admin dashboard's "Help offered by the menu" card counts every
+offer, answer, crew call and size change.
+
 Inter is self-hosted at `public/fonts/InterVariable.woff2` rather than loaded
 from a CDN, because the system must work with no internet connection. This
 build ships the `cv11` and `ss01` feature sets the type spec depends on;
@@ -117,7 +165,7 @@ subset builds commonly strip them.
 
 On the customer screens each dish is shown in 3D: menu cards tilt in relief,
 the item sheet spins a 3D model of the dish, and the cart is a serving tray.
-Accessibility mode, reduced motion, phones without WebGL2 and phones that run
+High contrast, reduced motion, phones without WebGL2 and phones that run
 slowly all keep the flat photos instead.
 
 **Dish models** are built in code — no files to download or license. The

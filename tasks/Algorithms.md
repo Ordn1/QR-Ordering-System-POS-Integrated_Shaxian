@@ -225,6 +225,28 @@ Every signal writes an `analytics_events` row. Every trigger writes one. Every o
 
 Waiting 45 seconds in front of a professor is dead air. Add a config override — `DWELL_THRESHOLD_SEC = 10` — for the demo, and say so out loud rather than hiding it. The mechanism is identical; only the constant differs.
 
+### 3.9 Assistance offers
+
+The trigger above is unchanged: two of the four signals produce the recommendation overlay. Three more situations lead to an offer, never to a change on their own (`ProjectOverview.md` §6.3). Detection lives in `hooks/useAssistance.js`; the constants are in `lib/confusionConfig.js`.
+
+| Situation | Detection | Offer |
+|---|---|---|
+| The diner zooms the page | `visualViewport.scale > ZOOM_SCALE` (1.2) held for `ZOOM_HOLD_SEC` (1 s) | One menu size bigger |
+| Taps that just miss | `MISSED_TAP_COUNT` (3) taps within `MISSED_TAP_WINDOW_SEC` (60 s) that land on nothing interactive, with a control within `MISSED_TAP_REACH_PX` (12 px), sampled with `elementFromPoint` | Bigger buttons |
+| Recommendations didn't help | The confusion trigger fires again after the diner dismissed a recommendation this visit | A crew member, instead of more dishes |
+
+Each kind of offer appears at most once per visit. An accepted size or button change can be undone for `UNDO_SEC` (6 s).
+
+**Logging:**
+- the client writes `zoom_detected`, `missed_tap`, `assist_offered`, `assist_accepted` and `assist_declined` (with `{offer}`);
+- the server writes `display_changed` (`{setting, value, source}`, where source is `pinch`, `button`, `offer` or `declaration`) and `crew_called`.
+
+From these the dashboard reports:
+- offer acceptance by kind;
+- crew calls and the median time to answer;
+- display changes by source;
+- how many diners without a declaration chose a bigger menu — the people a declaration-only design would have missed.
+
 ---
 
 ## 4. Discount and VAT computation

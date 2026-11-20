@@ -15,7 +15,7 @@ def q(sql, width=None):
 
 ORDER = ["tables","staff_accounts","categories","menu_items","sessions","session_devices",
          "transactions","transaction_items","kitchen_queue","payments","apriori_rules",
-         "analytics_events","priority_verification_log","audit_log"]
+         "analytics_events","priority_verification_log","audit_log","assistance_requests"]
 
 PURPOSE = {
  "tables":"Registers every physical table and the unique QR token printed on its marker. Referenced by sessions.",
@@ -23,7 +23,7 @@ PURPOSE = {
  "categories":"Menu category records and the order their tabs appear in. Referenced by menu_items.",
  "menu_items":"Every orderable item: its code from the printed menu board (A1, A3s, D2+), English, Filipino and Bisaya names plus the Chinese name, price, photo, and the nutrition and allergen disclosures required by the Menu Information Module.",
  "sessions":"One ordering interaction from QR scan to checkout. Anchors transactions, devices, analytics and priority declarations. Demographic fields are populated by direct user input, never by a camera.",
- "session_devices":"Every phone that joins a table session. A Standard or single-device Priority session has one row; a Group session has two or more, enabling split-bill attribution.",
+ "session_devices":"Every phone that joins a table session, plus any senior or PWD diner a phone adds who has no phone of their own. A Standard or single-device Priority session has one phone row; a Group session has two or more, enabling split-bill attribution. Each phone also keeps its own display settings: menu size, high contrast and bigger buttons.",
  "transactions":"Every placed order with its full tax and discount breakdown. Parent of transaction_items, payments and kitchen_queue, and the source read by the Apriori batch job.",
  "transaction_items":"Line items per transaction. The direct source of the market baskets used in Apriori computation.",
  "kitchen_queue":"Operationalises the fairness-bounded priority queue: live position plus, on each Standard order, how many Priority orders have been placed ahead of it. Once that count reaches the cap the order cannot be passed again.",
@@ -32,6 +32,7 @@ PURPOSE = {
  "analytics_events":"Every interaction event from the React client. Primary source for the confusion-trigger and recommendation-acceptance rates. Not seeded: rows come only from real sessions.",
  "priority_verification_log":"One row per phone that declares priority status. A senior or PWD discount stays provisional until the cashier checks the ID: a verified check records the last four digits, cardholder and issuing LGU; a rejected check clears discount_eligible. Contains no image or biometric data.",
  "audit_log":"System action trail — staff record changes and outbound POS transmissions, with before/after state captured as JSON.",
+ "assistance_requests":"A diner asking a crew member to come to the table, from the Help sheet or by accepting the menu's offer. One open request per phone; a crew member's acknowledgement answers the whole table.",
 }
 
 cols = collections.defaultdict(list)
@@ -75,7 +76,7 @@ out = ["# Data Dictionary — QR-Based Table Ordering System",
        "Introspected directly from the running PostgreSQL database (`shaxian_ordering`).",
        "Every type, size, constraint and default below is what the schema actually enforces.",
        "",
-       f"**Fourteen tables.** Table numbering continues the paper's sequence from Table 9.",
+       f"**Fifteen tables.** Table numbering continues the paper's sequence from Table 9.",
        ""]
 
 for i, t in enumerate(ORDER, start=9):

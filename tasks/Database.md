@@ -145,12 +145,24 @@ CREATE TYPE event_type_enum       AS ENUM (
     'dwell_timeout',
     'back_navigation',
     'cart_abandon',
-    'scroll_reversal',
+    'category_revisit',
     'recommendation_shown',
     'recommendation_accepted',
-    'recommendation_dismissed'
+    'recommendation_dismissed',
+    'zoom_detected',
+    'missed_tap',
+    'assist_offered',
+    'assist_accepted',
+    'assist_declined',
+    'display_changed',
+    'crew_called',
+    'code_entered'
 );
+CREATE TYPE menu_size_enum        AS ENUM ('grid', 'list', 'large');
+CREATE TYPE assistance_reason_enum AS ENUM ('asked', 'offered');
 ```
+
+`category_revisit` was `scroll_reversal` until migration 0003. The last eight event values, `menu_size_enum` and `assistance_reason_enum` arrive in migration 0005 (`UIDesign.md` §15 and §16.1). `display_changed` and `crew_called` are written by the server only; the event endpoint refuses them from a client.
 
 **Note on `priority_status_enum` vs `session_type_enum`** — these are different things and must not be conflated:
 
@@ -325,10 +337,10 @@ One customer's ordering interaction, from QR scan to checkout. Parent of nearly 
 | `ended_at` | `TIMESTAMPTZ` | NULL | NULL = still active |
 | `declared_priority_status` | `priority_status_enum` | NOT NULL, DEFAULT `'standard'` | **Self-declared only** |
 | `session_type` | `session_type_enum` | NOT NULL, DEFAULT `'standard'` | The Apriori segment tag |
-| `group_mode` | `BOOLEAN` | NOT NULL, DEFAULT FALSE | TRUE once a 2nd device joins |
-| `ui_mode_used` | `ui_mode_enum` | NOT NULL, DEFAULT `'standard'` | |
+| `group_mode` | `BOOLEAN` | NOT NULL, DEFAULT FALSE | TRUE once a 2nd phone joins. People without a phone don't count |
+| `ui_mode_used` | `ui_mode_enum` | NOT NULL, DEFAULT `'standard'` | `'accessible'` once any phone at the table used a non-default display setting. Never reset |
 | `language_used` | `language_enum` | NOT NULL, DEFAULT `'en'` | |
-| `accessibility_accepted` | `BOOLEAN` | NOT NULL, DEFAULT FALSE | |
+| `accessibility_accepted` | `BOOLEAN` | NOT NULL, DEFAULT FALSE | TRUE once a bigger display came from an offer or a declaration preset. Never reset |
 
 **`session_type` is stored, not derived.** It is technically computable from `declared_priority_status` and `group_mode`, but the paper specifies it is written to the sessions table at the start of ordering, and the nightly Apriori job segments on it directly. Storing it also preserves the segment a transaction was actually mined under, even if the derivation rule later changes.
 
@@ -363,6 +375,25 @@ Every phone that has joined a table session. One row for a solo session; two or 
 | `joined_at` | `TIMESTAMPTZ` | NOT NULL, DEFAULT `now()` | |
 | `display_name` | `VARCHAR(30)` | NULL | Optional nickname |
 | `is_host` | `BOOLEAN` | NOT NULL, DEFAULT FALSE | TRUE = opened the session |
+| `managed_by_device_id` | `BIGINT` | NULL, FK → `session_devices` ON DELETE CASCADE | Set for a person without a phone: the phone that added them |
+| `menu_size` | `menu_size_enum` | NOT NULL, DEFAULT `'grid'` | Display setting, per phone |
+| `is_high_contrast` | `BOOLEAN` | NOT NULL, DEFAULT FALSE | Display setting, per phone |
+| `has_steady_taps` | `BOOLEAN` | NOT NULL, DEFAULT FALSE | "Bigger buttons", per phone |
+| `display_chosen_at` | `TIMESTAMPTZ` | NULL | When the diner last chose a display setting. NULL lets a senior or PWD declaration preset List with bigger buttons |
+
+```sql
+CHECK (managed_by_device_id IS NULL OR NOT is_host)
+CHECK (managed_by_device_id <> device_id)
+CREATE INDEX idx_session_devices_managed_by ON session_devices (managed_by_device_id)
+    WHERE managed_by_device_id IS NOT NULL;
+```
+
+**People without a phone.** A grandchild can order for a lola who has no phone. She is a `session_devices` row with `managed_by_device_id` set and a server-generated `device_token` that is never returned to any client. She has her own `priority_verification_log` row, so every money path keyed by `device_id` treats her lines like any phone's:
+- discount eligibility;
+- `transaction_items.device_id` and her own `payments` share, paid at the cashier;
+- the cashier's ID check and repricing.
+
+She is not a phone, so she is left out of `group_mode`, the phone count and phone numbering. Token lookups, the table socket and the rejoin check all exclude her. A phone may add up to four.
 
 **Resolving the paper's `device_id` / `device_token` confusion.** The paper's ERD references both, and Table 16 lists `device_id BIGINT(36)` — a length that only makes sense for a UUID. They are two distinct things and this schema keeps both:
 
@@ -574,6 +605,30 @@ REVOKE UPDATE, DELETE ON audit_log FROM app_user;
 `staff_id` uses `ON DELETE RESTRICT` like every other staff reference. Deactivate accounts; never delete them. An audit entry whose actor has vanished is worthless.
 
 `ip_address` uses PostgreSQL's native `INET` type rather than `VARCHAR` — it validates the address, handles IPv4 and IPv6 in one column, and supports subnet queries.
+
+---
+
+### 6.10 `assistance_requests`
+A diner asking a crew member to come to the table, from the Help sheet or by accepting the menu's offer (`UIDesign.md` §16.1). Added by migration 0005.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `request_id` | `BIGINT` | PK, `GENERATED ALWAYS AS IDENTITY` | |
+| `session_id` | `BIGINT` | NOT NULL, FK → `sessions` ON DELETE CASCADE | |
+| `device_id` | `BIGINT` | NOT NULL, FK → `session_devices` ON DELETE CASCADE | The phone that asked |
+| `reason` | `assistance_reason_enum` | NOT NULL, DEFAULT `'asked'` | `offered` = accepted the menu's offer |
+| `requested_at` | `TIMESTAMPTZ` | NOT NULL, DEFAULT `now()` | |
+| `acknowledged_at` | `TIMESTAMPTZ` | NULL | Set when a crew member taps "On my way" |
+| `acknowledged_by` | `VARCHAR(8)` | NULL, FK → `staff_accounts` ON DELETE RESTRICT | |
+
+```sql
+CHECK ((acknowledged_at IS NULL) = (acknowledged_by IS NULL))
+CHECK (acknowledged_at IS NULL OR acknowledged_at >= requested_at)
+CREATE UNIQUE INDEX idx_assistance_requests_open ON assistance_requests (device_id)
+    WHERE acknowledged_at IS NULL;
+```
+
+The partial unique index allows one open request per phone. Asking again while waiting returns the open request, and asking within 60 seconds of an answer is refused with a 429. One acknowledgement answers every open request at that table, because one crew member walks over.
 
 ---
 

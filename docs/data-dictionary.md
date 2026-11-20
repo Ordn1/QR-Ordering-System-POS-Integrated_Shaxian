@@ -3,7 +3,7 @@
 Introspected directly from the running PostgreSQL database (`shaxian_ordering`).
 Every type, size, constraint and default below is what the schema actually enforces.
 
-**Fourteen tables.** Table numbering continues the paper's sequence from Table 9.
+**Fifteen tables.** Table numbering continues the paper's sequence from Table 9.
 
 ## Table 9. Tables
 
@@ -112,7 +112,7 @@ One ordering interaction from QR scan to checkout. Anchors transactions, devices
 
 ## Table 14. Session_devices
 
-Every phone that joins a table session. A Standard or single-device Priority session has one row; a Group session has two or more, enabling split-bill attribution.
+Every phone that joins a table session, plus any senior or PWD diner a phone adds who has no phone of their own. A Standard or single-device Priority session has one phone row; a Group session has two or more, enabling split-bill attribution. Each phone also keeps its own display settings: menu size, high contrast and bigger buttons.
 
 | Field Name | Data Type | Null | Default | Constraint |
 |---|---|---|---|---|
@@ -122,6 +122,16 @@ Every phone that joins a table session. A Standard or single-device Priority ses
 | `joined_at` | TIMESTAMPTZ | No | now() | — |
 | `display_name` | VARCHAR(30) | Yes | — | — |
 | `is_host` | BOOLEAN | No | false | — |
+| `managed_by_device_id` | BIGINT | Yes | — | FK → session_devices |
+| `menu_size` | ENUM (grid / list / large) | No | 'grid' | — |
+| `is_high_contrast` | BOOLEAN | No | false | — |
+| `has_steady_taps` | BOOLEAN | No | false | — |
+| `display_chosen_at` | TIMESTAMPTZ | Yes | — | — |
+
+Check constraints:
+
+- `CHECK (((managed_by_device_id IS NULL) OR (NOT is_host)))`
+- `CHECK ((managed_by_device_id <> device_id))`
 
 ## Table 15. Transactions
 
@@ -247,7 +257,7 @@ Every interaction event from the React client. Primary source for the confusion-
 |---|---|---|---|---|
 | `event_id` | BIGINT | No | — | PK |
 | `session_id` | BIGINT | No | — | FK → sessions |
-| `event_type` | ENUM (dwell_timeout / back_navigation / cart_abandon / category_revisit / recommendation_shown / recommendation_accepted / recommendation_dismissed) | No | — | — |
+| `event_type` | ENUM (dwell_timeout / back_navigation / cart_abandon / category_revisit / recommendation_shown / recommendation_accepted / recommendation_dismissed / zoom_detected / missed_tap / assist_offered / assist_accepted / assist_declined / display_changed / crew_called / code_entered) | No | — | — |
 | `screen_id` | VARCHAR(40) | Yes | — | — |
 | `occurred_at` | TIMESTAMPTZ | No | now() | — |
 | `metadata` | JSONB | Yes | — | — |
@@ -291,14 +301,35 @@ System action trail — staff record changes and outbound POS transmissions, wit
 | `ip_address` | INET | Yes | — | — |
 | `occurred_at` | TIMESTAMPTZ | No | now() | — |
 
+## Table 23. Assistance_requests
+
+A diner asking a crew member to come to the table, from the Help sheet or by accepting the menu's offer. One open request per phone; a crew member's acknowledgement answers the whole table.
+
+| Field Name | Data Type | Null | Default | Constraint |
+|---|---|---|---|---|
+| `request_id` | BIGINT | No | — | PK |
+| `session_id` | BIGINT | No | — | FK → sessions |
+| `device_id` | BIGINT | No | — | FK → session_devices |
+| `reason` | ENUM (asked / offered) | No | 'asked' | — |
+| `requested_at` | TIMESTAMPTZ | No | now() | — |
+| `acknowledged_at` | TIMESTAMPTZ | Yes | — | — |
+| `acknowledged_by` | VARCHAR(8) | Yes | — | FK → staff_accounts |
+
+Check constraints:
+
+- `CHECK (((acknowledged_at IS NULL) = (acknowledged_by IS NULL)))`
+- `CHECK (((acknowledged_at IS NULL) OR (acknowledged_at >= requested_at)))`
+
 ## Enum types
 
 All status columns are PostgreSQL enum types, not free-text VARCHAR.
 
 | Type | Values |
 |---|---|
-| `event_type_enum` | dwell_timeout / back_navigation / cart_abandon / category_revisit / recommendation_shown / recommendation_accepted / recommendation_dismissed |
+| `assistance_reason_enum` | asked / offered |
+| `event_type_enum` | dwell_timeout / back_navigation / cart_abandon / category_revisit / recommendation_shown / recommendation_accepted / recommendation_dismissed / zoom_detected / missed_tap / assist_offered / assist_accepted / assist_declined / display_changed / crew_called / code_entered |
 | `language_enum` | en / fil / bis |
+| `menu_size_enum` | grid / list / large |
 | `occupancy_status_enum` | vacant / occupied / reserved |
 | `payment_method_enum` | online / cashier |
 | `payment_status_enum` | pending / paid / failed |
