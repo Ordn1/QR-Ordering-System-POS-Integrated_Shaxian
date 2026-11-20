@@ -274,7 +274,8 @@
   "nav": {
     "menu": "Menu",
     "cart": "Kariton",
-    "status": "Katayuan"
+    "status": "Katayuan",
+    "help": "Tulong"
   },
   "pagination": {
     "label": "Pagination",
@@ -459,5 +460,30 @@
     "steadyTapsHint": "Mas malalaking button, at nagsasara lang ang mga panel gamit ang button.",
     "done": "Tapos na",
     "sizeNow": "Laki ng menu: {{size}}"
+  },
+  "help": {
+    "title": "Paano kami makakatulong?",
+    "close": "Isara",
+    "guideTitle": "Ituro kung paano mag-order",
+    "guideBody": "Itinuturo ang susunod na pipindutin.",
+    "codeTitle": "Mag-order gamit ang code",
+    "codeBody": "I-type ang code mula sa menu sa dingding, gaya ng A1.",
+    "displayTitle": "Gawing mas madaling basahin",
+    "displayBody": "Mas malaking teksto, mas malaking button o mas mataas na contrast.",
+    "priorityTitle": "Senior, PWD o buntis?",
+    "priorityBody": "Priority service at ang 20% discount."
+  },
+  "keypad": {
+    "title": "Mag-order gamit ang code",
+    "close": "Isara",
+    "erase": "Burahin ang huling titik",
+    "hint": "I-type ang code na nasa menu sa dingding o sa larawan ng pagkain, gaya ng A1.",
+    "noMatch": "Walang putahe na may code na {{code}}. Tingnan ang code sa menu sa dingding.",
+    "letters": "Mga titik",
+    "numbers": "Mga numero"
+  },
+  "speech": {
+    "readAloud": "Basahin nang malakas",
+    "price": "{{amount}} piso"
   }
 }

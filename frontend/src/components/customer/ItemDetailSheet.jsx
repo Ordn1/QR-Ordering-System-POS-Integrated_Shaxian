@@ -1,4 +1,4 @@
-import { Box, Image as ImageIcon, UtensilsCrossed } from 'lucide-react';
+import { Box, Image as ImageIcon, UtensilsCrossed, Volume2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { peso } from '../../lib/format';
 import { useShowcase } from '../../hooks/useShowcase';
 import { menuDepthUrl, menuImageUrl } from '../../lib/menuImage';
 import { DURATION, MOVE } from '../../lib/motion';
+import { onVoicesChanged, speak, stopSpeaking, voiceFor } from '../../lib/speech';
 import Badge from '../shared/Badge';
 import MenuCode from '../shared/MenuCode';
 import Button from '../shared/Button';
@@ -16,7 +17,9 @@ import QtyStepper from '../shared/QtyStepper';
 const DishStage = lazy(() => import('./DishStage'));
 
 export default function ItemDetailSheet({ item, name, description, onAdd, onClose }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [, setVoicesLoaded] = useState(0);
+  const voice = voiceFor(i18n.language);
   const [qty, setQty] = useState(1);
   const photo = useRef(null);
   const src = menuImageUrl(item.image_filename);
@@ -26,6 +29,24 @@ export default function ItemDetailSheet({ item, name, description, onAdd, onClos
   const [ready, setReady] = useState(false);
   const [view, setView] = useState('solid');
   const markReady = useCallback(() => setReady(true), []);
+
+  useEffect(() => {
+    const unsubscribe = onVoicesChanged(() => setVoicesLoaded((count) => count + 1));
+    return () => {
+      unsubscribe();
+      stopSpeaking();
+    };
+  }, []);
+
+  function readAloud() {
+    const amount = Number(item.price);
+    const parts = [
+      name,
+      t('speech.price', { amount: Number.isInteger(amount) ? amount : amount.toFixed(2) }),
+      description,
+    ];
+    speak(parts.filter(Boolean).join('. '), voice);
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setSettled(true), DURATION.move * 1000);
@@ -103,6 +124,12 @@ export default function ItemDetailSheet({ item, name, description, onAdd, onClos
       ) : null}
 
       {description ? <p className="item-detail-description">{description}</p> : null}
+
+      {voice ? (
+        <Button variant="secondary" icon={Volume2} onClick={readAloud}>
+          {t('speech.readAloud')}
+        </Button>
+      ) : null}
 
       <dl className="detail-list item-detail-facts">
         {item.calories !== null ? (

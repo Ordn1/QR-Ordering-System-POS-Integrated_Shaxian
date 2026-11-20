@@ -7,7 +7,6 @@ import { useOutletContext } from 'react-router-dom';
 import { listCategories, listItems } from '../../api/menu';
 import ItemDetailSheet from '../../components/customer/ItemDetailSheet';
 import MenuItemCard from '../../components/customer/MenuItemCard';
-import PriorityDeclaration from '../../components/customer/PriorityDeclaration';
 import Button from '../../components/shared/Button';
 import Modal from '../../components/shared/Modal';
 import { useShowcase } from '../../hooks/useShowcase';
@@ -47,10 +46,10 @@ export default function CustomerMenuPage() {
     setActiveCategory,
     trackControl,
     completed,
+    openDeclaration,
   } = useOutletContext();
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
-  const [declaring, setDeclaring] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [picking, setPicking] = useState(false);
   const add = useCartStore((state) => state.add);
@@ -78,10 +77,10 @@ export default function CustomerMenuPage() {
     try {
       if (!sessionStorage.getItem(key)) {
         sessionStorage.setItem(key, '1');
-        setDeclaring(true);
+        openDeclaration();
       }
     } catch { }
-  }, [session?.session_id]);
+  }, [session?.session_id, openDeclaration]);
 
   useEffect(() => {
     function resize(step) {
@@ -154,7 +153,7 @@ export default function CustomerMenuPage() {
     <main className="customer-page">
       <div className="customer-page-head">
         <h1>{t('menu.title')}</h1>
-        <Button variant="secondary" icon={Accessibility} onClick={() => setDeclaring(true)}>
+        <Button variant="secondary" icon={Accessibility} onClick={openDeclaration}>
           {t('priority.open')}
         </Button>
       </div>
@@ -252,10 +251,6 @@ export default function CustomerMenuPage() {
             ))}
           </div>
         </Modal>
-      ) : null}
-
-      {declaring && session ? (
-        <PriorityDeclaration onClose={() => setDeclaring(false)} />
       ) : null}
 
       {showcase ? (

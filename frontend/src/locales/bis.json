@@ -274,7 +274,8 @@
   "nav": {
     "menu": "Menu",
     "cart": "Basket",
-    "status": "Kahimtang"
+    "status": "Kahimtang",
+    "help": "Tabang"
   },
   "pagination": {
     "label": "Pagination",
@@ -459,5 +460,30 @@
     "steadyTapsHint": "Mas dagkong button, ug ang mga panel mosira lang pinaagi sa button.",
     "done": "Human na",
     "sizeNow": "Gidak-on sa menu: {{size}}"
+  },
+  "help": {
+    "title": "Unsaon namo pagtabang?",
+    "close": "Isira",
+    "guideTitle": "Ipakita unsaon pag-order",
+    "guideBody": "Gitudlo ang sunod nga pindutonon.",
+    "codeTitle": "Pag-order gamit ang code",
+    "codeBody": "I-type ang code gikan sa menu sa bungbong, sama sa A1.",
+    "displayTitle": "Himoang mas sayon basahon",
+    "displayBody": "Mas dakong teksto, mas dakong button o mas taas nga contrast.",
+    "priorityTitle": "Senior, PWD o mabdos?",
+    "priorityBody": "Priority service ug ang 20% discount."
+  },
+  "keypad": {
+    "title": "Pag-order gamit ang code",
+    "close": "Isira",
+    "erase": "Papasa ang katapusang letra",
+    "hint": "I-type ang code nga naa sa menu sa bungbong o sa hulagway sa pagkaon, sama sa A1.",
+    "noMatch": "Walay putahe nga may code nga {{code}}. Tan-awa ang code sa menu sa bungbong.",
+    "letters": "Mga letra",
+    "numbers": "Mga numero"
+  },
+  "speech": {
+    "readAloud": "Basaha og kusog",
+    "price": "{{amount}} pesos"
   }
 }

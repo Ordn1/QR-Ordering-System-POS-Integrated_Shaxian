@@ -274,7 +274,8 @@
   "nav": {
     "menu": "Menu",
     "cart": "Cart",
-    "status": "Status"
+    "status": "Status",
+    "help": "Help"
   },
   "pagination": {
     "label": "Pagination",
@@ -459,5 +460,30 @@
     "steadyTapsHint": "Larger buttons, and panels close only with a button.",
     "done": "Done",
     "sizeNow": "Menu size: {{size}}"
+  },
+  "help": {
+    "title": "How can we help?",
+    "close": "Close",
+    "guideTitle": "Show me how to order",
+    "guideBody": "Points to the next button to press.",
+    "codeTitle": "Order by menu code",
+    "codeBody": "Type the code from the wall menu, like A1.",
+    "displayTitle": "Make the menu easier to read",
+    "displayBody": "Bigger text, bigger buttons or higher contrast.",
+    "priorityTitle": "Senior, PWD or pregnant?",
+    "priorityBody": "Priority service and the 20% discount."
+  },
+  "keypad": {
+    "title": "Order by code",
+    "close": "Close",
+    "erase": "Erase the last character",
+    "hint": "Type the code shown on the wall menu or on the dish photo, like A1.",
+    "noMatch": "No dish with code {{code}}. Check the code on the wall menu.",
+    "letters": "Letters",
+    "numbers": "Numbers"
+  },
+  "speech": {
+    "readAloud": "Read aloud",
+    "price": "{{amount}} pesos"
   }
 }

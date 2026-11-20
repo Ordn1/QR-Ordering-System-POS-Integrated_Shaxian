@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { peso } from '../../lib/format';
+import { codeStartsWith } from '../../lib/menuCode';
 import { menuImageUrl } from '../../lib/menuImage';
 
 const NAME_BY_LANGUAGE = { en: 'name_en', fil: 'name_fil', bis: 'name_bis' };
@@ -29,10 +30,9 @@ export default function SearchOverlay({ items, language, onSelect, onClose }) {
   const results = normalised
     ? items.filter((item) => {
         const name = (item[nameKey] || item.name_en || '').toLowerCase();
-        const code = (item.menu_code || '').toLowerCase();
         return (
           name.includes(normalised) ||
-          (code !== '' && code.startsWith(normalised)) ||
+          codeStartsWith(item.menu_code, normalised) ||
           (item.name_zh || '').includes(normalised)
         );
       })

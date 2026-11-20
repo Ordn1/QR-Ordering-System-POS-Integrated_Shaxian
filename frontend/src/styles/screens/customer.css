@@ -1619,10 +1619,8 @@
   top: 0;
   left: 30%;
   right: 30%;
-  height: 3px;
+  height: var(--seal-bar);
   background: var(--red);
-  border-bottom-left-radius: 3px;
-  border-bottom-right-radius: 3px;
 }
 
 .bottom-bar-count {
@@ -2229,28 +2227,6 @@
 
 /* --- Navigation guidance (prototype #16) --------------------------------- */
 
-.help-fab {
-  position: fixed;
-  left: var(--space-4);
-  bottom: calc(var(--bottom-bar-h) + var(--space-4));
-  display: grid;
-  place-items: center;
-  width: var(--tap-target);
-  height: var(--tap-target);
-  background: var(--bg);
-  border: 1px solid var(--border-strong);
-  color: var(--red);
-  z-index: 40;
-}
-
-.help-fab svg {
-  display: block;
-}
-
-.help-fab:hover {
-  background: var(--cream);
-}
-
 .nav-guide {
   position: absolute;
   inset: 0;
@@ -2401,4 +2377,243 @@
 
 .receipt-discount-note--pending {
   color: var(--amber-strong);
+}
+
+/* --- Help sheet ------------------------------------------------------------ */
+
+.help-actions {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.help-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: calc(var(--tap-target) + var(--space-3));
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  text-align: left;
+  transition: background-color var(--duration-hover) ease-out;
+}
+
+.help-action:hover {
+  background: var(--surface-2);
+}
+
+.help-action:disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.help-action-icon {
+  flex: none;
+  color: var(--red);
+}
+
+.help-action-text {
+  display: grid;
+  flex: 1;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.help-action-title {
+  font-size: var(--font-base);
+  font-weight: var(--weight-heading);
+}
+
+.help-action-body {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+/* --- Order by code keypad ---------------------------------------------- */
+
+.keypad-readout-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.keypad-readout {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-height: calc(var(--tap-target) + var(--space-3));
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+}
+
+.keypad-readout .menu-code {
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  font-size: var(--font-xl);
+}
+
+.keypad-placeholder {
+  font-size: var(--font-xl);
+  font-weight: var(--weight-display);
+  color: var(--text-faint);
+}
+
+.keypad-backspace {
+  display: grid;
+  place-items: center;
+  width: calc(var(--tap-target) + var(--space-3));
+  height: calc(var(--tap-target) + var(--space-3));
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+}
+
+.keypad-backspace:disabled {
+  color: var(--text-faint);
+}
+
+.keypad-result {
+  min-height: calc(var(--tap-target) * 2);
+  margin-bottom: var(--space-4);
+}
+
+.keypad-hint {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.keypad-dish {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.keypad-dish-photo {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-8) + var(--space-5));
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: var(--cream);
+  color: var(--text-faint);
+}
+
+.keypad-dish-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.keypad-dish-text {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.keypad-dish-name {
+  font-size: var(--font-md);
+  font-weight: var(--weight-heading);
+}
+
+.keypad-dish-price {
+  font-size: var(--font-md);
+  font-weight: var(--weight-display);
+}
+
+.keypad-dish-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.keypad-candidates {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keypad-candidate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  text-align: left;
+}
+
+.keypad-candidate-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--weight-heading);
+}
+
+.keypad-letters,
+.keypad-digits {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.keypad-letters {
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: var(--space-3);
+}
+
+.keypad-digits {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.keypad-key {
+  min-height: calc(var(--tap-target) + var(--space-2));
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  font-size: var(--font-lg);
+  font-weight: var(--weight-heading);
+  transition:
+    background-color var(--duration-hover) ease-out,
+    transform var(--duration-hover) ease-out;
+}
+
+.keypad-key:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.keypad-key:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--duration-press);
+}
+
+.keypad-key[aria-pressed='true'] {
+  color: var(--red);
+  box-shadow: inset 0 calc(-1 * var(--seal-bar)) 0 var(--red);
+}
+
+.keypad-key:disabled {
+  border-color: var(--border);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.keypad-key-unused {
+  visibility: hidden;
+}
+
+.item-detail-description + .secondary-btn {
+  margin-top: var(--space-3);
+}
+
+:is([data-menu-size='list'], [data-menu-size='large']) .keypad-dish-actions {
+  flex-direction: column;
+  align-items: stretch;
 }

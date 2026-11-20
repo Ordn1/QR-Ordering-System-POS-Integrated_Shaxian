@@ -1,13 +1,16 @@
-import { ALargeSmall, HelpCircle, Search } from 'lucide-react';
+import { ALargeSmall, Accessibility, Hash, MousePointerClick, Search } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import BottomBar from '../../components/customer/BottomBar';
+import CodeKeypad from '../../components/customer/CodeKeypad';
 import DisplaySheet from '../../components/customer/DisplaySheet';
 import GroupBanner from '../../components/customer/GroupBanner';
+import HelpSheet from '../../components/customer/HelpSheet';
 import LanguageSwitch from '../../components/customer/LanguageSwitch';
 import NavHighlight from '../../components/customer/NavHighlight';
+import PriorityDeclaration from '../../components/customer/PriorityDeclaration';
 import RecommendationOverlay from '../../components/customer/RecommendationOverlay';
 import SearchOverlay from '../../components/customer/SearchOverlay';
 import { useConfusionSignals } from '../../hooks/useConfusionSignals';
@@ -19,6 +22,8 @@ import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
+
+const NAME_BY_LANGUAGE = { en: 'name_en', fil: 'name_fil', bis: 'name_bis' };
 
 function routeOf(pathname) {
   if (pathname.endsWith('/checkout')) {
@@ -44,6 +49,10 @@ export default function CustomerShell() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
   const [showDisplay, setShowDisplay] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showKeypad, setShowKeypad] = useState(false);
+  const [declaring, setDeclaring] = useState(false);
+  const openDeclaration = useCallback(() => setDeclaring(true), []);
   const [allItems, setAllItems] = useState([]);
   const prevPathRef = useRef(pathname);
 
@@ -114,6 +123,60 @@ export default function CustomerShell() {
     cartCount: lines.length,
   });
 
+  const nameKey = NAME_BY_LANGUAGE[i18n.language] ?? 'name_en';
+
+  function addItem(item, quantity = 1) {
+    const name = item[nameKey] || item.name_en;
+    add(
+      {
+        item_id: item.item_id,
+        name,
+        price: item.price,
+        image_filename: item.image_filename,
+        model_filename: item.model_filename,
+      },
+      quantity,
+    );
+    guidance.completed('add');
+    toast.success(`${name} · ${t('menu.addToCart')}`);
+  }
+
+  const helpActions = [
+    {
+      key: 'guide',
+      icon: MousePointerClick,
+      title: t('help.guideTitle'),
+      body: t('help.guideBody'),
+      onSelect: () => {
+        if (routeOf(pathname) !== 'menu' && lines.length === 0) {
+          navigate(`/t/${qrToken}/menu`);
+        }
+        guidance.askForHelp();
+      },
+    },
+    {
+      key: 'code',
+      icon: Hash,
+      title: t('help.codeTitle'),
+      body: t('help.codeBody'),
+      onSelect: () => setShowKeypad(true),
+    },
+    {
+      key: 'display',
+      icon: ALargeSmall,
+      title: t('help.displayTitle'),
+      body: t('help.displayBody'),
+      onSelect: () => setShowDisplay(true),
+    },
+    {
+      key: 'priority',
+      icon: Accessibility,
+      title: t('help.priorityTitle'),
+      body: t('help.priorityBody'),
+      onSelect: openDeclaration,
+    },
+  ];
+
   if (!session) {
     if (status === 'failed') {
       return <Navigate to={`/t/${qrToken}`} replace />;
@@ -133,6 +196,14 @@ export default function CustomerShell() {
       <header className="customer-header">
         <span className="customer-table">{t('menu.table', { number: session.table_number })}</span>
         <div className="customer-header-actions">
+          <button
+            type="button"
+            className="header-icon-btn"
+            aria-label={t('keypad.title')}
+            onClick={() => setShowKeypad(true)}
+          >
+            <Hash size={20} strokeWidth={1.75} />
+          </button>
           <button
             type="button"
             className="header-icon-btn"
@@ -163,6 +234,7 @@ export default function CustomerShell() {
           setActiveCategory,
           trackControl: guidance.trackControl,
           completed: guidance.completed,
+          openDeclaration,
         }}
       />
 
@@ -186,15 +258,6 @@ export default function CustomerShell() {
 
       <NavHighlight target={guidance.target} onDismiss={guidance.clear} />
 
-      <button
-        type="button"
-        className="help-fab"
-        aria-label={t('guide.help')}
-        onClick={guidance.askForHelp}
-      >
-        <HelpCircle size={22} strokeWidth={1.75} aria-hidden="true" />
-      </button>
-
       {totalCount > 0 && routeOf(pathname) === 'menu' ? (
         <div className="floating-cart-pill-wrap">
           <button
@@ -211,25 +274,33 @@ export default function CustomerShell() {
         </div>
       ) : null}
 
-      <BottomBar sessionPath={`/t/${qrToken}`} trackControl={guidance.trackControl} />
+      <BottomBar
+        sessionPath={`/t/${qrToken}`}
+        trackControl={guidance.trackControl}
+        onHelp={() => setShowHelp(true)}
+      />
 
       {showDisplay ? <DisplaySheet onClose={() => setShowDisplay(false)} /> : null}
+
+      {showHelp ? <HelpSheet actions={helpActions} onClose={() => setShowHelp(false)} /> : null}
+
+      {showKeypad ? (
+        <CodeKeypad
+          items={allItems}
+          nameKey={nameKey}
+          sessionId={session.session_id}
+          onAdd={addItem}
+          onClose={() => setShowKeypad(false)}
+        />
+      ) : null}
+
+      {declaring ? <PriorityDeclaration onClose={() => setDeclaring(false)} /> : null}
 
       {showSearch ? (
         <SearchOverlay
           items={allItems}
           language={i18n.language}
-          onSelect={(item) => {
-            const nameKey = { en: 'name_en', fil: 'name_fil', bis: 'name_bis' }[i18n.language] ?? 'name_en';
-            add({
-              item_id: item.item_id,
-              name: item[nameKey] || item.name_en,
-              price: item.price,
-              image_filename: item.image_filename,
-              model_filename: item.model_filename,
-            });
-            toast.success(`${item[nameKey] || item.name_en} · ${t('menu.addToCart')}`);
-          }}
+          onSelect={(item) => addItem(item)}
           onClose={() => setShowSearch(false)}
         />
       ) : null}

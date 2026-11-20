@@ -1,11 +1,11 @@
 import NumberFlow from '@number-flow/react';
-import { ClipboardList, ShoppingBag, UtensilsCrossed } from 'lucide-react';
+import { ClipboardList, HelpCircle, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
 import { useCartStore } from '../../store/cartStore';
 
-export default function BottomBar({ sessionPath, trackControl }) {
+export default function BottomBar({ sessionPath, trackControl, onHelp }) {
   const { t } = useTranslation();
   const count = useCartStore((state) => state.lines).reduce(
     (total, line) => total + line.quantity,
@@ -42,6 +42,10 @@ export default function BottomBar({ sessionPath, trackControl }) {
         <ClipboardList size={20} strokeWidth={1.75} />
         <span>{t('nav.status')}</span>
       </NavLink>
+      <button type="button" className="bottom-bar-item" onClick={onHelp} aria-haspopup="dialog">
+        <HelpCircle size={20} strokeWidth={1.75} />
+        <span>{t('nav.help')}</span>
+      </button>
     </nav>
   );
 }
