@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.models import (
     AnalyticsEvent,
+    AssistanceRequest,
     AprioriRule,
     AuditLog,
     MenuItem,
@@ -15,7 +16,7 @@ from app.models import (
     Transaction,
     TransactionItem,
 )
-from app.models.enums import EventType, PriorityStatus, TxnStatus
+from app.models.enums import AssistanceReason, EventType, PriorityStatus, TxnStatus
 
 TRIGGER_EVENT = EventType.RECOMMENDATION_SHOWN
 
@@ -249,6 +250,77 @@ async def recommendation_funnel(db: AsyncSession) -> dict[str, int]:
         "shown": tally.get("recommendation_shown", 0),
         "accepted": tally.get("recommendation_accepted", 0),
         "dismissed": tally.get("recommendation_dismissed", 0),
+    }
+
+
+OFFER_EVENTS = {
+    EventType.ASSIST_OFFERED: "shown",
+    EventType.ASSIST_ACCEPTED: "accepted",
+    EventType.ASSIST_DECLINED: "declined",
+}
+
+
+async def assistance_summary(db: AsyncSession) -> dict[str, Any]:
+    """How the adaptive menu helped: offers and answers, crew calls, and display changes."""
+    offer = AnalyticsEvent.metadata_["offer"].astext
+    offers: dict[str, dict[str, int]] = {}
+    for event_type, kind, count in (
+        await db.execute(
+            select(AnalyticsEvent.event_type, offer, func.count())
+            .where(AnalyticsEvent.event_type.in_(list(OFFER_EVENTS)))
+            .group_by(AnalyticsEvent.event_type, offer)
+        )
+    ).all():
+        row = offers.setdefault(kind or "unknown", {"shown": 0, "accepted": 0, "declined": 0})
+        row[OFFER_EVENTS[event_type]] = count
+
+    calls, from_offers, answered, median = (
+        await db.execute(
+            select(
+                func.count(),
+                func.count().filter(AssistanceRequest.reason == AssistanceReason.OFFERED),
+                func.count(AssistanceRequest.acknowledged_at),
+                func.percentile_cont(0.5).within_group(
+                    func.extract(
+                        "epoch", AssistanceRequest.acknowledged_at - AssistanceRequest.requested_at
+                    )
+                ),
+            )
+        )
+    ).one()
+
+    source = AnalyticsEvent.metadata_["source"].astext
+    changes = (
+        await db.execute(
+            select(source, func.count())
+            .where(AnalyticsEvent.event_type == EventType.DISPLAY_CHANGED)
+            .group_by(source)
+            .order_by(func.count().desc())
+        )
+    ).all()
+
+    declared_sessions = select(PriorityVerificationLog.session_id)
+    bigger = await db.scalar(
+        select(func.count(func.distinct(AnalyticsEvent.session_id))).where(
+            AnalyticsEvent.event_type == EventType.DISPLAY_CHANGED,
+            AnalyticsEvent.metadata_["setting"].astext == "menu_size",
+            AnalyticsEvent.metadata_["value"].astext.in_(["list", "large"]),
+            AnalyticsEvent.session_id.not_in(declared_sessions),
+        )
+    )
+
+    return {
+        "offers": [
+            {"offer": kind, **counts} for kind, counts in sorted(offers.items())
+        ],
+        "crew_calls": calls,
+        "crew_calls_from_offers": from_offers,
+        "acknowledged": answered,
+        "median_ack_seconds": float(median) if median is not None else None,
+        "display_changes": [
+            {"source": name or "unknown", "changes": count} for name, count in changes
+        ],
+        "undeclared_bigger_sessions": bigger or 0,
     }
 
 

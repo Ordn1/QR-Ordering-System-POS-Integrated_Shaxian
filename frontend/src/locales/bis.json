@@ -157,7 +157,26 @@
     "tableAdded": "Nadugang ang Lamesa {{number}}",
     "tableSaved": "Na-save ang Lamesa {{number}}",
     "tableDeleted": "Napapas ang Lamesa {{number}}",
-    "tableNumberRangeError": "Ang numero sa lamesa kinahanglan naa sa 1 hangtod 32767."
+    "tableNumberRangeError": "Ang numero sa lamesa kinahanglan naa sa 1 hangtod 32767.",
+    "chartAssistance": "Tabang nga gitanyag sa menu",
+    "assistCaption": "sa mga tanyag nga tabang ang gidawat",
+    "assistOffer": {
+      "display": "Mas dakong menu",
+      "taps": "Mas dagkong button",
+      "crew": "Crew"
+    },
+    "assistOfferCounts": "{{shown}} gitanyag · {{accepted}} oo · {{declined}} dili",
+    "factCrewCalls": "Mga tawag sa crew",
+    "crewCallCounts": "{{calls}} ({{offered}} gikan sa tanyag)",
+    "factCrewAnswer": "Median nga oras sa pagtubag",
+    "seconds": "{{count}} s",
+    "displaySource": {
+      "pinch": "Giusab ang gidak-on pinaagi sa pinch",
+      "button": "Giusab sa Teksto ug mga button",
+      "offer": "Giusab pinaagi sa pagdawat sa tanyag",
+      "declaration": "Gitakda sa deklarasyon"
+    },
+    "factUndeclaredBigger": "Mga mokaon nga walay deklarasyon nga mipili og mas dakong menu"
   },
   "auth": {
     "brand": "Shaxian Snacks",

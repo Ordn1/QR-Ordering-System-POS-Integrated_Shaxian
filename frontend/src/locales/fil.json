@@ -157,7 +157,26 @@
     "tableAdded": "Naidagdag ang Mesa {{number}}",
     "tableSaved": "Na-save ang Mesa {{number}}",
     "tableDeleted": "Nabura ang Mesa {{number}}",
-    "tableNumberRangeError": "Ang numero ng mesa ay dapat nasa pagitan ng 1 at 32767."
+    "tableNumberRangeError": "Ang numero ng mesa ay dapat nasa pagitan ng 1 at 32767.",
+    "chartAssistance": "Tulong na inalok ng menu",
+    "assistCaption": "ng mga alok na tulong ang tinanggap",
+    "assistOffer": {
+      "display": "Mas malaking menu",
+      "taps": "Mas malalaking button",
+      "crew": "Crew"
+    },
+    "assistOfferCounts": "{{shown}} inalok · {{accepted}} oo · {{declined}} hindi",
+    "factCrewCalls": "Mga tawag sa crew",
+    "crewCallCounts": "{{calls}} ({{offered}} mula sa alok)",
+    "factCrewAnswer": "Median na oras bago masagot",
+    "seconds": "{{count}} s",
+    "displaySource": {
+      "pinch": "Binago ang laki sa pag-pinch",
+      "button": "Binago sa Teksto at mga button",
+      "offer": "Binago sa pagtanggap ng alok",
+      "declaration": "Itinakda ng deklarasyon"
+    },
+    "factUndeclaredBigger": "Mga kumakaing walang deklarasyon na pumili ng mas malaking menu"
   },
   "auth": {
     "brand": "Shaxian Snacks",

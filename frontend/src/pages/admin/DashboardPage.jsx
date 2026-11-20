@@ -1,5 +1,5 @@
 import { BadgePercent, Receipt, Users } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { fetchSummary, runApriori } from '../../api/analytics';
@@ -52,8 +52,11 @@ export default function DashboardPage() {
     );
   }
 
-  const { headline, recommendation_funnel: funnel } = summary;
+  const { headline, recommendation_funnel: funnel, assistance } = summary;
   const acceptance = funnel.shown ? funnel.accepted / funnel.shown : 0;
+  const offersShown = assistance.offers.reduce((total, row) => total + row.shown, 0);
+  const offersAccepted = assistance.offers.reduce((total, row) => total + row.accepted, 0);
+  const offerAcceptance = offersShown ? offersAccepted / offersShown : 0;
   const rules = summary.apriori_rules ?? [];
   const filteredRules =
     ruleSegment === 'all'
@@ -133,6 +136,48 @@ export default function DashboardPage() {
             <dd className="numeric">{peso(headline.vat_amount)}</dd>
             <dt>{t('admin.factDiscount')}</dt>
             <dd className="numeric">{peso(headline.discount_amount)}</dd>
+          </dl>
+        </Card>
+      </div>
+
+      <div className="dashboard-grid dashboard-grid-wide">
+        <Card title={t('admin.chartAssistance')}>
+          <p className="dashboard-hero-number numeric">{percent(offerAcceptance)}</p>
+          <p className="dashboard-hero-caption">{t('admin.assistCaption')}</p>
+          <dl className="dashboard-facts">
+            {assistance.offers.map((row) => (
+              <Fragment key={row.offer}>
+                <dt>{t(`admin.assistOffer.${row.offer}`, { defaultValue: row.offer })}</dt>
+                <dd className="numeric">
+                  {t('admin.assistOfferCounts', {
+                    shown: row.shown,
+                    accepted: row.accepted,
+                    declined: row.declined,
+                  })}
+                </dd>
+              </Fragment>
+            ))}
+            <dt>{t('admin.factCrewCalls')}</dt>
+            <dd className="numeric">
+              {t('admin.crewCallCounts', {
+                calls: assistance.crew_calls,
+                offered: assistance.crew_calls_from_offers,
+              })}
+            </dd>
+            <dt>{t('admin.factCrewAnswer')}</dt>
+            <dd className="numeric">
+              {assistance.median_ack_seconds === null
+                ? '—'
+                : t('admin.seconds', { count: Math.round(assistance.median_ack_seconds) })}
+            </dd>
+            {assistance.display_changes.map((row) => (
+              <Fragment key={row.source}>
+                <dt>{t(`admin.displaySource.${row.source}`, { defaultValue: row.source })}</dt>
+                <dd className="numeric">{row.changes}</dd>
+              </Fragment>
+            ))}
+            <dt>{t('admin.factUndeclaredBigger')}</dt>
+            <dd className="numeric">{assistance.undeclared_bigger_sessions}</dd>
           </dl>
         </Card>
       </div>

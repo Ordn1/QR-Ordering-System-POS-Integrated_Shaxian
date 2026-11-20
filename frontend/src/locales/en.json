@@ -157,7 +157,26 @@
     "colCreatedAt": "Created",
     "deactivateStaff": "Deactivate account",
     "activateStaff": "Activate account",
-    "staffSelfDeactivateError": "You cannot deactivate your own currently signed-in account."
+    "staffSelfDeactivateError": "You cannot deactivate your own currently signed-in account.",
+    "chartAssistance": "Help offered by the menu",
+    "assistCaption": "of offers to help were accepted",
+    "assistOffer": {
+      "display": "Bigger menu",
+      "taps": "Bigger buttons",
+      "crew": "Crew member"
+    },
+    "assistOfferCounts": "{{shown}} offered · {{accepted}} yes · {{declined}} no",
+    "factCrewCalls": "Crew calls",
+    "crewCallCounts": "{{calls}} ({{offered}} from an offer)",
+    "factCrewAnswer": "Median time to answer",
+    "seconds": "{{count}} s",
+    "displaySource": {
+      "pinch": "Size changed by pinching",
+      "button": "Changed in Text and buttons",
+      "offer": "Changed by accepting an offer",
+      "declaration": "Preset by a declaration"
+    },
+    "factUndeclaredBigger": "Diners without a declaration who chose a bigger menu"
   },
   "auth": {
     "brand": "Shaxian Snacks",

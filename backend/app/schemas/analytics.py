@@ -68,6 +68,28 @@ class Funnel(BaseModel):
     dismissed: int
 
 
+class OfferPoint(BaseModel):
+    offer: str
+    shown: int
+    accepted: int
+    declined: int
+
+
+class SourcePoint(BaseModel):
+    source: str
+    changes: int
+
+
+class AssistanceSummary(BaseModel):
+    offers: list[OfferPoint]
+    crew_calls: int
+    crew_calls_from_offers: int
+    acknowledged: int
+    median_ack_seconds: float | None = None
+    display_changes: list[SourcePoint]
+    undeclared_bigger_sessions: int
+
+
 class Headline(BaseModel):
     orders: int
     gross_amount: float
@@ -88,4 +110,5 @@ class AnalyticsSummary(BaseModel):
     segment_mix: list[SegmentPoint]
     priority_mix: list[PriorityPoint]
     recommendation_funnel: Funnel
+    assistance: AssistanceSummary
     apriori_rules: list[AprioriRuleRow] = []
