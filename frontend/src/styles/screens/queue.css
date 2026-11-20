@@ -551,3 +551,42 @@
 [data-menu-size='large'] .cash-id-actions {
   flex-direction: column-reverse;
 }
+
+/* ── Calls for help ─────────────────────────────────────────────────────── */
+.assist-alerts {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.assist-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--amber-tint);
+  border: 1px solid var(--border);
+  box-shadow: inset var(--seal-bar) 0 0 var(--red);
+}
+
+.assist-alert > svg {
+  flex: none;
+  color: var(--red);
+}
+
+.assist-alert-text {
+  display: grid;
+  flex: 1;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.assist-alert-title {
+  font-size: var(--font-md);
+  font-weight: var(--weight-heading);
+}
+
+.assist-alert-meta {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}

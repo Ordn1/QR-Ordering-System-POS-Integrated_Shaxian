@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
@@ -426,11 +427,64 @@ def discount_status(logs: list[PriorityVerificationLog]) -> str:
 
 
 async def device_count(db: AsyncSession, session_id: int) -> int:
+    """Phones at the table. People added without a phone are not counted."""
     return await db.scalar(
         select(func.count()).select_from(SessionDevice).where(
-            SessionDevice.session_id == session_id
+            SessionDevice.session_id == session_id,
+            SessionDevice.managed_by_device_id.is_(None),
         )
     )
+
+
+@dataclass(frozen=True)
+class DeviceLabel:
+    device_number: int | None
+    is_host: bool
+    display_name: str | None
+    managed_by_device_id: int | None = None
+    managed_by_number: int | None = None
+    managed_by_name: str | None = None
+
+
+async def device_labels(db: AsyncSession, session_ids: set[int]) -> dict[int, DeviceLabel]:
+    """How each phone, and each person added from a phone, is named on shares and staff screens.
+
+    Phones are numbered in the order they joined. A person without a phone has no number
+    and is labelled by the phone that added them.
+    """
+    if not session_ids:
+        return {}
+    devices = list(
+        await db.scalars(
+            select(SessionDevice)
+            .where(SessionDevice.session_id.in_(session_ids))
+            .order_by(
+                SessionDevice.session_id, SessionDevice.joined_at, SessionDevice.device_id
+            )
+        )
+    )
+    numbers: dict[int, int] = {}
+    counters: dict[int, int] = defaultdict(int)
+    for device in devices:
+        if device.managed_by_device_id is None:
+            counters[device.session_id] += 1
+            numbers[device.device_id] = counters[device.session_id]
+    names = {device.device_id: device.display_name for device in devices}
+    return {
+        device.device_id: (
+            DeviceLabel(numbers[device.device_id], device.is_host, device.display_name)
+            if device.managed_by_device_id is None
+            else DeviceLabel(
+                None,
+                False,
+                device.display_name,
+                device.managed_by_device_id,
+                numbers.get(device.managed_by_device_id),
+                names.get(device.managed_by_device_id),
+            )
+        )
+        for device in devices
+    }
 
 
 async def write_payer_carts(

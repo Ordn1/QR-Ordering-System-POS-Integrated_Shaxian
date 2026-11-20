@@ -22,6 +22,13 @@ def session_changed_event(session_id: int) -> dict:
     }
 
 
+def assistance_changed_event(session_id: int) -> dict:
+    return {
+        "type": "assistance_changed",
+        "session_id": session_id,
+    }
+
+
 def cart_changed_event(session_id: int) -> dict:
     return {
         "type": "cart_changed",
@@ -45,3 +52,7 @@ async def publish_session_changed(session_id: int) -> None:
 
 async def publish_cart_changed(session_id: int) -> None:
     await manager.to_table(session_id, cart_changed_event(session_id))
+
+async def publish_assistance_changed(session_id: int) -> None:
+    await manager.to_kitchen(assistance_changed_event(session_id))
+    await manager.to_table(session_id, assistance_changed_event(session_id))

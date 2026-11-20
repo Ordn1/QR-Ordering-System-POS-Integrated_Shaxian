@@ -1,4 +1,11 @@
-import { ALargeSmall, Accessibility, Hash, MousePointerClick, Search } from 'lucide-react';
+import {
+  ALargeSmall,
+  Accessibility,
+  BellRing,
+  Hash,
+  MousePointerClick,
+  Search,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -17,7 +24,7 @@ import { useConfusionSignals } from '../../hooks/useConfusionSignals';
 import { useNavGuidance } from '../../hooks/useNavGuidance';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { listItems } from '../../api/menu';
-import { syncDeviceCart } from '../../api/sessions';
+import { readAssistance, requestAssistance, syncDeviceCart } from '../../api/sessions';
 import { peso } from '../../lib/format';
 import { useCartStore } from '../../store/cartStore';
 import { useSessionStore } from '../../store/sessionStore';
@@ -53,6 +60,8 @@ export default function CustomerShell() {
   const [showKeypad, setShowKeypad] = useState(false);
   const [declaring, setDeclaring] = useState(false);
   const openDeclaration = useCallback(() => setDeclaring(true), []);
+  const [crewCall, setCrewCall] = useState(null);
+  const crewStatus = useRef(null);
   const [allItems, setAllItems] = useState([]);
   const prevPathRef = useRef(pathname);
 
@@ -85,13 +94,53 @@ export default function CustomerShell() {
     ).catch(() => { });
   }, [session?.session_id, lines, i18n.language]);
 
+  const sessionId = session?.session_id;
+
+  const refreshCrewCall = useCallback(() => {
+    if (!sessionId) {
+      return;
+    }
+    readAssistance(sessionId)
+      .then((next) => {
+        if (crewStatus.current === 'open' && next?.status === 'acknowledged') {
+          toast.success(t('crew.onTheWay'));
+        }
+        crewStatus.current = next?.status ?? null;
+        setCrewCall(next);
+      })
+      .catch(() => { });
+  }, [sessionId, t]);
+
+  useEffect(() => {
+    refreshCrewCall();
+  }, [refreshCrewCall]);
+
+  const callCrew = useCallback(
+    async (reason = 'asked') => {
+      try {
+        const next = await requestAssistance(sessionId, reason);
+        crewStatus.current = next.status;
+        setCrewCall(next);
+        toast.success(t('crew.called'));
+        return next;
+      } catch (error) {
+        toast.error(error.message);
+        return null;
+      }
+    },
+    [sessionId, t],
+  );
+
   const handleSocketMessage = useCallback(
     (payload) => {
       if (payload?.type === 'session_changed') {
         refreshSession();
       }
+      if (payload?.type === 'assistance_changed') {
+        refreshCrewCall();
+      }
     },
-    [refreshSession],
+    [refreshSession, refreshCrewCall],
   );
 
   useWebSocket(
@@ -169,6 +218,17 @@ export default function CustomerShell() {
       onSelect: () => setShowDisplay(true),
     },
     {
+      key: 'crew',
+      icon: BellRing,
+      title: t('help.crewTitle'),
+      body:
+        crewCall?.status === 'open'
+          ? t('crew.coming', { number: session?.table_number })
+          : t('help.crewBody'),
+      disabled: crewCall?.status === 'open',
+      onSelect: () => callCrew('asked'),
+    },
+    {
       key: 'priority',
       icon: Accessibility,
       title: t('help.priorityTitle'),
@@ -225,6 +285,13 @@ export default function CustomerShell() {
       </header>
 
       <GroupBanner session={session} />
+
+      {crewCall?.status === 'open' ? (
+        <div className="crew-strip" role="status">
+          <BellRing size={20} strokeWidth={1.75} aria-hidden="true" />
+          {t('crew.coming', { number: session.table_number })}
+        </div>
+      ) : null}
 
       <Outlet
         context={{

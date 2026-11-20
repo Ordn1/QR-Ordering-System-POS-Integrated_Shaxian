@@ -2617,3 +2617,21 @@
   flex-direction: column;
   align-items: stretch;
 }
+
+/* --- Crew call ------------------------------------------------------------- */
+
+.crew-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--amber-tint);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-heading);
+}
+
+.crew-strip svg {
+  flex: none;
+  color: var(--red);
+}

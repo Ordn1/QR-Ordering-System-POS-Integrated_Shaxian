@@ -7,6 +7,7 @@ import CashierConfirmModal from '../../components/staff/CashierConfirmModal';
 import QueueHero from '../../components/staff/QueueHero';
 import QueueList from '../../components/staff/QueueList';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import AssistanceAlerts from '../../components/staff/AssistanceAlerts';
 import { queueLabel } from '../../lib/format';
 import { DURATION } from '../../lib/motion';
 import { toast } from '../../store/toastStore';
@@ -50,7 +51,10 @@ export default function QueuePage() {
     };
   }, []);
 
-  useWebSocket('/ws/kitchen', load);
+  useWebSocket(
+    '/ws/kitchen',
+    useCallback((payload) => payload?.type !== 'assistance_changed' && load(), [load]),
+  );
 
   const byStage = useMemo(
     () =>
@@ -134,6 +138,8 @@ export default function QueuePage() {
       <header className="page-header">
         <h1>{t('staff.queueTitle')}</h1>
       </header>
+
+      <AssistanceAlerts />
 
       <div className="queue-stats">
         <div className="queue-stat">

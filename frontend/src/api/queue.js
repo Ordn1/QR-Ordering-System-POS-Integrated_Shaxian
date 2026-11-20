@@ -21,3 +21,8 @@ export const verifyPriorityId = (txnId, payload) =>
 export const revokePriorityDiscount = (txnId) =>
   api.post(`/queue/${txnId}/revoke-discount`);
 
+
+export const listAssistance = () => api.get('/queue/assistance');
+
+export const acknowledgeAssistance = (requestId) =>
+  api.post(`/queue/assistance/${requestId}/acknowledge`);

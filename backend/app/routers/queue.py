@@ -18,6 +18,7 @@ from app.models import (
 )
 from app.models.enums import PaymentMethod, PaymentStatus
 from app.core.exceptions import NotFoundError
+from app.schemas.assistance import AssistanceQueueRead, AssistanceRead
 from app.schemas.queue import (
     CashPaymentWrite,
     OrderStatusRead,
@@ -28,6 +29,7 @@ from app.schemas.queue import (
     StatusWrite,
     VerificationWrite,
 )
+from app.services import assistance as assistance_service
 from app.services import order as order_service
 from app.services import pos as pos_service
 from app.services import queue as queue_service
@@ -55,6 +57,20 @@ def _summary_method_and_status(
 @router.get("", response_model=list[QueueEntryRead])
 async def read_queue(db: DbSession, staff: AnyStaff) -> list[QueueEntryRead]:
     return await build_entries(db, await queue_service.list_queue(db))
+
+
+@router.get("/assistance", response_model=list[AssistanceQueueRead])
+async def read_assistance(db: DbSession, staff: AnyStaff) -> list[AssistanceQueueRead]:
+    return await assistance_service.open_requests(db)
+
+
+@router.post("/assistance/{request_id}/acknowledge", response_model=AssistanceRead)
+async def acknowledge_assistance(
+    request_id: int, db: DbSession, staff: AnyStaff
+) -> AssistanceRead:
+    request = await assistance_service.acknowledge(db, request_id, staff.staff_id)
+    await events.publish_assistance_changed(request.session_id)
+    return assistance_service.to_read(request)
 
 
 async def build_entries(db: DbSession, rows: list) -> list[QueueEntryRead]:

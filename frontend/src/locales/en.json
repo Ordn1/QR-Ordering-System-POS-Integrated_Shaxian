@@ -410,7 +410,14 @@
     "idNeeded": "Check every ID before marking this order paid.",
     "idSaved": "ID check recorded for {{queue}}",
     "idRemoved": "Discount removed from {{queue}}",
-    "idMissing": "Enter all three ID details to verify."
+    "idMissing": "Enter all three ID details to verify.",
+    "assistTitle": "Calls for help",
+    "assistNeeded": "Table {{table}} needs help",
+    "assistPhone": "Phone {{number}}",
+    "assistWaiting": "waiting {{count}} min",
+    "assistOffered": "accepted an offer of help",
+    "assistAcknowledge": "On my way",
+    "assistOnTheWay": "Table {{table}} knows you're coming"
   },
   "status": {
     "title": "Order status",
@@ -471,7 +478,9 @@
     "displayTitle": "Make the menu easier to read",
     "displayBody": "Bigger text, bigger buttons or higher contrast.",
     "priorityTitle": "Senior, PWD or pregnant?",
-    "priorityBody": "Priority service and the 20% discount."
+    "priorityBody": "Priority service and the 20% discount.",
+    "crewTitle": "Ask a crew member",
+    "crewBody": "Someone from the counter comes to your table."
   },
   "keypad": {
     "title": "Order by code",
@@ -485,5 +494,10 @@
   "speech": {
     "readAloud": "Read aloud",
     "price": "{{amount}} pesos"
+  },
+  "crew": {
+    "called": "A crew member has been asked to come",
+    "coming": "A crew member is coming to Table {{number}}",
+    "onTheWay": "A crew member is on the way"
   }
 }

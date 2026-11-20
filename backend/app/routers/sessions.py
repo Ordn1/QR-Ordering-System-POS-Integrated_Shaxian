@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 
 from app.core.customer import CurrentDevice
 from app.core.deps import DbSession
 from app.models import Session, SessionDevice, Table
 from app.models.enums import Language, PriorityStatus, UiMode
+from app.schemas.assistance import AssistanceRead, AssistanceWrite
 from app.schemas.session import (
     DeclarationWrite,
     DeviceProfileWrite,
@@ -14,6 +15,7 @@ from app.schemas.session import (
     TableCartRead,
 )
 from app.services import analytics as analytics_service
+from app.services import assistance as assistance_service
 from app.services import session as session_service
 from app.websocket import events
 
@@ -164,3 +166,26 @@ async def sync_device_cart(
     return await session_service.get_table_cart(
         db, session_id, device.device_id, payload.language.value
     )
+
+@router.post("/{session_id}/assistance", response_model=AssistanceRead)
+async def ask_for_help(
+    session_id: int,
+    payload: AssistanceWrite,
+    response: Response,
+    db: DbSession,
+    device: CurrentDevice,
+) -> AssistanceRead:
+    """Ask for a crew member to come to the table. Asking again while waiting changes nothing."""
+    request, created = await assistance_service.request_help(
+        db, session_id, device, payload.reason
+    )
+    response.status_code = 201 if created else 200
+    if created:
+        await events.publish_assistance_changed(session_id)
+    return assistance_service.to_read(request)
+
+
+@router.get("/{session_id}/assistance", response_model=AssistanceRead | None)
+async def read_help(session_id: int, db: DbSession, device: CurrentDevice) -> AssistanceRead | None:
+    request = await assistance_service.current_request(db, session_id, device)
+    return assistance_service.to_read(request) if request is not None else None

@@ -410,7 +410,14 @@
     "idNeeded": "Suriin muna ang bawat ID bago markahang bayad ang order.",
     "idSaved": "Naitala ang pagsuri ng ID para sa {{queue}}",
     "idRemoved": "Inalis ang diskwento sa {{queue}}",
-    "idMissing": "Ilagay ang tatlong detalye ng ID para ma-verify."
+    "idMissing": "Ilagay ang tatlong detalye ng ID para ma-verify.",
+    "assistTitle": "Mga tawag ng tulong",
+    "assistNeeded": "Kailangan ng tulong sa Mesa {{table}}",
+    "assistPhone": "Telepono {{number}}",
+    "assistWaiting": "naghihintay nang {{count}} min",
+    "assistOffered": "tinanggap ang alok na tulong",
+    "assistAcknowledge": "Papunta na ako",
+    "assistOnTheWay": "Alam na ng Mesa {{table}} na papunta ka"
   },
   "status": {
     "title": "Katayuan ng order",
@@ -471,7 +478,9 @@
     "displayTitle": "Gawing mas madaling basahin",
     "displayBody": "Mas malaking teksto, mas malaking button o mas mataas na contrast.",
     "priorityTitle": "Senior, PWD o buntis?",
-    "priorityBody": "Priority service at ang 20% discount."
+    "priorityBody": "Priority service at ang 20% discount.",
+    "crewTitle": "Tumawag ng crew",
+    "crewBody": "May lalapit na staff mula sa counter sa inyong mesa."
   },
   "keypad": {
     "title": "Mag-order gamit ang code",
@@ -485,5 +494,10 @@
   "speech": {
     "readAloud": "Basahin nang malakas",
     "price": "{{amount}} piso"
+  },
+  "crew": {
+    "called": "Tinawag na ang isang crew",
+    "coming": "May crew na papunta sa Mesa {{number}}",
+    "onTheWay": "Papunta na ang crew"
   }
 }

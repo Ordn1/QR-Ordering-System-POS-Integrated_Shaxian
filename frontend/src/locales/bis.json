@@ -410,7 +410,14 @@
     "idNeeded": "Susiha una ang matag ID sa dili pa markahan nga bayad ang order.",
     "idSaved": "Natala ang pagsusi sa ID para sa {{queue}}",
     "idRemoved": "Gitangtang ang diskwento sa {{queue}}",
-    "idMissing": "Isulat ang tulo ka detalye sa ID aron ma-verify."
+    "idMissing": "Isulat ang tulo ka detalye sa ID aron ma-verify.",
+    "assistTitle": "Mga tawag sa tabang",
+    "assistNeeded": "Nanginahanglan og tabang ang Lamesa {{table}}",
+    "assistPhone": "Telepono {{number}}",
+    "assistWaiting": "naghulat {{count}} min",
+    "assistOffered": "gidawat ang tanyag nga tabang",
+    "assistAcknowledge": "Paingon na ko",
+    "assistOnTheWay": "Nahibalo na ang Lamesa {{table}} nga paingon ka"
   },
   "status": {
     "title": "Kahimtang sa order",
@@ -471,7 +478,9 @@
     "displayTitle": "Himoang mas sayon basahon",
     "displayBody": "Mas dakong teksto, mas dakong button o mas taas nga contrast.",
     "priorityTitle": "Senior, PWD o mabdos?",
-    "priorityBody": "Priority service ug ang 20% discount."
+    "priorityBody": "Priority service ug ang 20% discount.",
+    "crewTitle": "Tawag og crew",
+    "crewBody": "Adunay staff gikan sa counter nga moduol sa inyong lamesa."
   },
   "keypad": {
     "title": "Pag-order gamit ang code",
@@ -485,5 +494,10 @@
   "speech": {
     "readAloud": "Basaha og kusog",
     "price": "{{amount}} pesos"
+  },
+  "crew": {
+    "called": "Gitawag na ang usa ka crew",
+    "coming": "Adunay crew nga paingon sa Lamesa {{number}}",
+    "onTheWay": "Paingon na ang crew"
   }
 }

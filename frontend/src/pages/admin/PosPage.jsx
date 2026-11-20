@@ -32,6 +32,7 @@ import SelectField from '../../components/shared/SelectField';
 import TextInput from '../../components/shared/TextInput';
 import usePagination from '../../hooks/usePagination';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import AssistanceAlerts from '../../components/staff/AssistanceAlerts';
 import { peso, queueLabel, shortDate } from '../../lib/format';
 import { menuImageUrl } from '../../lib/menuImage';
 import { toast } from '../../store/toastStore';
@@ -119,7 +120,10 @@ export default function PosPage() {
     load();
   }, [load]);
 
-  useWebSocket('/ws/kitchen', load);
+  useWebSocket(
+    '/ws/kitchen',
+    useCallback((payload) => payload?.type !== 'assistance_changed' && load(), [load]),
+  );
 
   const pendingQrOrders = useMemo(
     () =>
@@ -583,6 +587,8 @@ export default function PosPage() {
           </Button>
         </div>
       </header>
+
+      <AssistanceAlerts />
 
       {activeTab === 'register' ? (
         <div className="stack-4">

@@ -22,3 +22,7 @@ export const fetchTableCart = (sessionId, language = 'en') =>
 
 export const syncDeviceCart = (sessionId, items, language = 'en') =>
   api.patch(`/sessions/${sessionId}/cart`, { items, language });
+export const requestAssistance = (sessionId, reason = 'asked') =>
+  api.post(`/sessions/${sessionId}/assistance`, { reason });
+
+export const readAssistance = (sessionId) => api.get(`/sessions/${sessionId}/assistance`);
