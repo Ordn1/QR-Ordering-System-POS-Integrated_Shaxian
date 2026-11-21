@@ -23,7 +23,6 @@ from app.schemas.queue import (
     CashPaymentWrite,
     OrderStatusRead,
     PendingVerificationRead,
-    PriorityVerifyWrite,
     QueueEntryRead,
     QueueItemRead,
     StatusWrite,
@@ -200,9 +199,6 @@ async def record_verification(
         payload.log_id,
         staff.staff_id,
         payload.outcome == "verified",
-        payload.id_last4,
-        payload.cardholder_name,
-        payload.issuing_lgu,
     )
     await events.publish_status(transaction)
     await events.publish_cart_changed(transaction.session_id)
@@ -216,18 +212,9 @@ async def record_verification(
 
 
 @router.post("/{txn_id}/verify-id", response_model=OrderStatusRead)
-async def verify_id(
-    txn_id: int, payload: PriorityVerifyWrite, db: DbSession, staff: AnyStaff
-) -> OrderStatusRead:
-    """Verify the next pending senior or PWD ID on this order; used by the POS and queue panel."""
-    transaction = await verification_service.verify_next(
-        db,
-        txn_id,
-        staff.staff_id,
-        payload.id_last4,
-        payload.cardholder_name,
-        payload.issuing_lgu,
-    )
+async def verify_id(txn_id: int, db: DbSession, staff: AnyStaff) -> OrderStatusRead:
+    """Staff confirmed the next pending senior or PWD card on this order is legit."""
+    transaction = await verification_service.verify_next(db, txn_id, staff.staff_id)
     await events.publish_status(transaction)
     await events.publish_cart_changed(transaction.session_id)
     await events.publish_session_changed(transaction.session_id)

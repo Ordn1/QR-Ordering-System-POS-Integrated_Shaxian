@@ -534,6 +534,23 @@
   padding: 0 var(--space-2);
 }
 
+.cash-id-prompt {
+  margin: 0;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+/* Verify ID modal: three choices stacked full-width so none overflow the dialog. */
+.id-check-footer {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.id-check-footer > button {
+  width: 100%;
+}
+
 .cash-id-actions {
   display: flex;
   justify-content: flex-end;

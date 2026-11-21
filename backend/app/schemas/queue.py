@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import (
     PaymentMethod,
@@ -11,7 +11,6 @@ from app.models.enums import (
     SessionType,
     TxnStatus,
 )
-from app.schemas.fields import ALPHA, ALPHANUMERIC, sized
 
 
 class PendingVerificationRead(BaseModel):
@@ -28,21 +27,13 @@ class PendingVerificationRead(BaseModel):
 
 
 class VerificationWrite(BaseModel):
+    """The cashier looked at the physical OSCA / PWD card and judged it legit or not.
+
+    The card details are no longer typed in; the staff member's confirmation is the record.
+    """
+
     log_id: int = Field(ge=1)
     outcome: Literal["verified", "rejected"]
-    id_last4: str | None = Field(default=None, pattern=r"^[0-9]{4}$")
-    cardholder_name: sized(80, ALPHA) | None = None
-    issuing_lgu: sized(50, ALPHANUMERIC) | None = None
-
-    @model_validator(mode="after")
-    def details_for_verified(self) -> "VerificationWrite":
-        if self.outcome == "verified" and not (
-            self.id_last4 and self.cardholder_name and self.issuing_lgu
-        ):
-            raise ValueError(
-                "Enter the last 4 ID digits, the cardholder's name and the issuing LGU."
-            )
-        return self
 
 
 class QueueItemRead(BaseModel):
@@ -91,12 +82,6 @@ class StatusWrite(BaseModel):
 
 class CashPaymentWrite(BaseModel):
     cash_tendered: Decimal | None = None
-
-
-class PriorityVerifyWrite(BaseModel):
-    id_last4: sized(4, r"^[0-9]{4}$")
-    cardholder_name: sized(80, ALPHA)
-    issuing_lgu: sized(50, ALPHA)
 
 
 class PaymentShareStatusRead(BaseModel):

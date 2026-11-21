@@ -34,10 +34,6 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
   const since = entry?.prep_started_at ?? entry?.entered_queue_at;
   const [now, setNow] = useState(0);
   const [verifying, setVerifying] = useState(false);
-  const [idLast4, setIdLast4] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
-  const [issuingLgu, setIssuingLgu] = useState('Davao City');
-  const [errors, setErrors] = useState({});
   const [savingVerif, setSavingVerif] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [localVerified, setLocalVerified] = useState(false);
@@ -52,11 +48,7 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
 
   useEffect(() => {
     setLocalVerified(Boolean(entry?.id_verified));
-    setIdLast4(entry?.id_last4 || '');
-    setCardholderName(entry?.cardholder_name || '');
-    setIssuingLgu(entry?.issuing_lgu || 'Davao City');
-    setErrors({});
-  }, [entry?.txn_id, entry?.id_verified, entry?.id_last4, entry?.cardholder_name, entry?.issuing_lgu]);
+  }, [entry?.txn_id, entry?.id_verified]);
 
   const clock = since ? elapsed(since, now) : '00:00:00';
   const mins = since ? elapsedMinutes(since, now) : 0;
@@ -87,29 +79,9 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
       : t('staff.upNext');
 
   async function submitVerification() {
-    const nextErrors = {};
-    if (!/^[0-9]{4}$/.test(idLast4.trim())) {
-      nextErrors.idLast4 = 'Enter the last 4 digits of the presented ID.';
-    }
-    if (cardholderName.trim().length < 2) {
-      nextErrors.cardholderName = 'Enter the cardholder name from the ID.';
-    }
-    if (issuingLgu.trim().length < 2) {
-      nextErrors.issuingLgu = 'Enter the issuing city or municipality.';
-    }
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      return;
-    }
-
-    setErrors({});
     setSavingVerif(true);
     try {
-      await queueApi.verifyPriorityId(entry.txn_id, {
-        id_last4: idLast4.trim(),
-        cardholder_name: cardholderName.trim(),
-        issuing_lgu: issuingLgu.trim(),
-      });
+      await queueApi.verifyPriorityId(entry.txn_id);
       setLocalVerified(true);
       setVerifying(false);
       toast.success(`Verified ${entry.declared_priority_status.toUpperCase()} ID for ${queueLabel(entry.queue_number)}.`);
@@ -219,7 +191,7 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
         {needsIdCheck ? (
           <Button variant="secondary" onClick={() => setVerifying(true)}>
             <ShieldCheck size={16} />
-            {localVerified ? 'Update Verified ID' : 'Verify Senior / PWD ID'}
+            Verify Senior / PWD ID
           </Button>
         ) : null}
         {entry.status === 'pending' ? (
@@ -236,52 +208,31 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
           size="small"
           onClose={() => setVerifying(false)}
           footer={
-            <>
-              <Button variant="secondary" data-modal-cancel="true" onClick={() => setVerifying(false)}>
-                {t('common.cancel')}
+            <div className="id-check-footer">
+              <Button
+                variant="primary"
+                icon={ShieldCheck}
+                loading={savingVerif}
+                disabled={revoking}
+                onClick={submitVerification}
+              >
+                {t('staff.idConfirmLegit')}
               </Button>
-              <Button variant="secondary" loading={revoking} onClick={handleRevokeDiscount}>
+              <Button
+                variant="secondary"
+                loading={revoking}
+                disabled={savingVerif}
+                onClick={handleRevokeDiscount}
+              >
                 No Valid ID — Revert Price
               </Button>
-              <Button variant="primary" loading={savingVerif} onClick={submitVerification}>
-                Save Verification
+              <Button variant="ghost" data-modal-cancel="true" onClick={() => setVerifying(false)}>
+                {t('common.cancel')}
               </Button>
-            </>
+            </div>
           }
         >
-          <div className="stack-3">
-            <TextInput
-              label="Last 4 digits of presented OSCA / PWD ID"
-              required
-              inputClass="numeric"
-              inputMode="numeric"
-              maxLength={4}
-              hint="e.g. 4821"
-              value={idLast4}
-              error={errors.idLast4}
-              onChange={(event) => setIdLast4(event.target.value)}
-            />
-            <TextInput
-              label="Cardholder full name"
-              required
-              inputClass="alpha"
-              maxLength={80}
-              hint="Name printed on physical ID card"
-              value={cardholderName}
-              error={errors.cardholderName}
-              onChange={(event) => setCardholderName(event.target.value)}
-            />
-            <TextInput
-              label="Issuing LGU (City / Municipality)"
-              required
-              inputClass="alpha"
-              maxLength={50}
-              hint="e.g. Davao City"
-              value={issuingLgu}
-              error={errors.issuingLgu}
-              onChange={(event) => setIssuingLgu(event.target.value)}
-            />
-          </div>
+          <p className="cash-id-prompt">{t('staff.idLookPrompt')}</p>
         </Modal>
       ) : null}
 

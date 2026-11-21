@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, CreditCard, Receipt, Store } from 'lucide-react';
+import { Check, CheckCircle2, CreditCard, QrCode, Receipt, Store } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -226,7 +226,8 @@ export default function CheckoutPage() {
 
       const receipt = await placeOrder(session.session_id, {
         items: itemsToSend,
-        payment_method: chosenMethod,
+        payment_method: chosenMethod === 'cashier' ? 'cashier' : 'online',
+        online_channel: chosenMethod === 'qrph' ? 'qrph' : 'checkout',
         language: langCode,
         origin_url: window.location.origin,
         checkout_scope: activeScope,
@@ -431,12 +432,32 @@ export default function CheckoutPage() {
             </div>
             <div className="payment-card-text">
               <span className="payment-card-title">{t('checkout.payOnline')}</span>
-              {onlineBlocked ? (
-                <span className="payment-card-hint">{t('checkout.onlineNeedsId')}</span>
-              ) : null}
+              <span className="payment-card-hint">
+                {onlineBlocked ? t('checkout.onlineNeedsId') : t('checkout.payOnlineHint')}
+              </span>
             </div>
             <div className="payment-card-check">
               {chosenMethod === 'online' ? <Check size={16} strokeWidth={2.5} /> : null}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className={`payment-card${chosenMethod === 'qrph' ? ' selected' : ''}`}
+            disabled={onlineBlocked}
+            onClick={() => setMethod('qrph')}
+          >
+            <div className="payment-card-icon-wrap">
+              <QrCode size={22} strokeWidth={1.75} />
+            </div>
+            <div className="payment-card-text">
+              <span className="payment-card-title">{t('checkout.payQrph')}</span>
+              <span className="payment-card-hint">
+                {onlineBlocked ? t('checkout.onlineNeedsId') : t('checkout.payQrphHint')}
+              </span>
+            </div>
+            <div className="payment-card-check">
+              {chosenMethod === 'qrph' ? <Check size={16} strokeWidth={2.5} /> : null}
             </div>
           </button>
         </div>

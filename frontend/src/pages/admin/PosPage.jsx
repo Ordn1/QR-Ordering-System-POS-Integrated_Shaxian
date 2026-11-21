@@ -5,6 +5,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  ShieldCheck,
   ShoppingBag,
   Trash2,
   UtensilsCrossed,
@@ -76,9 +77,8 @@ export default function PosPage() {
 
   const [tableId, setTableId] = useState('TBL-0001');
   const [priorityStatus, setPriorityStatus] = useState('standard');
-  const [idLast4, setIdLast4] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
-  const [issuingLgu, setIssuingLgu] = useState('Davao City');
+  const [walkInIdConfirmed, setWalkInIdConfirmed] = useState(false);
+  const [confirmingId, setConfirmingId] = useState(false);
   const [posCart, setPosCart] = useState([]);
   const [cashTendered, setCashTendered] = useState('');
   const [submittingOrder, setSubmittingOrder] = useState(false);
@@ -145,9 +145,6 @@ export default function PosPage() {
   function selectRecalledOrder(entry) {
     setRecalledTxnId(entry.txn_id);
     setQueueCodeInput(queueLabel(entry.queue_number));
-    setIdLast4(entry.id_last4 || '');
-    setCardholderName(entry.cardholder_name || '');
-    setIssuingLgu(entry.issuing_lgu || 'Davao City');
     const due =
       Number(entry.unpaid_amount) > 0
         ? Number(entry.unpaid_amount)
@@ -183,9 +180,7 @@ export default function PosPage() {
     setRecalledTxnId(null);
     setQueueCodeInput('');
     setCashTendered('');
-    setIdLast4('');
-    setCardholderName('');
-    setIssuingLgu('Davao City');
+    setWalkInIdConfirmed(false);
   }
 
   const walkInDiscounted = priorityStatus === 'senior' || priorityStatus === 'pwd';
@@ -283,9 +278,29 @@ export default function PosPage() {
     setPosCart([]);
     setCashTendered('');
     setPriorityStatus('standard');
-    setIdLast4('');
-    setCardholderName('');
-    setIssuingLgu('Davao City');
+    setWalkInIdConfirmed(false);
+  }
+
+  async function handleConfirmRecalledId() {
+    if (!recalledOrder) {
+      return;
+    }
+    setConfirmingId(true);
+    try {
+      const updated = await queueApi.verifyPriorityId(recalledOrder.txn_id);
+      await load();
+      const nextDue = Number(updated?.unpaid_amount || updated?.net_amount || 0);
+      if (nextDue > 0) {
+        setCashTendered(nextDue.toFixed(2));
+      }
+      toast.success(
+        `${recalledOrder.declared_priority_status.toUpperCase()} ID confirmed legit for ${queueLabel(recalledOrder.queue_number)}.`,
+      );
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setConfirmingId(false);
+    }
   }
 
   async function handleRevokeRecalledDiscount() {
@@ -317,20 +332,10 @@ export default function PosPage() {
     const needsIdVerification = (recalledOrder.pending_verifications?.length ?? 0) > 0;
 
     if (needsIdVerification) {
-      if (!/^[0-9]{4}$/.test(idLast4.trim())) {
-        toast.error(
-          'Enter the last 4 digits of the presented Senior/PWD ID card (or click "No Valid ID Presented").',
-        );
-        return;
-      }
-      if (cardholderName.trim().length < 2) {
-        toast.error('Enter the cardholder name from the Senior/PWD ID card.');
-        return;
-      }
-      if (issuingLgu.trim().length < 2) {
-        toast.error('Enter the issuing LGU from the Senior/PWD ID card.');
-        return;
-      }
+      toast.error(
+        'Check the physical Senior/PWD ID first: tap "Confirm ID is Legit" or "No Valid ID Presented".',
+      );
+      return;
     }
 
     if (!validTender) {
@@ -340,14 +345,6 @@ export default function PosPage() {
 
     setSubmittingOrder(true);
     try {
-      if (needsIdVerification) {
-        await queueApi.verifyPriorityId(recalledOrder.txn_id, {
-          id_last4: idLast4.trim(),
-          cardholder_name: cardholderName.trim(),
-          issuing_lgu: issuingLgu.trim(),
-        });
-      }
-
       const result = await queueApi.confirmPayment(
         recalledOrder.txn_id,
         numericTendered.toFixed(2),
@@ -405,19 +402,9 @@ export default function PosPage() {
       toast.error('Add at least one dish to the POS ticket first.');
       return;
     }
-    if (walkInDiscounted) {
-      if (!/^[0-9]{4}$/.test(idLast4.trim())) {
-        toast.error('Enter the last 4 digits of the presented Senior/PWD ID card.');
-        return;
-      }
-      if (cardholderName.trim().length < 2) {
-        toast.error('Enter the cardholder name from the Senior/PWD ID card.');
-        return;
-      }
-      if (issuingLgu.trim().length < 2) {
-        toast.error('Enter the issuing LGU from the Senior/PWD ID card.');
-        return;
-      }
+    if (walkInDiscounted && !walkInIdConfirmed) {
+      toast.error('Check the physical Senior/PWD ID card and tap "Confirm ID is Legit" first.');
+      return;
     }
     if (!validTender) {
       toast.error(`Enter cash tendered of at least ${peso(walkInTotals.net)}.`);
@@ -429,9 +416,7 @@ export default function PosPage() {
       const result = await createPosOrder({
         table_id: tableId,
         declared_priority_status: priorityStatus,
-        id_last4: walkInDiscounted ? idLast4.trim() : null,
-        cardholder_name: walkInDiscounted ? cardholderName.trim() : null,
-        issuing_lgu: walkInDiscounted ? issuingLgu.trim() : null,
+        id_confirmed: walkInDiscounted && walkInIdConfirmed,
         cash_tendered: numericTendered.toFixed(2),
         items: posCart.map((line) => ({
           item_id: line.item_id,
@@ -916,7 +901,7 @@ export default function PosPage() {
                               : ''}
                           </strong>
                           {!recalledOrder.pending_verifications?.length ? (
-                            <Badge value="paid" label={`Verified (•••• ${recalledOrder.id_last4})`} />
+                            <Badge value="paid" label="ID Verified" />
                           ) : (
                             <Badge value="pending" label="Inspect Physical ID" />
                           )}
@@ -924,42 +909,20 @@ export default function PosPage() {
 
                         {recalledOrder.pending_verifications?.length ? (
                           <>
-                            <div
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns: '120px 1fr',
-                                gap: 'var(--space-2)',
-                              }}
+                            <p className="cash-id-prompt">{t('staff.idLookPrompt')}</p>
+                            <Button
+                              variant="primary"
+                              icon={ShieldCheck}
+                              loading={confirmingId}
+                              disabled={revokingDiscount}
+                              onClick={handleConfirmRecalledId}
                             >
-                              <TextInput
-                                label="ID Last 4"
-                                required
-                                inputClass="numeric"
-                                inputMode="numeric"
-                                maxLength={4}
-                                value={idLast4}
-                                onChange={(event) => setIdLast4(event.target.value)}
-                              />
-                              <TextInput
-                                label="Issuing LGU"
-                                required
-                                inputClass="alpha"
-                                maxLength={50}
-                                value={issuingLgu}
-                                onChange={(event) => setIssuingLgu(event.target.value)}
-                              />
-                            </div>
-                            <TextInput
-                              label="Cardholder Full Name"
-                              required
-                              inputClass="alpha"
-                              maxLength={80}
-                              value={cardholderName}
-                              onChange={(event) => setCardholderName(event.target.value)}
-                            />
+                              Confirm ID is Legit
+                            </Button>
                             <Button
                               variant="secondary"
                               loading={revokingDiscount}
+                              disabled={confirmingId}
                               onClick={handleRevokeRecalledDiscount}
                             >
                               No Valid ID Presented — Revert to Standard Price
@@ -1145,7 +1108,10 @@ export default function PosPage() {
                         label="Customer Type"
                         required
                         value={priorityStatus}
-                        onChange={(event) => setPriorityStatus(event.target.value)}
+                        onChange={(event) => {
+                          setPriorityStatus(event.target.value);
+                          setWalkInIdConfirmed(false);
+                        }}
                         options={PRIORITY_OPTIONS}
                       />
                     </div>
@@ -1159,42 +1125,36 @@ export default function PosPage() {
                           background: 'var(--cream, #f7f3eb)',
                         }}
                       >
-                        <strong style={{ fontSize: 'var(--font-sm)' }}>
-                          Physical OSCA / PWD ID Verification (20% Off + VAT Exempt)
-                        </strong>
                         <div
                           style={{
-                            display: 'grid',
-                            gridTemplateColumns: '110px 1fr',
-                            gap: 'var(--space-2)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
                           }}
                         >
-                          <TextInput
-                            label="ID Last 4"
-                            required
-                            inputClass="numeric"
-                            inputMode="numeric"
-                            maxLength={4}
-                            value={idLast4}
-                            onChange={(event) => setIdLast4(event.target.value)}
-                          />
-                          <TextInput
-                            label="Issuing LGU"
-                            required
-                            inputClass="alpha"
-                            maxLength={50}
-                            value={issuingLgu}
-                            onChange={(event) => setIssuingLgu(event.target.value)}
-                          />
+                          <strong style={{ fontSize: 'var(--font-sm)' }}>
+                            Physical OSCA / PWD ID Verification (20% Off + VAT Exempt)
+                          </strong>
+                          {walkInIdConfirmed ? (
+                            <Badge value="paid" label="ID Verified" />
+                          ) : (
+                            <Badge value="pending" label="Inspect Physical ID" />
+                          )}
                         </div>
-                        <TextInput
-                          label="Cardholder Full Name"
-                          required
-                          inputClass="alpha"
-                          maxLength={80}
-                          value={cardholderName}
-                          onChange={(event) => setCardholderName(event.target.value)}
-                        />
+                        <p className="cash-id-prompt">{t('staff.idLookPrompt')}</p>
+                        {walkInIdConfirmed ? (
+                          <Button variant="secondary" onClick={() => setWalkInIdConfirmed(false)}>
+                            Undo ID Confirmation
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="primary"
+                            icon={ShieldCheck}
+                            onClick={() => setWalkInIdConfirmed(true)}
+                          >
+                            Confirm ID is Legit
+                          </Button>
+                        )}
                       </div>
                     ) : null}
 

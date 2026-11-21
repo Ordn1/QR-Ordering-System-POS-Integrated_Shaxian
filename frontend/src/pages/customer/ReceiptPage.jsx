@@ -11,6 +11,7 @@ import {
 
 import { fetchReceipt, verifyOrderPayment } from '../../api/orders';
 import OrderProgress from '../../components/customer/progress/OrderProgress';
+import QrPhPanel from '../../components/customer/QrPhPanel';
 import Badge from '../../components/shared/Badge';
 import Button from '../../components/shared/Button';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -113,6 +114,15 @@ export default function ReceiptPage() {
     }
   }, [session?.session_id, txnId, shouldVerify, langCode, runVerification]);
 
+  const handleQrPhPaid = useCallback(() => {
+    reloadReceipt();
+    toast.success(
+      t('receipt.paidOnlineToast', {
+        defaultValue: 'Online payment confirmed!',
+      }),
+    );
+  }, [reloadReceipt, t]);
+
   useEffect(() => {
     if (wasCancelled) {
       toast.info(
@@ -157,6 +167,7 @@ export default function ReceiptPage() {
   const myShare = shares.find((s) => s.is_me);
   const isCashierOrder = receipt.payment_method === 'cashier' || receipt.fallback_to_cashier;
   const hasPriorityDiscount = Number(receipt.discount_amount) > 0;
+  const awaitingQrPh = Boolean(receipt.qrph_pending);
 
   return (
     <main className="customer-page">
@@ -179,13 +190,23 @@ export default function ReceiptPage() {
         <p className="receipt-note">
           {receipt.payment_status === 'paid'
             ? t('receipt.paidOnline')
-            : isCashierOrder && !hasMultipleShares
-              ? `Present Queue Code ${queueLabel(receipt.queue_number)} at the Cashier POS Counter to pay.`
-              : hasMultipleShares
-                ? 'Kitchen preparation begins once all payment shares are settled.'
-                : `Present Queue Code ${queueLabel(receipt.queue_number)} at the Cashier POS Counter to pay.`}
+            : awaitingQrPh
+              ? t('receipt.qrphNote')
+              : isCashierOrder && !hasMultipleShares
+                ? `Present Queue Code ${queueLabel(receipt.queue_number)} at the Cashier POS Counter to pay.`
+                : hasMultipleShares
+                  ? 'Kitchen preparation begins once all payment shares are settled.'
+                  : `Present Queue Code ${queueLabel(receipt.queue_number)} at the Cashier POS Counter to pay.`}
         </p>
       </section>
+
+      {awaitingQrPh && session?.session_id ? (
+        <QrPhPanel
+          sessionId={session.session_id}
+          txnId={receipt.txn_id}
+          onPaid={handleQrPhPaid}
+        />
+      ) : null}
 
       {hasPriorityDiscount ? (
         <section
@@ -286,7 +307,7 @@ export default function ReceiptPage() {
       </section>
 
       <div className="receipt-actions">
-        {myShare && myShare.status !== 'paid' && myShare.method === 'online' ? (
+        {myShare && myShare.status !== 'paid' && myShare.method === 'online' && !awaitingQrPh ? (
           <Button
             variant="primary"
             icon={CreditCard}

@@ -1,6 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import Language, PaymentMethod, PaymentStatus, TxnStatus
@@ -20,6 +22,9 @@ class OrderCreate(BaseModel):
     language: Language = Language.EN
     origin_url: str | None = Field(default=None, max_length=120)
     checkout_scope: str = Field(default="single", pattern=r"^(single|table|split)$")
+    # How an online payment is collected: PayMongo's hosted page (GCash, Maya, card),
+    # or a QR Ph code shown on our own receipt page so the diner never leaves the system.
+    online_channel: Literal["checkout", "qrph"] = "checkout"
 
 
 class QuoteCreate(BaseModel):
@@ -100,6 +105,20 @@ class ReceiptRead(BaseModel):
     payment_status: PaymentStatus
     checkout_url: str | None = None
     fallback_to_cashier: bool = False
+    # This phone's share is waiting on a QR Ph scan shown on the receipt page.
+    qrph_pending: bool = False
     discount_status: DiscountStatus = "none"
     lines: list[ReceiptLine]
     shares: list[PaymentShareRead] = Field(default_factory=list)
+
+
+class QrPhCodeRead(BaseModel):
+    """The QR Ph code a diner scans with any bank or e-wallet app."""
+
+    payment_id: int
+    status: PaymentStatus
+    amount: Decimal
+    image_url: str | None = None
+    expires_at: datetime | None = None
+    # Sandbox only: PayMongo's page for simulating a successful scan.
+    test_url: str | None = None

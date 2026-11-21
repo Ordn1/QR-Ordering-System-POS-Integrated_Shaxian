@@ -1,4 +1,4 @@
-import { CheckCircle2, Printer } from 'lucide-react';
+import { CheckCircle2, Printer, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,30 +11,8 @@ import { claimLabel } from '../../lib/shareLabel';
 
 const BILLS = [100, 200, 500, 1000];
 
-const EMPTY_CHECK = { id_last4: '', cardholder_name: '', issuing_lgu: '' };
-
 function IdCheck({ claim, busy, onRecord }) {
   const { t } = useTranslation();
-  const [check, setCheck] = useState(EMPTY_CHECK);
-  const [error, setError] = useState(null);
-
-  const update = (field) => (event) => {
-    setError(null);
-    setCheck((current) => ({ ...current, [field]: event.target.value }));
-  };
-
-  function verify() {
-    const filled = {
-      id_last4: check.id_last4.trim(),
-      cardholder_name: check.cardholder_name.trim(),
-      issuing_lgu: check.issuing_lgu.trim(),
-    };
-    if (!/^[0-9]{4}$/.test(filled.id_last4) || !filled.cardholder_name || !filled.issuing_lgu) {
-      setError(t('staff.idMissing'));
-      return;
-    }
-    onRecord(claim, { outcome: 'verified', ...filled });
-  }
 
   return (
     <fieldset className="cash-id-check">
@@ -44,32 +22,7 @@ function IdCheck({ claim, busy, onRecord }) {
         <Badge value={claim.declared_status} />
       </legend>
 
-      <TextInput
-        label={t('staff.idLast4')}
-        required
-        inputMode="numeric"
-        inputClass="numeric"
-        maxLength={4}
-        value={check.id_last4}
-        onChange={update('id_last4')}
-        error={error}
-      />
-      <TextInput
-        label={t('staff.idCardholder')}
-        required
-        inputClass="alpha"
-        maxLength={80}
-        value={check.cardholder_name}
-        onChange={update('cardholder_name')}
-      />
-      <TextInput
-        label={t('staff.idLgu')}
-        required
-        inputClass="alphanumeric"
-        maxLength={50}
-        value={check.issuing_lgu}
-        onChange={update('issuing_lgu')}
-      />
+      <p className="cash-id-prompt">{t('staff.idLookPrompt')}</p>
 
       <div className="cash-id-actions">
         <Button
@@ -79,8 +32,13 @@ function IdCheck({ claim, busy, onRecord }) {
         >
           {t('staff.idRejected')}
         </Button>
-        <Button variant="primary" loading={busy} onClick={verify}>
-          {t('staff.idVerified')}
+        <Button
+          variant="primary"
+          icon={ShieldCheck}
+          loading={busy}
+          onClick={() => onRecord(claim, { outcome: 'verified' })}
+        >
+          {t('staff.idConfirmLegit')}
         </Button>
       </div>
     </fieldset>

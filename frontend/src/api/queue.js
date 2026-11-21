@@ -15,8 +15,8 @@ export const latestOrders = (sessionId) => api.get(`/orders/${sessionId}/latest`
 
 export const recordVerification = (txnId, check) =>
   api.post(`/queue/${txnId}/verification`, check);
-export const verifyPriorityId = (txnId, payload) =>
-  api.post(`/queue/${txnId}/verify-id`, payload);
+// Staff looked at the physical OSCA / PWD card and confirmed it is legit.
+export const verifyPriorityId = (txnId) => api.post(`/queue/${txnId}/verify-id`);
 
 export const revokePriorityDiscount = (txnId) =>
   api.post(`/queue/${txnId}/revoke-discount`);

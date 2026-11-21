@@ -1,6 +1,5 @@
 import hashlib
 import json
-import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -78,16 +77,10 @@ async def create_counter_order(
     declared = payload.declared_priority_status
     discount_eligible = declared in (PriorityStatus.SENIOR, PriorityStatus.PWD)
 
-    if discount_eligible:
-        last4 = (payload.id_last4 or "").strip()
-        holder = (payload.cardholder_name or "").strip()
-        lgu = (payload.issuing_lgu or "").strip()
-        if not re.match(r"^[0-9]{4}$", last4):
-            raise BusinessRuleError("Enter the last 4 digits of the Senior/PWD ID card.")
-        if len(holder) < 2:
-            raise BusinessRuleError("Enter the cardholder name from the Senior/PWD ID card.")
-        if len(lgu) < 2:
-            raise BusinessRuleError("Enter the issuing LGU from the Senior/PWD ID card.")
+    if discount_eligible and not payload.id_confirmed:
+        raise BusinessRuleError(
+            "Check the physical Senior/PWD ID card and confirm it is legit first."
+        )
 
     item_ids = [line.item_id for line in payload.items]
     items_map = {
@@ -156,9 +149,6 @@ async def create_counter_order(
                 device_id=device.device_id,
                 declared_status=declared,
                 id_presented=discount_eligible,
-                id_last4=(payload.id_last4 or "").strip() if discount_eligible else None,
-                cardholder_name=(payload.cardholder_name or "").strip() if discount_eligible else None,
-                issuing_lgu=(payload.issuing_lgu or "").strip() if discount_eligible else None,
                 verified_by=staff_id if discount_eligible else None,
                 verified_at=now if discount_eligible else None,
                 discount_eligible=discount_eligible,

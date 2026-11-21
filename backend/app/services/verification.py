@@ -76,11 +76,11 @@ async def record_check(
     log_id: int,
     staff_id: str,
     verified: bool,
-    id_last4: str | None,
-    cardholder_name: str | None,
-    issuing_lgu: str | None,
 ) -> Transaction:
-    """Record the cashier's ID check and re-price the claiming phone's lines to match."""
+    """Record the cashier's ID check and re-price the claiming phone's lines to match.
+
+    The staff member only confirms that the physical card is legit; no card details are typed in.
+    """
     transaction = await db.get(Transaction, txn_id)
     if transaction is None:
         raise NotFoundError("That order no longer exists. Refresh the queue.")
@@ -97,9 +97,6 @@ async def record_check(
     }
 
     log.id_presented = verified
-    log.id_last4 = id_last4 if verified else None
-    log.cardholder_name = cardholder_name if verified else None
-    log.issuing_lgu = issuing_lgu if verified else None
     log.verified_by = staff_id
     log.verified_at = datetime.now(UTC)
     log.discount_eligible = verified
@@ -160,19 +157,10 @@ async def settle_cash(db: AsyncSession, txn_id: int, staff_id: str) -> Transacti
     return await queue_service.confirm_cash_payment(db, txn_id, staff_id)
 
 
-async def verify_next(
-    db: AsyncSession,
-    txn_id: int,
-    staff_id: str,
-    id_last4: str,
-    cardholder_name: str,
-    issuing_lgu: str,
-) -> Transaction:
+async def verify_next(db: AsyncSession, txn_id: int, staff_id: str) -> Transaction:
     """Verify the oldest pending claim on this order. A second senior at the table is a second call."""
     claims = await _claims_for(db, txn_id)
-    return await record_check(
-        db, txn_id, claims[0].log_id, staff_id, True, id_last4, cardholder_name, issuing_lgu
-    )
+    return await record_check(db, txn_id, claims[0].log_id, staff_id, True)
 
 
 async def revoke_pending(db: AsyncSession, txn_id: int, staff_id: str) -> Transaction:
@@ -180,7 +168,7 @@ async def revoke_pending(db: AsyncSession, txn_id: int, staff_id: str) -> Transa
     claims = await _claims_for(db, txn_id)
     transaction = None
     for claim in claims:
-        transaction = await record_check(db, txn_id, claim.log_id, staff_id, False, None, None, None)
+        transaction = await record_check(db, txn_id, claim.log_id, staff_id, False)
     return transaction
 
 

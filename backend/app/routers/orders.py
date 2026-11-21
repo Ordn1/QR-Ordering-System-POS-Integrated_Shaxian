@@ -10,6 +10,7 @@ from app.models.enums import Language, PaymentMethod, PaymentStatus
 from app.schemas.checkout import (
     OrderCreate,
     PaymentShareRead,
+    QrPhCodeRead,
     QuoteCreate,
     QuoteRead,
     QuoteShareRead,
@@ -97,6 +98,10 @@ async def build_receipt(
         payment_status=overall_status,
         checkout_url=checkout_url,
         fallback_to_cashier=fallback_to_cashier,
+        qrph_pending=(
+            payment_service.is_qrph(my_payment)
+            and my_payment.status is not PaymentStatus.PAID
+        ),
         discount_status=session_service.discount_status(declarations),
         lines=[
             ReceiptLine(
@@ -220,7 +225,11 @@ async def place_order(
         and active_payment.device_id == device.device_id
     ):
         checkout_url, fallback_to_cashier = await payment_service.initiate_online_payment(
-            db, transaction, active_payment, payload.origin_url
+            db,
+            transaction,
+            active_payment,
+            payload.origin_url,
+            channel=payload.online_channel,
         )
 
     await events.publish_new_order(transaction)
@@ -266,6 +275,18 @@ async def verify_order_payment(
     return await build_receipt(
         db, txn_id, language.value, current_device_id=device.device_id
     )
+
+
+@orders_router.get("/{session_id}/qrph/{txn_id}", response_model=QrPhCodeRead)
+async def get_qrph_code(
+    session_id: int, txn_id: int, db: DbSession, device: CurrentDevice
+) -> QrPhCodeRead:
+    """The QR Ph code for this phone's share; also reports when the scan has been paid."""
+    transaction, _, _ = await order_service.get_receipt(db, txn_id)
+    if transaction.session_id != session_id:
+        raise PermissionError("That order belongs to another table session.")
+    code = await payment_service.qrph_code(db, txn_id, device.device_id)
+    return QrPhCodeRead(**code)
 
 
 @router.get("", response_model=list[TransactionRead])

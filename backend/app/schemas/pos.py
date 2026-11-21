@@ -15,9 +15,8 @@ class PosOrderLineWrite(BaseModel):
 class PosOrderCreate(BaseModel):
     table_id: str = Field(min_length=8, max_length=8, pattern=r"^TBL-[0-9]{4}$")
     declared_priority_status: PriorityStatus = PriorityStatus.STANDARD
-    id_last4: str | None = None
-    cardholder_name: str | None = None
-    issuing_lgu: str | None = None
+    # The cashier pressed "Confirm ID is legit" after looking at the physical card.
+    id_confirmed: bool = False
     cash_tendered: Decimal
     items: list[PosOrderLineWrite] = Field(min_length=1)
 

@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 PAYMONGO_BASE_URL = "https://api.paymongo.com/v1"
 MIN_ONLINE_AMOUNT = Decimal("20.00")
 
+# Payment references: PayMongo hosted checkout sessions start with "cs_"; QR Ph
+# payments run on a payment intent ("pi_") whose QR we show on our own receipt page.
+CHECKOUT_PREFIX = "cs_"
+QRPH_PREFIX = "pi_"
+
 
 # Validate
 def _auth_headers() -> dict[str, str]:
@@ -86,13 +91,72 @@ def verify_paymongo_signature(
         raise AuthenticationError("Invalid PayMongo webhook signature.")
 
 
+async def _paymongo_post(
+    client: httpx.AsyncClient, path: str, attributes: dict[str, Any]
+) -> dict[str, Any]:
+    response = await client.post(
+        f"{PAYMONGO_BASE_URL}{path}",
+        headers=_auth_headers(),
+        json={"data": {"attributes": attributes}},
+    )
+    response.raise_for_status()
+    return response.json()["data"]
+
+
+async def _paymongo_get(client: httpx.AsyncClient, path: str) -> dict[str, Any]:
+    response = await client.get(f"{PAYMONGO_BASE_URL}{path}", headers=_auth_headers())
+    response.raise_for_status()
+    return response.json()["data"]
+
+
+async def _open_qrph_intent(
+    transaction: Transaction, payment: Payment, table: Table
+) -> str:
+    """Create a QR Ph payment intent for this share and return its id."""
+    centavos = int((payment.amount * Decimal("100")).to_integral_value())
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        intent = await _paymongo_post(
+            client,
+            "/payment_intents",
+            {
+                "amount": centavos,
+                "currency": "PHP",
+                "payment_method_allowed": ["qrph"],
+                "description": (
+                    f"Shaxian Snacks · Table {table.table_number} · "
+                    f"Order Q-{transaction.queue_number:03d}"
+                ),
+                "statement_descriptor": "Shaxian Snacks",
+                "metadata": {
+                    "txn_id": str(transaction.txn_id),
+                    "payment_id": str(payment.payment_id),
+                    "session_id": str(transaction.session_id),
+                    "queue_number": f"Q-{transaction.queue_number:03d}",
+                },
+            },
+        )
+        method = await _paymongo_post(client, "/payment_methods", {"type": "qrph"})
+        await _paymongo_post(
+            client,
+            f"/payment_intents/{intent['id']}/attach",
+            {"payment_method": method["id"]},
+        )
+    return intent["id"]
+
+
 # Create
 async def initiate_online_payment(
     db: AsyncSession,
     transaction: Transaction,
     payment: Payment,
     origin_url: str | None = None,
+    channel: str = "checkout",
 ) -> tuple[str | None, bool]:
+    """Start an online payment. Returns (hosted checkout url, fell back to cashier).
+
+    The "qrph" channel returns no url: the receipt page shows the QR itself and
+    watches for the payment, so the diner never has to find their way back.
+    """
     if (
         not settings.PAYMONGO_SECRET_KEY
         or payment.amount < MIN_ONLINE_AMOUNT
@@ -105,6 +169,20 @@ async def initiate_online_payment(
 
     ordering_session = await db.get(Session, transaction.session_id)
     table = await db.get(Table, ordering_session.table_id)
+
+    if channel == "qrph":
+        try:
+            payment.aggregator_ref = await _open_qrph_intent(transaction, payment, table)
+            payment.status = PaymentStatus.PENDING
+            await db.commit()
+            return None, False
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("PayMongo QR Ph unavailable (%s); falling back to cashier", exc)
+            payment.method = PaymentMethod.CASHIER
+            payment.status = PaymentStatus.PENDING
+            payment.aggregator_ref = "OFFLINE-FALLBACK"
+            await db.commit()
+            return None, True
     base_url = (origin_url or settings.FRONTEND_BASE_URL).strip().rstrip("/")
 
     # Read
@@ -128,7 +206,7 @@ async def initiate_online_payment(
                     f"Shaxian Snacks · Table {table.table_number} · "
                     f"Order Q-{transaction.queue_number:03d}"
                 ),
-                "payment_method_types": ["gcash", "paymaya", "card", "qrph"],
+                "payment_method_types": ["gcash", "paymaya", "card"],
                 "success_url": f"{receipt_base}&verify=1",
                 "cancel_url": f"{receipt_base}&cancelled=1",
                 "metadata": {
@@ -224,7 +302,7 @@ async def verify_online_payment(
         if p.status != PaymentStatus.PAID
         and p.method is PaymentMethod.ONLINE
         and p.aggregator_ref
-        and p.aggregator_ref.startswith("cs_")
+        and p.aggregator_ref.startswith((CHECKOUT_PREFIX, QRPH_PREFIX))
     ]
     if device_id is not None:
         dev_candidates = [p for p in candidates if p.device_id == device_id]
@@ -238,23 +316,26 @@ async def verify_online_payment(
     async with httpx.AsyncClient(timeout=8.0) as client:
         for payment in candidates:
             try:
-                response = await client.get(
-                    f"{PAYMONGO_BASE_URL}/checkout_sessions/{payment.aggregator_ref}",
-                    headers=_auth_headers(),
-                )
-                response.raise_for_status()
-                attrs = response.json()["data"]["attributes"]
-
-                payments_arr = attrs.get("payments") or []
-                intent_status = (
-                    (attrs.get("payment_intent") or {})
-                    .get("attributes", {})
-                    .get("status")
-                )
-                is_paid = intent_status == "succeeded" or any(
-                    p.get("attributes", {}).get("status") == "paid"
-                    for p in payments_arr
-                )
+                if payment.aggregator_ref.startswith(QRPH_PREFIX):
+                    intent = await _paymongo_get(
+                        client, f"/payment_intents/{payment.aggregator_ref}"
+                    )
+                    is_paid = intent["attributes"].get("status") == "succeeded"
+                else:
+                    session = await _paymongo_get(
+                        client, f"/checkout_sessions/{payment.aggregator_ref}"
+                    )
+                    attrs = session["attributes"]
+                    payments_arr = attrs.get("payments") or []
+                    intent_status = (
+                        (attrs.get("payment_intent") or {})
+                        .get("attributes", {})
+                        .get("status")
+                    )
+                    is_paid = intent_status == "succeeded" or any(
+                        p.get("attributes", {}).get("status") == "paid"
+                        for p in payments_arr
+                    )
                 if is_paid:
                     payment.status = PaymentStatus.PAID
                     payment.paid_at = datetime.now(UTC)
@@ -271,6 +352,74 @@ async def verify_online_payment(
         await _finalize_paid_transaction(db, transaction, all_payments)
 
     return all_payments
+
+
+def is_qrph(payment: Payment | None) -> bool:
+    return bool(
+        payment
+        and payment.method is PaymentMethod.ONLINE
+        and payment.aggregator_ref
+        and payment.aggregator_ref.startswith(QRPH_PREFIX)
+    )
+
+
+def _parse_expiry(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+# Read
+async def qrph_code(db: AsyncSession, txn_id: int, device_id: int) -> dict[str, Any]:
+    """The QR Ph code for this phone's share, settling it first if the scan already went through.
+
+    A QR Ph code lives for 30 minutes. Once it lapses unpaid, a fresh intent replaces it
+    so the diner can still pay without going back to the counter.
+    """
+    all_payments = await verify_online_payment(db, txn_id, device_id=device_id)
+    payment = next((p for p in all_payments if p.device_id == device_id), None)
+    if payment is None or not is_qrph(payment):
+        raise NotFoundError("This order has no QR Ph payment for your phone.")
+
+    result: dict[str, Any] = {
+        "payment_id": payment.payment_id,
+        "status": payment.status,
+        "amount": payment.amount,
+    }
+    if payment.status is PaymentStatus.PAID:
+        return result
+
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        intent = await _paymongo_get(client, f"/payment_intents/{payment.aggregator_ref}")
+    attrs = intent["attributes"]
+    code = (attrs.get("next_action") or {}).get("code") or {}
+    expires_at = _parse_expiry(code.get("expires_at"))
+
+    lapsed = (
+        attrs.get("status") == "awaiting_payment_method"
+        or not code.get("image_url")
+        or (expires_at is not None and expires_at <= datetime.now(UTC))
+    )
+    if lapsed:
+        transaction = await db.get(Transaction, txn_id)
+        ordering_session = await db.get(Session, transaction.session_id)
+        table = await db.get(Table, ordering_session.table_id)
+        payment.aggregator_ref = await _open_qrph_intent(transaction, payment, table)
+        await db.commit()
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            intent = await _paymongo_get(client, f"/payment_intents/{payment.aggregator_ref}")
+        code = (intent["attributes"].get("next_action") or {}).get("code") or {}
+        expires_at = _parse_expiry(code.get("expires_at"))
+
+    result.update(
+        image_url=code.get("image_url"),
+        expires_at=expires_at,
+        test_url=None if attrs.get("livemode") else code.get("test_url"),
+    )
+    return result
 
 
 # Update
@@ -306,9 +455,16 @@ async def process_paymongo_webhook(
                 break
 
     payment: Payment | None = None
-    if resource_id.startswith("cs_"):
+    if resource_id.startswith(CHECKOUT_PREFIX):
         payment = await db.scalar(
             select(Payment).where(Payment.aggregator_ref == resource_id)
+        )
+
+    # A QR Ph payment arrives as a "pay_" resource that names its payment intent.
+    intent_id = str(resource_attrs.get("payment_intent_id") or "")
+    if payment is None and intent_id.startswith(QRPH_PREFIX):
+        payment = await db.scalar(
+            select(Payment).where(Payment.aggregator_ref == intent_id)
         )
 
     if payment is None and metadata.get("payment_id"):
