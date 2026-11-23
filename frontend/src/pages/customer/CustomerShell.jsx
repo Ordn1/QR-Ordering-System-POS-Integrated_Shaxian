@@ -23,6 +23,7 @@ import NavHighlight from '../../components/customer/NavHighlight';
 import PriorityDeclaration from '../../components/customer/PriorityDeclaration';
 import RecommendationOverlay from '../../components/customer/RecommendationOverlay';
 import SearchOverlay from '../../components/customer/SearchOverlay';
+import Button from '../../components/shared/Button';
 import { useAssistance } from '../../hooks/useAssistance';
 import { useConfusionSignals } from '../../hooks/useConfusionSignals';
 import { useNavGuidance } from '../../hooks/useNavGuidance';
@@ -35,6 +36,8 @@ import { useSessionStore } from '../../store/sessionStore';
 import { toast } from '../../store/toastStore';
 
 const NAME_BY_LANGUAGE = { en: 'name_en', fil: 'name_fil', bis: 'name_bis' };
+
+const AFTER_ORDER_ROUTE = /\/(receipt|status)$/;
 
 function routeOf(pathname) {
   if (pathname.endsWith('/checkout')) {
@@ -134,7 +137,7 @@ export default function CustomerShell() {
 
   const handleSocketMessage = useCallback(
     (payload) => {
-      if (payload?.type === 'session_changed') {
+      if (payload?.type === 'session_changed' || payload?.type === 'session_ended') {
         refreshSession();
       }
       if (payload?.type === 'assistance_changed') {
@@ -253,6 +256,10 @@ export default function CustomerShell() {
     },
   ];
 
+  if (status === 'choosing') {
+    return <Navigate to={`/t/${qrToken}`} replace />;
+  }
+
   if (!session) {
     if (status === 'failed') {
       return <Navigate to={`/t/${qrToken}`} replace />;
@@ -306,6 +313,17 @@ export default function CustomerShell() {
         <div className="crew-strip" role="status">
           <BellRing size={20} strokeWidth={1.75} aria-hidden="true" />
           {t('crew.coming', { number: session.table_number })}
+        </div>
+      ) : null}
+
+      {session.ended && !AFTER_ORDER_ROUTE.test(pathname) ? (
+        <div className="session-closed-strip" role="status">
+          <span>
+            {t(session.end_reason === 'completed' ? 'entry.closedPaid' : 'entry.closedOther')}
+          </span>
+          <Button variant="secondary" onClick={() => navigate(`/t/${qrToken}`)}>
+            {t('entry.orderAgain')}
+          </Button>
         </div>
       ) : null}
 

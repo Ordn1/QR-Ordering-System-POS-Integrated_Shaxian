@@ -1,12 +1,10 @@
 from decimal import Decimal
-import logging
 
 from fastapi import APIRouter
 from sqlalchemy import select
 
-from app.config import settings
 from app.core.deps import AnyStaff, DbSession
-from app.core.exceptions import BusinessRuleError
+from app.core.exceptions import NotFoundError
 from app.models import (
     KitchenQueue,
     MenuItem,
@@ -16,27 +14,25 @@ from app.models import (
     Transaction,
     TransactionItem,
 )
-from app.models.enums import PaymentMethod, PaymentStatus
-from app.core.exceptions import NotFoundError
+from app.models.enums import PaymentMethod, PaymentStatus, Tender
 from app.schemas.assistance import AssistanceQueueRead, AssistanceRead
+from app.schemas.pos import TransmitResult
 from app.schemas.queue import (
-    CashPaymentWrite,
     OrderStatusRead,
     PendingVerificationRead,
     QueueEntryRead,
     QueueItemRead,
+    SettlementWrite,
     StatusWrite,
     VerificationWrite,
 )
 from app.services import assistance as assistance_service
 from app.services import order as order_service
-from app.services import pos as pos_service
+from app.services import payment as payment_service
 from app.services import queue as queue_service
 from app.services import session as session_service
 from app.services import verification as verification_service
 from app.websocket import events
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/queue", tags=["queue"])
 
@@ -73,7 +69,10 @@ async def acknowledge_assistance(
     return assistance_service.to_read(request)
 
 
-def claim_read(log: PriorityVerificationLog, label) -> PendingVerificationRead:
+def claim_read(
+    log: PriorityVerificationLog, label, lines: list[TransactionItem]
+) -> PendingVerificationRead:
+    if_valid, if_invalid = verification_service.price_deltas(lines, log.device_id)
     return PendingVerificationRead(
         log_id=log.log_id,
         device_id=log.device_id,
@@ -83,6 +82,8 @@ def claim_read(log: PriorityVerificationLog, label) -> PendingVerificationRead:
         is_companion=bool(label and label.managed_by_device_id is not None),
         managed_by_number=label.managed_by_number if label else None,
         managed_by_name=label.managed_by_name if label else None,
+        delta_if_valid=if_valid,
+        delta_if_invalid=if_invalid,
     )
 
 
@@ -110,14 +111,19 @@ async def build_entries(db: DbSession, rows: list) -> list[QueueEntryRead]:
         .order_by(TransactionItem.txi_id)
     )
     items_by_txn: dict[int, list[QueueItemRead]] = {}
+    lines_by_txn: dict[int, list[TransactionItem]] = {}
     for line, menu_item in item_rows.all():
+        lines_by_txn.setdefault(line.txn_id, []).append(line)
         items_by_txn.setdefault(line.txn_id, []).append(
             QueueItemRead(
                 item_id=line.item_id,
+                pos_code=menu_item.pos_code,
                 name=menu_item.name_en,
                 qty=line.quantity,
                 unit_price=line.unit_price,
                 subtotal=line.subtotal,
+                device_id=line.device_id,
+                is_discounted=line.is_discounted,
             )
         )
 
@@ -170,7 +176,7 @@ async def build_entries(db: DbSession, rows: list) -> list[QueueEntryRead]:
                 entered_queue_at=slot.entered_queue_at,
                 prep_started_at=slot.prep_started_at,
                 pending_verifications=[
-                    claim_read(log, labels.get(log.device_id))
+                    claim_read(log, labels.get(log.device_id), lines_by_txn.get(txn.txn_id, []))
                     for log in pending.get(txn.txn_id, [])
                 ],
                 items=items_by_txn.get(txn.txn_id, []),
@@ -192,13 +198,13 @@ async def update_status(
 async def record_verification(
     txn_id: int, payload: VerificationWrite, db: DbSession, staff: AnyStaff
 ) -> QueueEntryRead:
-    """Record the cashier's ID check; a rejection re-prices the claiming phone's lines."""
     transaction = await verification_service.record_check(
         db,
         txn_id,
         payload.log_id,
         staff.staff_id,
         payload.outcome == "verified",
+        payload,
     )
     await events.publish_status(transaction)
     await events.publish_cart_changed(transaction.session_id)
@@ -213,7 +219,6 @@ async def record_verification(
 
 @router.post("/{txn_id}/verify-id", response_model=OrderStatusRead)
 async def verify_id(txn_id: int, db: DbSession, staff: AnyStaff) -> OrderStatusRead:
-    """Staff confirmed the next pending senior or PWD card on this order is legit."""
     transaction = await verification_service.verify_next(db, txn_id, staff.staff_id)
     await events.publish_status(transaction)
     await events.publish_cart_changed(transaction.session_id)
@@ -237,66 +242,37 @@ async def confirm_payment(
     txn_id: int,
     db: DbSession,
     staff: AnyStaff,
-    payload: CashPaymentWrite | None = None,
+    payload: SettlementWrite | None = None,
 ) -> OrderStatusRead:
-    existing_txn = await db.get(Transaction, txn_id)
-    existing_payments = list(
-        await db.scalars(select(Payment).where(Payment.txn_id == txn_id))
-    )
-    unpaid_due = sum(
-        (p.amount for p in existing_payments if p.status != PaymentStatus.PAID),
-        Decimal("0.00"),
-    )
-    due_amount = (
-        unpaid_due
-        if unpaid_due > Decimal("0.00")
-        else (existing_txn.net_amount if existing_txn else Decimal("0.00"))
-    )
-    cash_tendered = (
-        payload.cash_tendered
-        if payload and payload.cash_tendered is not None
-        else due_amount
-    )
-    if existing_txn and cash_tendered < due_amount:
-        raise BusinessRuleError(
-            f"Cash tendered (₱{cash_tendered:.2f}) is less than amount due (₱{due_amount:.2f})."
-        )
+    settlement = payload or SettlementWrite()
+    settled = await payment_service.settle_at_counter(db, txn_id, staff.staff_id, settlement)
 
-    transaction = await verification_service.settle_cash(db, txn_id, staff.staff_id)
-    change_due = max(Decimal("0.00"), cash_tendered - due_amount)
-
-    await events.publish_status(transaction)
-    await events.publish_cart_changed(transaction.session_id)
-
-    receipt_no: str | None = None
-    try:
-        tx_result = await pos_service.transmit(
-            db,
-            txn_id,
-            settings.POS_ENDPOINT,
-            staff_id=staff.staff_id,
-            cash_tendered=cash_tendered,
-            change_due=change_due,
-        )
-        receipt_no = tx_result.receipt_no
-    except Exception:  # noqa: BLE001
-        logger.exception("POS transmission failed for txn %s", txn_id)
+    await events.publish_status(settled.transaction)
+    await events.publish_cart_changed(settled.transaction.session_id)
+    if settlement.checks:
+        await events.publish_session_changed(settled.transaction.session_id)
+    if settled.closed is not None:
+        await events.publish_session_ended(settled.closed)
 
     return await order_status(
         db,
-        transaction,
-        receipt_no=receipt_no,
-        cash_tendered=cash_tendered,
-        change_due=change_due,
+        settled.transaction,
+        tender=settled.tender,
+        cash_tendered=settled.tendered,
+        change_due=settled.change_due,
+        transmission=(
+            TransmitResult(**vars(settled.transmission)) if settled.transmission else None
+        ),
     )
 
 
 async def order_status(
     db: DbSession,
     transaction: Transaction,
-    receipt_no: str | None = None,
+    tender: Tender | None = None,
     cash_tendered: Decimal | None = None,
     change_due: Decimal | None = None,
+    transmission: TransmitResult | None = None,
 ) -> OrderStatusRead:
     slot = await db.scalar(
         select(KitchenQueue).where(KitchenQueue.txn_id == transaction.txn_id)
@@ -314,7 +290,9 @@ async def order_status(
         ),
         net_amount=transaction.net_amount,
         payment_status=order_service.aggregate_payment_status(payments),
-        receipt_no=receipt_no,
+        receipt_no=transmission.receipt_no if transmission else None,
+        tender=tender,
         cash_tendered=cash_tendered,
         change_due=change_due,
+        transmission=transmission,
     )

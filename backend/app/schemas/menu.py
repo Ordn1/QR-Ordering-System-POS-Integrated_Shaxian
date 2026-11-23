@@ -6,6 +6,7 @@ from app.schemas.fields import (
     ALPHANUMERIC,
     HANZI,
     MENU_CODE,
+    POS_CODE,
     Price,
     SmallNonNegative,
     freetext,
@@ -15,6 +16,7 @@ from app.schemas.fields import (
 CategoryName = sized(40, ALPHANUMERIC)
 ItemName = sized(60, ALPHANUMERIC)
 MenuCode = sized(4, MENU_CODE)
+PosCode = sized(10, POS_CODE)
 ChineseName = sized(30, HANZI)
 Description = freetext(160)
 Allergens = freetext(120)
@@ -49,6 +51,7 @@ class MenuItemAvailabilityWrite(BaseModel):
 class MenuItemWrite(BaseModel):
     cat_id: str
     menu_code: MenuCode
+    pos_code: PosCode | None
     name_en: ItemName
     name_fil: ItemName
     name_bis: ItemName
@@ -89,3 +92,7 @@ class MenuItemRead(BaseModel):
     is_available: bool
     is_featured: bool
     is_hot: bool
+
+
+class MenuItemStaffRead(MenuItemRead):
+    pos_code: str | None

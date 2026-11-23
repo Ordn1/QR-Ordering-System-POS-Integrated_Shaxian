@@ -1,37 +1,44 @@
 import asyncio
+from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import SessionFactory, engine
 from app.models import Table
 from app.services import apriori as apriori_service
-from seeds.history import describe_source, seed_history
+from seeds.history import describe_source, require_known_dishes, seed_history
 from seeds.menu import seed_menu
 from seeds.staff import DEV_ACCOUNTS, seed_staff
 from seeds.tables import seed_tables
 
 
+async def populate(session: AsyncSession, qr_tokens: dict[int, UUID] | None = None) -> None:
+    tables = await seed_tables(session, qr_tokens)
+    staff = await seed_staff(session)
+    items = await seed_menu(session)
+    transactions, _ = await seed_history(session, tables, staff, items)
+
+    # Commit
+    await session.commit()
+
+    # Mine
+    segments = await apriori_service.generate(session)
+
+    report(tables, items, transactions, segments)
+
+
 async def main() -> None:
+    require_known_dishes()
     async with SessionFactory() as session:
         existing = await session.scalar(select(func.count()).select_from(Table))
         if existing:
             raise SystemExit(
-                "Database already contains seed data. Rebuild from empty first:\n"
-                "  alembic downgrade base && alembic upgrade head && python -m seeds.run"
+                "Database already contains seed data. Reset it for the next run with:\n"
+                "  python -m seeds.reset"
             )
 
-        tables = await seed_tables(session)
-        staff = await seed_staff(session)
-        items = await seed_menu(session)
-        transactions, _ = await seed_history(session, tables, staff, items)
-
-        # Commit
-        await session.commit()
-
-        # Mine
-        segments = await apriori_service.generate(session)
-
-        report(tables, items, transactions, segments)
+        await populate(session)
 
     await engine.dispose()
 

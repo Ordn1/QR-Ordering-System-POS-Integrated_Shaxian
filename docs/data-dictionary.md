@@ -61,7 +61,7 @@ Check constraints:
 
 ## Table 12. Menu_items
 
-Every orderable item: its code from the printed menu board (A1, A3s, D2+), English, Filipino and Bisaya names plus the Chinese name, price, photo, and the nutrition and allergen disclosures required by the Menu Information Module.
+Every orderable item: its code from the printed menu board (A1, A3s, D2+), the register code the cashier keys into the Columbia POS (pos_code, staff-facing only), English, Filipino and Bisaya names plus the Chinese name, price, photo, and the nutrition and allergen disclosures required by the Menu Information Module.
 
 | Field Name | Data Type | Null | Default | Constraint |
 |---|---|---|---|---|
@@ -85,17 +85,19 @@ Every orderable item: its code from the printed menu board (A1, A3s, D2+), Engli
 | `is_hot` | BOOLEAN | No | false | — |
 | `menu_code` | VARCHAR(4) | Yes | — | UNIQUE |
 | `name_zh` | VARCHAR(30) | Yes | — | — |
+| `pos_code` | VARCHAR(10) | Yes | — | UNIQUE |
 
 Check constraints:
 
 - `CHECK (((item_id)::text ~ '^MNU-[0-9]{4}$'::text))`
 - `CHECK (((menu_code)::text ~ '^[A-Z][0-9]{1,2}[a-z+]?$'::text))`
+- `CHECK (((pos_code)::text ~ '^[A-Za-z0-9+-]{1,10}$'::text))`
 - `CHECK ((calories >= 0))`
 - `CHECK ((price >= (0)::numeric))`
 
 ## Table 13. Sessions
 
-One ordering interaction from QR scan to checkout. Anchors transactions, devices, analytics and priority declarations. Demographic fields are populated by direct user input, never by a camera.
+One ordering interaction from QR scan to checkout. Anchors transactions, devices, analytics and priority declarations. Demographic fields are populated by direct user input, never by a camera. end_reason records why it closed: every order paid, idle or long-settled timeout, a new diner starting over at the table, or a staff reset.
 
 | Field Name | Data Type | Null | Default | Constraint |
 |---|---|---|---|---|
@@ -109,6 +111,11 @@ One ordering interaction from QR scan to checkout. Anchors transactions, devices
 | `ui_mode_used` | ENUM (standard / accessible) | No | 'standard' | — |
 | `language_used` | ENUM (en / fil / bis) | No | 'en' | — |
 | `accessibility_accepted` | BOOLEAN | No | false | — |
+| `end_reason` | ENUM (completed / timeout / new_customer_override / staff_reset) | Yes | — | — |
+
+Check constraints:
+
+- `CHECK (((end_reason IS NULL) OR (ended_at IS NOT NULL)))`
 
 ## Table 14. Session_devices
 
@@ -208,7 +215,7 @@ Check constraints:
 
 ## Table 18. Payments
 
-One or more payment records per transaction, supporting both single-payer orders and split Group sessions.
+One or more payment records per transaction, supporting both single-payer orders and split Group sessions. tender records how a counter payment was taken: cash, GCash from the counter QR standee, or card on the counter terminal.
 
 | Field Name | Data Type | Null | Default | Constraint |
 |---|---|---|---|---|
@@ -222,6 +229,7 @@ One or more payment records per transaction, supporting both single-payer orders
 | `status` | ENUM (pending / paid / failed) | No | 'pending' | — |
 | `print_status` | ENUM (success / failed) | Yes | — | — |
 | `paid_at` | TIMESTAMPTZ | Yes | — | — |
+| `tender` | ENUM (cash / gcash / card) | Yes | — | — |
 
 Check constraints:
 
@@ -335,8 +343,10 @@ All status columns are PostgreSQL enum types, not free-text VARCHAR.
 | `payment_status_enum` | pending / paid / failed |
 | `print_status_enum` | success / failed |
 | `priority_status_enum` | standard / senior / pwd / pregnant |
+| `session_end_reason_enum` | completed / timeout / new_customer_override / staff_reset |
 | `session_type_enum` | standard / priority / group |
 | `staff_role_enum` | service_crew / admin |
+| `tender_enum` | cash / gcash / card |
 | `txn_status_enum` | pending / preparing / ready / completed / abandoned / voided |
 | `ui_mode_enum` | standard / accessible |
 

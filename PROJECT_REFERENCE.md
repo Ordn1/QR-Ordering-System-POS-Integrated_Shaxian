@@ -10,7 +10,7 @@
 
 - **Project Title:** A QR-Based Table Ordering System Integrating Dynamic Accessibility Modes and Apriori-Based Recommendations
 - **Academic Context:** Bachelor of Science in Information Technology (BSIT) Capstone Project, Davao City, Philippines.
-- **Deployment Target:** Deployed to a single partner quick-service restaurant (QSR): *Shaxian Snacks (沙县小吃)* in Sasa, Davao City (`SXN-SASA-01`).
+- **Deployment Target:** Deployed to a single partner quick-service restaurant (QSR): *Shaxian Snacks (沙县小吃)* at Sta. Ana Avenue corner Suazo St., Davao City (`SXN-STAANA-01`).
 - **Core Architecture:** Local-first, client-server web application. Diners sit at physical tables, scan unique table-mounted QR codes using their personal smartphones, and complete menu browsing, accessibility customization, ordering, and payment from their browser without downloading a native mobile app or creating an account.
 - **Key Hardware & Network Paradigm:** Operates completely on the restaurant's private local area network (LAN/Wi-Fi) hosted on a single on-premise workstation. Diners require **zero cellular data or external internet connectivity** for the core browsing, ordering, and kitchen dispatch flows. Internet access is only required if routing through an external online payment aggregator (e.g., PayMongo sandbox); if the internet uplink drops, the system gracefully degrades to counter cashier settlement.
 
@@ -130,6 +130,8 @@ CREATE TYPE txn_status_enum       AS ENUM ('pending', 'preparing', 'ready', 'com
 CREATE TYPE payment_method_enum   AS ENUM ('online', 'cashier');
 CREATE TYPE payment_status_enum   AS ENUM ('pending', 'paid', 'failed');
 CREATE TYPE print_status_enum     AS ENUM ('success', 'failed');
+CREATE TYPE session_end_reason_enum AS ENUM ('completed', 'timeout', 'new_customer_override', 'staff_reset');
+CREATE TYPE tender_enum           AS ENUM ('cash', 'gcash', 'card');
 CREATE TYPE event_type_enum       AS ENUM (
     'dwell_timeout',
     'back_navigation',
@@ -182,6 +184,7 @@ Menu category classification tabs in display order across three languages.
 Full menu product catalog with multi-lingual descriptions, pricing, and dietary disclosures.
 - `item_id` (`VARCHAR(8)`, PK, Default: `seq_menu_items`, Check: `^MNU-[0-9]{4}$`)
 - `cat_id` (`VARCHAR(8)`, NOT NULL, FK $\to$ `categories.cat_id` ON DELETE RESTRICT)
+- `pos_code` (`VARCHAR(10)`, NULL, UNIQUE, Check: `^[A-Za-z0-9+-]{1,10}$`): The code the cashier keys into the Columbia POS register (e.g., `A1`, `B2`), seeded from the menu board code. Staff-facing only: the public menu API never returns it.
 - `name_en` (`VARCHAR(60)`, NOT NULL), `name_fil` (`VARCHAR(60)`, NOT NULL), `name_bis` (`VARCHAR(60)`, NOT NULL)
 - `description_en` (`VARCHAR(160)`, NULL), `description_fil` (`VARCHAR(160)`, NULL), `description_bis` (`VARCHAR(160)`, NULL)
 - `price` (`NUMERIC(8,2)`, NOT NULL, Check: `price >= 0`): Base Philippine Peso price.
@@ -198,7 +201,8 @@ The anchor entity tracking a table's dining lifecycle from initial scan to settl
 - `session_id` (`BIGINT`, PK, Identity)
 - `table_id` (`VARCHAR(8)`, NOT NULL, FK $\to$ `tables.table_id`)
 - `started_at` (`TIMESTAMPTZ`, NOT NULL, Default: `now()`)
-- `ended_at` (`TIMESTAMPTZ`, NULL): Populated when session completes or expires (3-hour timeout).
+- `ended_at` (`TIMESTAMPTZ`, NULL): Populated when the session closes (see `end_reason`).
+- `end_reason` (`session_end_reason_enum`, NULL, Check: `end_reason IS NULL OR ended_at IS NOT NULL`): `completed` once every order is paid and no phone is mid-cart; `timeout` after 30 minutes with no order, 45 minutes after the last order once nothing is owed, or 3 hours in all; `new_customer_override` when a new diner chooses **Start new order** at the table; `staff_reset` when staff mark the table vacant. The table returns to `vacant` with it unless an admin set it `reserved`. Rows from before this column existed keep `NULL`.
 - `declared_priority_status` (`priority_status_enum`, NOT NULL, Default: `'standard'`)
 - `session_type` (`session_type_enum`, NOT NULL, Default: `'standard'`): Segment tag stored permanently for Apriori mining.
 - `group_mode` (`BOOLEAN`, NOT NULL, Default: `FALSE`): Automatically becomes `TRUE` when a 2nd phone joins.
@@ -266,6 +270,7 @@ Settlement records supporting single or split payments per transaction.
 - `txn_id` (`BIGINT`, NOT NULL, FK $\to$ `transactions.txn_id` ON DELETE CASCADE)
 - `device_id` (`BIGINT`, NULL, FK $\to$ `session_devices.device_id`)
 - `method` (`payment_method_enum`, NOT NULL): `'online'` or `'cashier'`.
+- `tender` (`tender_enum`, NULL): How a counter payment was taken: `cash`, `gcash` (the counter QR standee) or `card` (the counter terminal). `NULL` for PayMongo payments and older rows.
 - `amount` (`NUMERIC(10,2)`, NOT NULL, Check: `> 0`)
 - `discount_applied` (`NUMERIC(10,2)`, NOT NULL, Default: `0`)
 - `aggregator_ref` (`VARCHAR(50)`, NULL): PayMongo payment intent ID or reference.
@@ -299,7 +304,7 @@ Statutory compliance audit log for BIR and DSWD senior/PWD discount audits.
 - `log_id` (`BIGINT`, PK, Identity)
 - `session_id` (`BIGINT`, NOT NULL, FK $\to$ `sessions.session_id`)
 - `declared_status` (`priority_status_enum`, NOT NULL, Check: `<> 'standard'`)
-- `id_presented` (`BOOLEAN`, NOT NULL, Default: `FALSE`)
+- `id_presented` (`BOOLEAN`, NOT NULL, Default: `FALSE`): Set when staff press **Confirm ID is legit** after inspecting the physical OSCA / PWD card. Staff no longer type card details, so the three columns below stay `NULL` on new checks (older rows keep what was recorded).
 - `id_last4` (`CHAR(4)`, NULL, Check: `~ '^[0-9]{4}$'`): **Last 4 digits only** (Data minimization under RA 10173).
 - `cardholder_name` (`VARCHAR(80)`, NULL): Name transcribed from physical ID card.
 - `issuing_lgu` (`VARCHAR(50)`, NULL): Municipality or city of issue (e.g., `"Davao City"`).
@@ -530,11 +535,16 @@ The system uses native FastAPI WebSockets instead of client HTTP polling:
 
 To satisfy integration objective 1.3.2.5 without access to the proprietary schema of the partner restaurant's counter terminal, the system includes an **authenticated HTTP POS Bridge with a Simulated Counter Register**:
 
+**Parallel (side-by-side) mode.** The counter's BIR-accredited Columbia POS cannot be written to, so the system runs on a cashier tablet beside it and replaces the paper order slips. The tablet's register slip leads with each dish's `pos_code` and quantity in large type (`A1 × 2`), so the cashier keys the order into Columbia POS, which prints the official BIR receipt. The slip says on its face that it is not an official receipt. An optional **Show barcodes** switch on the POS page adds a Code 128 barcode for each code, for a USB scanner on the Columbia POS.
+
+**One-tap settlement.** `POST /api/v1/queue/{txn_id}/payment` takes the tender (`cash`, `gcash`, `card`), the cash handed over, and every pending Senior / PWD ID check (`discount_eligible`, plus optional last four digits, cardholder and issuing LGU) in one request. It checks the cash against the amount the ID checks will leave owing before writing anything, then records the checks, marks the payment paid, transmits the slip, and frees the table once the session is settled.
+
 1. **Automatic Counter Synchronization:**  
    When staff collects cash payment (`POST /api/v1/queue/{txn_id}/payment`), the backend automatically serializes the settled order and transmits it over the local network to `POS_ENDPOINT`.
 2. **Payload & Wire Precision:**
    - Currency values cross the wire formatted as fixed-point strings (`"100.00"`), never floating-point numbers.
-   - Payload includes store code (`SXN-SASA-01`), terminal code (`REG-01`), table number, queue number, item breakdowns, and tax breakdowns.
+   - Payload includes store code (`SXN-STAANA-01`), terminal code (`REG-01`), table number, queue number, item breakdowns with each dish's `pos_code`, and tax breakdowns.
+   - A `slip` block groups the lines into a **Senior / PWD** section (VAT-exempt base, 20% statutory discount, discounted subtotal) and a **Regular** section (VAT-able sales, VAT, subtotal), each code merged once and sorted in menu-board order (A2 before A10). It is priced by the same `price_order()` that wrote the transaction, so the two sections always add up to `totals.net`.
 3. **Idempotency Guarantee:**
    - Every transmission calculates an `idempotency_key` via SHA-256 of the payload content:
      $$\text{key} = \text{sha256}(f\text{"{store}:{txn}:{queue}:{net}:{items_hash}"})$$
@@ -558,6 +568,11 @@ To enable modern cashless settlements alongside counter cashier payments, the sy
   4. Amount is converted from `Decimal` pesos to integer centavos ($100\text{ centavos} = ₱1.00$).
   5. If configured and amount $\ge ₱1.00$ (`MIN_ONLINE_AMOUNT`), PayMongo returns a hosted `checkout_url`.
   6. Customer's browser redirects via `window.location.assign(receipt.checkout_url)` to complete the payment.
+- **QR Ph Workflow (in-app, no redirect):** QR Ph is not offered on the hosted checkout page, because a diner who pays in their bank app is never sent back to the system. Instead:
+  1. Customer selects **Scan to pay (QR Ph)**; the frontend sends `payment_method: "online"` with `online_channel: "qrph"`.
+  2. Server creates a PayMongo payment intent (`payment_method_allowed: ["qrph"]`), attaches a `qrph` payment method, and stores the intent id (`pi_…`) in `payments.aggregator_ref`.
+  3. The receipt (`qrph_pending: true`) shows the QR from `GET /api/v1/orders/{session_id}/qrph/{txn_id}`, which reads `next_action.code.image_url` from the intent, renews the code once its 30-minute expiry lapses, and settles the share as soon as the intent reports `succeeded`.
+  4. The receipt page polls that endpoint every 4 s (and immediately when the diner returns to the tab), so the order flips to paid and enters the kitchen queue without any action from the diner. `payment.paid` webhooks are matched by `payment_intent_id` too.
 
 ### 10.2 Graceful Cashier Fallback
 If `PAYMONGO_SECRET_KEY` is omitted, network connectivity to the internet is down, or the order net amount is below ₱1.00:

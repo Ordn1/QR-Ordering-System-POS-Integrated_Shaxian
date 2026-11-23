@@ -27,6 +27,8 @@ from app.routers import (
     webhooks,
 )
 from app.services import apriori as apriori_service
+from app.services import session as session_service
+from app.websocket import events
 
 logger = logging.getLogger("shaxian")
 MANILA = ZoneInfo("Asia/Manila")
@@ -51,17 +53,38 @@ async def _nightly_apriori_loop() -> None:
             logger.exception("Nightly Apriori batch job failed")
 
 
+async def _session_sweep_loop() -> None:
+    while True:
+        try:
+            await asyncio.sleep(settings.SESSION_SWEEP_SECONDS)
+            async with SessionFactory() as session:
+                expired = await session_service.expire_stale_sessions(session)
+            for ended in expired:
+                await events.publish_session_ended(ended)
+            if expired:
+                logger.info("Session sweep timed out %s idle sessions", len(expired))
+        except asyncio.CancelledError:
+            break
+        except Exception:  # noqa: BLE001
+            logger.exception("Session sweep failed")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    task = asyncio.create_task(_nightly_apriori_loop())
+    tasks = [
+        asyncio.create_task(_nightly_apriori_loop()),
+        asyncio.create_task(_session_sweep_loop()),
+    ]
     try:
         yield
     finally:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(title="Shaxian QR Table Ordering", lifespan=lifespan)

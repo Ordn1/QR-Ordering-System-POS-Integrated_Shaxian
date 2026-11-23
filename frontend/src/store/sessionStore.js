@@ -10,7 +10,7 @@ import { useUiStore } from './uiStore';
 const STORAGE_KEY = 'shaxian.devices';
 
 let inflightPromise = null;
-let inflightToken = null;
+let inflightKey = null;
 
 function remember(qrToken, deviceToken) {
   try {
@@ -67,10 +67,12 @@ function applySession(session, { animate = true } = {}) {
 
 export const useSessionStore = create((set, get) => ({
   session: null,
+  choice: null,
   status: 'idle',
 
-  open: async (qrToken) => {
-    if (inflightPromise && inflightToken === qrToken) {
+  open: async (qrToken, mode = 'auto') => {
+    const key = `${qrToken}:${mode}`;
+    if (inflightPromise && inflightKey === key) {
       return inflightPromise;
     }
 
@@ -85,14 +87,18 @@ export const useSessionStore = create((set, get) => ({
 
     set({ status: 'opening' });
 
-    inflightToken = qrToken;
+    inflightKey = key;
     inflightPromise = sessionApi
-      .openSession(qrToken, tokenToUse)
-      .then((session) => {
-        remember(qrToken, session.device_token);
-        applySession(session, { animate: false });
-        set({ session, status: 'ready' });
-        return session;
+      .openSession(qrToken, tokenToUse, mode)
+      .then((result) => {
+        if (result.choice_required) {
+          set({ session: null, choice: result, status: 'choosing' });
+          return result;
+        }
+        remember(qrToken, result.device_token);
+        applySession(result, { animate: false });
+        set({ session: result, choice: null, status: 'ready' });
+        return result;
       })
       .catch((error) => {
         set({ status: 'failed' });
@@ -100,7 +106,7 @@ export const useSessionStore = create((set, get) => ({
       })
       .finally(() => {
         inflightPromise = null;
-        inflightToken = null;
+        inflightKey = null;
       });
 
     return inflightPromise;

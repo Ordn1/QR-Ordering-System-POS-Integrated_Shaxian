@@ -53,7 +53,7 @@ export default function QueuePage() {
 
   useWebSocket(
     '/ws/kitchen',
-    useCallback((payload) => payload?.type !== 'assistance_changed' && load(), [load]),
+    useCallback((payload) => payload?.type === 'queue_changed' && load(), [load]),
   );
 
   const byStage = useMemo(
@@ -90,42 +90,6 @@ export default function QueuePage() {
       await queueApi.advanceStatus(entry.txn_id, next);
       await load();
       toast.success(t('staff.advanced', { queue: queueLabel(entry.queue_number), status: next }));
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function confirmPayment(entry, cashTendered) {
-    setBusy(true);
-    try {
-      const result = await queueApi.confirmPayment(entry.txn_id, cashTendered);
-      await load();
-      toast.success(t('staff.markedPaid', { queue: queueLabel(entry.queue_number) }));
-      return result;
-    } catch (error) {
-      toast.error(error.message);
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function recordCheck(entry, claim, check) {
-    setBusy(true);
-    try {
-      const updated = await queueApi.recordVerification(entry.txn_id, {
-        log_id: claim.log_id,
-        ...check,
-      });
-      setSettling(updated);
-      await load();
-      toast.success(
-        t(check.outcome === 'verified' ? 'staff.idSaved' : 'staff.idRemoved', {
-          queue: queueLabel(entry.queue_number),
-        }),
-      );
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -208,11 +172,9 @@ export default function QueuePage() {
 
       {settling ? (
         <CashierConfirmModal
-          key={`${settling.txn_id}-${settling.net_amount}`}
+          key={settling.txn_id}
           entry={settling}
-          busy={busy}
-          onConfirm={confirmPayment}
-          onVerify={recordCheck}
+          onSettled={load}
           onClose={() => setSettling(null)}
         />
       ) : null}

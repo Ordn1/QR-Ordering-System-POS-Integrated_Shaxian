@@ -6,6 +6,7 @@ rejected check re-prices that phone's lines at full VAT before any cash is taken
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,11 +14,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.models import AuditLog, Payment, PriorityVerificationLog, Transaction, TransactionItem
 from app.models.enums import PaymentStatus, TxnStatus
+from app.schemas.queue import IdCheckWrite, VerificationWrite
 from app.services import order as order_service
-from app.services import queue as queue_service
 
 ACTION = "priority_id_checked"
 ENTITY = "priority_verification_log"
+
+
+def _net(items: list[TransactionItem], eligible: bool | None) -> Decimal:
+    return order_service.price_order(
+        [
+            order_service.CartLine(
+                item_id=item.item_id,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                discount_eligible=item.is_discounted if eligible is None else eligible,
+            )
+            for item in items
+        ]
+    ).net_amount
+
+
+def price_deltas(items: list[TransactionItem], device_id: int) -> tuple[Decimal, Decimal]:
+    """How an order's amount due moves if this phone's ID is accepted, and if it is refused."""
+    own = [item for item in items if item.device_id == device_id]
+    current = _net(own, None)
+    return _net(own, True) - current, _net(own, False) - current
 
 
 async def pending_checks(
@@ -76,10 +98,12 @@ async def record_check(
     log_id: int,
     staff_id: str,
     verified: bool,
+    card: IdCheckWrite | VerificationWrite | None = None,
 ) -> Transaction:
     """Record the cashier's ID check and re-price the claiming phone's lines to match.
 
-    The staff member only confirms that the physical card is legit; no card details are typed in.
+    Card details are optional and kept only for an accepted ID: the last four digits,
+    the cardholder and the issuing LGU.
     """
     transaction = await db.get(Transaction, txn_id)
     if transaction is None:
@@ -100,6 +124,10 @@ async def record_check(
     log.verified_by = staff_id
     log.verified_at = datetime.now(UTC)
     log.discount_eligible = verified
+    if verified and card is not None:
+        log.id_last4 = card.id_last4
+        log.cardholder_name = card.cardholder_name
+        log.issuing_lgu = card.issuing_lgu
     await db.flush()
 
     await order_service.reprice_device_lines(db, transaction, log.device_id)
@@ -131,6 +159,7 @@ async def record_check(
                 "outcome": "verified" if verified else "rejected",
                 "declared_status": log.declared_status.value,
                 "discount_eligible": log.discount_eligible,
+                "card_recorded": log.id_last4 is not None,
                 "net_amount": str(transaction.net_amount),
                 "discount_amount": str(transaction.discount_amount),
                 "also_repriced": [other.txn_id for other in others],
@@ -141,20 +170,6 @@ async def record_check(
     await db.commit()
     await db.refresh(transaction)
     return transaction
-
-
-async def has_pending_check(db: AsyncSession, transaction: Transaction) -> bool:
-    return bool((await pending_checks(db, [transaction])).get(transaction.txn_id))
-
-
-async def settle_cash(db: AsyncSession, txn_id: int, staff_id: str) -> Transaction:
-    """Take cash only once every discount on the order has been checked against an ID."""
-    transaction = await db.get(Transaction, txn_id)
-    if transaction is None:
-        raise NotFoundError("That order no longer exists. Refresh the queue.")
-    if await has_pending_check(db, transaction):
-        raise BusinessRuleError("Check the senior or PWD ID before confirming payment.")
-    return await queue_service.confirm_cash_payment(db, txn_id, staff_id)
 
 
 async def verify_next(db: AsyncSession, txn_id: int, staff_id: str) -> Transaction:

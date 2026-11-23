@@ -48,6 +48,9 @@ class PricedLine:
     is_discounted: bool
     discount_amount: Decimal
     line_net: Decimal = Decimal("0.00")
+    vatable: Decimal = Decimal("0.00")
+    vat: Decimal = Decimal("0.00")
+    vat_exempt: Decimal = Decimal("0.00")
 
 
 @dataclass(frozen=True)
@@ -101,6 +104,9 @@ def price_order(lines: list[CartLine]) -> PricedOrder:
                 is_discounted=line.discount_eligible,
                 discount_amount=line_discount,
                 line_net=line_net,
+                vatable=line_vatable,
+                vat=line_vat,
+                vat_exempt=line_exempt,
             )
         )
 

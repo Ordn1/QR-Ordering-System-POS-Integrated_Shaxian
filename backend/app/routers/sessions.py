@@ -12,6 +12,7 @@ from app.schemas.session import (
     DeviceProfileWrite,
     PreferencesWrite,
     SessionCartWrite,
+    SessionChoiceRead,
     SessionOpen,
     SessionRead,
     TableCartRead,
@@ -66,17 +67,29 @@ async def to_read(
         discount_status=session_service.discount_status([mine] if mine is not None else []),
         trigger_count=triggers[0],
         last_trigger_at=triggers[1],
+        ended=session.ended_at is not None,
+        end_reason=session.end_reason,
     )
 
 
-@router.post("", response_model=SessionRead, status_code=201)
-async def open_session(payload: SessionOpen, db: DbSession) -> SessionRead:
-    session, device, table = await session_service.open_session(
-        db, payload.qr_token, payload.device_token
+@router.post("", response_model=SessionRead | SessionChoiceRead, status_code=201)
+async def open_session(
+    payload: SessionOpen, response: Response, db: DbSession
+) -> SessionRead | SessionChoiceRead:
+    opened = await session_service.open_session(
+        db, payload.qr_token, payload.device_token, payload.mode
     )
-    read_model = await to_read(db, session, device, table)
-    if session.group_mode:
-        await events.publish_session_changed(session.session_id)
+    for closed in opened.closed:
+        await events.publish_session_ended(closed)
+    if opened.session is None:
+        response.status_code = 200
+        return SessionChoiceRead(table_number=opened.table.table_number)
+
+    read_model = await to_read(db, opened.session, opened.device, opened.table)
+    if opened.created:
+        await events.publish_table_changed(opened.table.table_id)
+    if opened.session.group_mode:
+        await events.publish_session_changed(opened.session.session_id)
     return read_model
 
 

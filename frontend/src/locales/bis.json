@@ -176,7 +176,8 @@
       "offer": "Giusab pinaagi sa pagdawat sa tanyag",
       "declaration": "Gitakda sa deklarasyon"
     },
-    "factUndeclaredBigger": "Mga mokaon nga walay deklarasyon nga mipili og mas dakong menu"
+    "factUndeclaredBigger": "Mga mokaon nga walay deklarasyon nga mipili og mas dakong menu",
+    "fieldPosCode": "Code sa register (Columbia POS)"
   },
   "auth": {
     "brand": "Shaxian Snacks",
@@ -246,13 +247,23 @@
     "yes": "Oo",
     "no": "Dili",
     "viewAsList": "Usba sa listahan",
-    "viewAsTiles": "Usba sa tiles"
+    "viewAsTiles": "Usba sa tiles",
+    "done": "Human na"
   },
   "entry": {
     "eyebrow": "Pag-order sa lamesa",
     "starting": "Gibuksan ang imong order",
     "unknownTitle": "Wala mailhi ang QR code",
-    "unknownBody": "Pangayo ug tabang sa staff, o i-scan pag-usab ang code sa lamesa."
+    "unknownBody": "Pangayo ug tabang sa staff, o i-scan pag-usab ang code sa lamesa.",
+    "activeTitle": "Naa pay aktibo nga order ang Lamesa {{number}}.",
+    "activeBody": "Kauban ka ba sa pag-order niining lamesa, o magsugod ka og bag-ong order?",
+    "joinGroup": "Apil sa group order",
+    "joinGroupNote": "Idugang ang imong mga pagkaon sa order niining lamesa. Mabahin ang bayronon unya.",
+    "startNew": "Sugdi ang bag-ong order",
+    "startNewNote": "Isira ang nauna nga order. Pilia kini kung nakalakaw na ang mga nauna nga nikaon.",
+    "closedPaid": "Bayad na ang imong order. Naa pa kay gusto? Sugdi ang bag-ong order.",
+    "closedOther": "Nasira na ang order niining lamesa.",
+    "orderAgain": "Order pag-usab"
   },
   "group": {
     "hostTitle": "Ikaw ang nagsugod niining order",
@@ -315,7 +326,7 @@
     "latency": "Latency",
     "logEmpty": "Wala pay transmisyon.",
     "logTitle": "Talaan sa transmisyon",
-    "notFiscal": "Prototype — dili opisyal nga resibo",
+    "notFiscal": "Dili opisyal nga resibo — ang Columbia POS ang mag-print sa resibo sa BIR",
     "payloadSize": "Payload",
     "payloadTitle": "Payload · {{queue}}",
     "queue": "Pila",
@@ -327,7 +338,26 @@
     "status_acknowledged": "Nadawat",
     "status_failed": "Napakyas",
     "terminal": "Tindahan · terminal",
-    "viewPayload": "Payload"
+    "viewPayload": "Payload",
+    "sectionSeniorPwd": "Senior / PWD · 20% diskwento",
+    "sectionRegular": "Naandan nga order",
+    "subtotalSeniorPwd": "Subtotal sa Senior / PWD",
+    "subtotalRegular": "Naandan nga subtotal",
+    "slipRef": "Ref. sa slip",
+    "cashTendered": "Gibayad nga cash",
+    "changeDue": "Sukli",
+    "paidBy": "Gibayran pinaagi sa",
+    "tender_cash": "Cash",
+    "tender_gcash": "GCash",
+    "tender_card": "Card",
+    "showBarcodes": "Ipakita ang barcode",
+    "settleOrder": "Dawata ang bayad · {{amount}}",
+    "slipTitle": "Slip sa register · {{receipt}}",
+    "punched": "Napadala sa kusina ang {{queue}}",
+    "punchOrder": "Ipadala sa kusina · {{amount}}",
+    "logTab": "Mga slip sa register ug sync log ({{count}})",
+    "searchPlaceholder": "Pangitaa ang pagkaon o code (Wonton, A1)…",
+    "idCheckNext": "Susihon ang Senior / PWD ID sa sunod nga lakang."
   },
   "priority": {
     "open": "Tabang sa prayoridad",
@@ -437,10 +467,6 @@
     "idVerified": "Balido ang ID",
     "idLookPrompt": "Tan-awa ang pisikal nga OSCA o PWD card. Kung haom ang litrato, ngalan ug validity, kumpirmaha nga balido kini.",
     "idConfirmLegit": "Kumpirmaha nga balido ang ID",
-    "idRejected": "Walay balido nga ID",
-    "idNeeded": "Susiha una ang matag ID sa dili pa markahan nga bayad ang order.",
-    "idSaved": "Natala ang pagsusi sa ID para sa {{queue}}",
-    "idRemoved": "Gitangtang ang diskwento sa {{queue}}",
     "assistTitle": "Mga tawag sa tabang",
     "assistNeeded": "Nanginahanglan og tabang ang Lamesa {{table}}",
     "assistPhone": "Telepono {{number}}",
@@ -448,7 +474,28 @@
     "assistOffered": "gidawat ang tanyag nga tabang",
     "assistAcknowledge": "Paingon na ko",
     "assistOnTheWay": "Nahibalo na ang Lamesa {{table}} nga paingon ka",
-    "claimCompanion": "{{name}} (gidugang sa Telepono {{number}})"
+    "claimCompanion": "{{name}} (gidugang sa Telepono {{number}})",
+    "idDiscountEligible": "Balido nga ID — ipabilin ang 20% diskwento",
+    "idNotEligible": "Walay balido nga ID — tibuok presyo (+{{amount}})",
+    "idLast4": "Katapusang 4 ka numero sa ID",
+    "idLast4Error": "Ibutang ang tanang 4 ka numero, o biyai nga blangko.",
+    "idCardholder": "Ngalan sa tag-iya sa card",
+    "idLgu": "LGU nga nag-isyu",
+    "idOptional": "Opsyonal. Gitala para sa log sa diskwento sa Senior / PWD.",
+    "tenderLabel": "Paagi sa pagbayad",
+    "cashTendered": "Gibayad nga cash (₱)",
+    "exactCash": "Eksakto ({{amount}})",
+    "cashShort": "Kulang ang cash",
+    "gcashNote": "I-scan sa customer ang GCash QR standee sa counter. Kumpirmaha kung makita na ang {{amount}} sa GCash app sa tindahan.",
+    "cardNote": "I-charge ang {{amount}} sa card terminal sa counter, dayon kumpirmaha dinhi.",
+    "settleConfirm": "Bayad na {{amount}} · {{tender}}",
+    "settleTitle": "Dawata ang bayad sa {{queue}}",
+    "settledTitle": "Bayad na ang {{queue}}",
+    "slipAcknowledged": "Natala ang bayad ug gidawat sa register ang slip.",
+    "slipFailed": "Natala ang bayad, apan wala gidawat sa register ang slip.",
+    "slipRetry": "Ipadala pag-usab",
+    "keyIntoColumbia": "I-type kining mga code sa Columbia POS",
+    "printSlip": "I-print ang slip"
   },
   "status": {
     "title": "Kahimtang sa order",

@@ -5,6 +5,7 @@ from app.core.exceptions import NotFoundError
 from app.models import Table
 from app.schemas.table import TableCatalogRead, TableCreate, TableRead, TableUpdate
 from app.services import table as table_service
+from app.websocket import events
 
 router = APIRouter(prefix="/api/v1/tables", tags=["tables"])
 
@@ -27,9 +28,13 @@ async def create_table(
 async def update_table(
     table_id: str, payload: TableUpdate, db: DbSession, staff: AdminStaff
 ) -> TableRead:
-    return await table_service.update_table(
+    table, ended = await table_service.update_table(
         db, table_id, payload, staff_id=staff.staff_id
     )
+    for session in ended:
+        await events.publish_session_ended(session)
+    await events.publish_table_changed(table.table_id)
+    return table
 
 
 @router.delete("/{table_id}", status_code=204)
@@ -41,9 +46,13 @@ async def delete_table(
 
 @router.post("/{table_id}/reset", response_model=TableRead)
 async def reset_table(table_id: str, db: DbSession, staff: AnyStaff) -> TableRead:
-    return await table_service.reset_table_session(
+    table, ended = await table_service.reset_table_session(
         db, table_id, staff_id=staff.staff_id
     )
+    for session in ended:
+        await events.publish_session_ended(session)
+    await events.publish_table_changed(table.table_id)
+    return table
 
 
 @router.post("/{table_id}/regenerate", response_model=TableRead)

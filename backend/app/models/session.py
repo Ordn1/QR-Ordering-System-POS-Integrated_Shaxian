@@ -10,11 +10,13 @@ from app.models.enums import (
     LANGUAGE,
     MENU_SIZE,
     PRIORITY_STATUS,
+    SESSION_END_REASON,
     SESSION_TYPE,
     UI_MODE,
     Language,
     MenuSize,
     PriorityStatus,
+    SessionEndReason,
     SessionType,
     UiMode,
 )
@@ -27,6 +29,10 @@ class Session(Base):
             "idx_sessions_table_active",
             "table_id",
             postgresql_where=sa.text("ended_at IS NULL"),
+        ),
+        sa.CheckConstraint(
+            "end_reason IS NULL OR ended_at IS NOT NULL",
+            name="chk_sessions_end_reason_ended",
         ),
     )
 
@@ -46,6 +52,7 @@ class Session(Base):
         server_default=sa.func.now(),
     )
     ended_at: Mapped[datetime | None] = mapped_column(sa.TIMESTAMP(timezone=True))
+    end_reason: Mapped[SessionEndReason | None] = mapped_column(SESSION_END_REASON)
     declared_priority_status: Mapped[PriorityStatus] = mapped_column(
         PRIORITY_STATUS,
         nullable=False,

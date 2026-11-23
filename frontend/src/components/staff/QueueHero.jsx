@@ -5,10 +5,12 @@ import { Ban, ChefHat, Clock, CheckCircle2, CreditCard, ShieldCheck } from 'luci
 import * as queueApi from '../../api/queue';
 import { voidTransaction } from '../../api/transactions';
 import { peso, queueLabel } from '../../lib/format';
+import { groupByCode } from '../../lib/registerCodes';
 import { toast } from '../../store/toastStore';
 import Badge from '../shared/Badge';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
+import RegisterCode from '../shared/RegisterCode';
 import TextInput from '../shared/TextInput';
 
 const NEXT = { pending: 'preparing', preparing: 'ready', ready: 'completed' };
@@ -163,11 +165,14 @@ export default function QueueHero({ entry, busy, onAdvance, onConfirmPayment }) 
 
       {entry.items && entry.items.length > 0 && (
         <ul className="queue-hero-items">
-          {entry.items.map((item, idx) => (
-            <li key={idx} className="queue-hero-item-row">
-              <span className="queue-hero-item-qty">{item.qty}×</span>
-              <span className="queue-hero-item-name">{typeof item.name === 'object' ? item.name?.en ?? Object.values(item.name)[0] : item.name}</span>
-              <span className="queue-hero-item-price numeric">{peso(item.unit_price * item.qty)}</span>
+          {groupByCode(entry.items).map((item) => (
+            <li key={item.pos_code ?? item.item_id} className="queue-hero-item-row">
+              <span className="queue-hero-item-code">
+                <RegisterCode code={item.pos_code ?? '—'} />
+              </span>
+              <span className="queue-hero-item-name">{item.name}</span>
+              <span className="queue-hero-item-qty numeric">× {item.qty}</span>
+              <span className="queue-hero-item-price numeric">{peso(item.subtotal)}</span>
             </li>
           ))}
         </ul>

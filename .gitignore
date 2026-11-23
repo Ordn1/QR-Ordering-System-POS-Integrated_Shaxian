@@ -21,6 +21,13 @@ npm-debug.log*
 .vscode/
 .idea/
 .DS_Store
+.antigravitycli/
+
+# Build caches
+backend/.vite/
+
+# Local HTTPS certificates (mkcert). The key is private.
+frontend/certs/
 
 # Logs
 *.log

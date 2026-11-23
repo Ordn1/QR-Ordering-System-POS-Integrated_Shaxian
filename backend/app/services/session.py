@@ -2,6 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -27,13 +28,17 @@ from app.models.enums import (
     OccupancyStatus,
     PaymentStatus,
     PriorityStatus,
+    SessionEndReason,
     SessionType,
     TxnStatus,
     UiMode,
 )
 from app.schemas.session import DeviceCartLineRead, DeviceShareRead, TableCartRead
 
+OpenMode = Literal["auto", "join", "new"]
+
 DISCOUNTABLE = (PriorityStatus.SENIOR, PriorityStatus.PWD)
+DROPPED = (TxnStatus.VOIDED, TxnStatus.ABANDONED)
 MAX_COMPANIONS_PER_PHONE = 4
 DEFAULT_DISPLAY = {"menu_size": MenuSize.GRID, "is_high_contrast": False, "has_steady_taps": False}
 DECLARED_DISPLAY = {"menu_size": MenuSize.LIST, "has_steady_taps": True}
@@ -55,10 +60,32 @@ def resolve_session_type(declared: PriorityStatus, group_mode: bool) -> SessionT
     return SessionType.STANDARD
 
 
+@dataclass(frozen=True)
+class OpenedSession:
+    table: Table
+    session: Session | None = None
+    device: SessionDevice | None = None
+    created: bool = False
+    closed: tuple[Session, ...] = ()
+
+
+@dataclass(frozen=True)
+class OrderState:
+    placed: bool
+    unpaid: bool
+    paid: bool
+    last_placed: datetime | None
+
+
 async def open_session(
-    db: AsyncSession, qr_token: UUID, device_token: UUID | None
-) -> tuple[Session, SessionDevice, Table]:
-    """Open or rejoin a table session from a scanned QR token."""
+    db: AsyncSession, qr_token: UUID, device_token: UUID | None, mode: OpenMode = "auto"
+) -> OpenedSession:
+    """Open, rejoin or join a table session from a scanned QR token.
+
+    A phone outside the table's active session is asked whether it is ordering with
+    that table or starting a new order, and is never turned away. An OpenedSession
+    without a session means that question has to be answered first.
+    """
     # Read
     table = await db.scalar(
         select(Table)
@@ -68,59 +95,191 @@ async def open_session(
     if table is None or not table.is_active:
         raise NotFoundError("That QR code is not recognised. Ask staff for help.")
 
-    active = await db.scalar(
-        select(Session)
-        .where(Session.table_id == table.table_id, Session.ended_at.is_(None))
-        .order_by(Session.started_at.desc())
+    now = datetime.now(UTC)
+    active = list(
+        await db.scalars(
+            select(Session)
+            .where(Session.table_id == table.table_id, Session.ended_at.is_(None))
+            .order_by(Session.started_at.desc())
+        )
     )
+    closed = [session for session in active if await _stale(db, session, now)]
+    for session in closed:
+        await end_session(db, session, SessionEndReason.TIMEOUT, now)
+    current = next((session for session in active if session not in closed), None)
 
-    if active is not None and _expired(active):
-        active.ended_at = datetime.now(UTC)
-        table.occupancy_status = OccupancyStatus.VACANT
-        _TABLE_CARTS.pop(active.session_id, None)
-        await db.flush()
-        active = None
-
-    if active is None:
-        session = Session(table_id=table.table_id)
-        db.add(session)
-        await db.flush()
-
-        device = SessionDevice(session_id=session.session_id, is_host=True)
-        db.add(device)
-        table.occupancy_status = OccupancyStatus.OCCUPIED
-        await db.commit()
-        await db.refresh(session)
-        await db.refresh(device)
-        return session, device, table
-
-    # Read
-    if device_token is not None:
+    if current is not None and device_token is not None:
         known = await db.scalar(
             select(SessionDevice).where(
-                SessionDevice.session_id == active.session_id,
+                SessionDevice.session_id == current.session_id,
                 SessionDevice.device_token == device_token,
                 SessionDevice.managed_by_device_id.is_(None),
             )
         )
         if known is not None:
             await db.commit()
-            return active, known, table
+            return OpenedSession(table, current, known, closed=tuple(closed))
+
+    if current is not None and mode == "auto":
+        await db.commit()
+        return OpenedSession(table, closed=tuple(closed))
+
+    if current is not None and mode == "join":
+        # Create
+        device = SessionDevice(session_id=current.session_id, is_host=False)
+        db.add(device)
+        current.group_mode = True
+        current.session_type = resolve_session_type(current.declared_priority_status, True)
+        await db.commit()
+        await db.refresh(current)
+        await db.refresh(device)
+        return OpenedSession(table, current, device, closed=tuple(closed))
+
+    for session in active:
+        if session not in closed:
+            await end_session(db, session, SessionEndReason.NEW_CUSTOMER_OVERRIDE, now)
+            closed.append(session)
 
     # Create
-    device = SessionDevice(session_id=active.session_id, is_host=False)
+    session = Session(table_id=table.table_id)
+    db.add(session)
+    await db.flush()
+
+    device = SessionDevice(session_id=session.session_id, is_host=True)
     db.add(device)
-    active.group_mode = True
-    active.session_type = resolve_session_type(active.declared_priority_status, True)
+    table.occupancy_status = OccupancyStatus.OCCUPIED
     await db.commit()
-    await db.refresh(active)
+    await db.refresh(session)
     await db.refresh(device)
-    return active, device, table
+    return OpenedSession(table, session, device, created=True, closed=tuple(closed))
 
 
-def _expired(session: Session) -> bool:
-    age = datetime.now(UTC) - session.started_at
-    return age > timedelta(hours=settings.SESSION_MAX_AGE_HOURS)
+async def end_session(
+    db: AsyncSession, session: Session, reason: SessionEndReason, now: datetime | None = None
+) -> None:
+    """Close a session and free its table, unless another session is still open on it."""
+    session.ended_at = now or datetime.now(UTC)
+    session.end_reason = reason
+    clear_table_cart(session.session_id)
+    await db.flush()
+
+    still_open = await db.scalar(
+        select(func.count())
+        .select_from(Session)
+        .where(Session.table_id == session.table_id, Session.ended_at.is_(None))
+    )
+    table = await db.get(Table, session.table_id)
+    if not still_open and table.occupancy_status is OccupancyStatus.OCCUPIED:
+        table.occupancy_status = OccupancyStatus.VACANT
+
+
+async def order_state(db: AsyncSession, session_id: int) -> OrderState:
+    """Where a session's orders stand. Voided and abandoned orders never owe money."""
+    orders = list(
+        await db.scalars(select(Transaction).where(Transaction.session_id == session_id))
+    )
+    live = [order.txn_id for order in orders if order.status not in DROPPED]
+    statuses: dict[int, list[PaymentStatus]] = defaultdict(list)
+    if live:
+        for txn_id, status in await db.execute(
+            select(Payment.txn_id, Payment.status).where(Payment.txn_id.in_(live))
+        ):
+            statuses[txn_id].append(status)
+    paid = [
+        txn_id
+        for txn_id in live
+        if statuses[txn_id] and all(status is PaymentStatus.PAID for status in statuses[txn_id])
+    ]
+    return OrderState(
+        placed=bool(orders),
+        unpaid=len(paid) < len(live),
+        paid=bool(paid),
+        last_placed=max((order.placed_at for order in orders), default=None),
+    )
+
+
+async def _stale(db: AsyncSession, session: Session, now: datetime) -> bool:
+    """Past its maximum age, idle with no order placed, or long settled with nothing owed."""
+    if now - session.started_at > timedelta(hours=settings.SESSION_MAX_AGE_HOURS):
+        return True
+
+    state = await order_state(db, session.session_id)
+    if state.unpaid:
+        return False
+    if state.placed:
+        return now - state.last_placed > timedelta(minutes=settings.SESSION_SETTLED_MINUTES)
+
+    last_joined = await db.scalar(
+        select(func.max(SessionDevice.joined_at)).where(
+            SessionDevice.session_id == session.session_id
+        )
+    )
+    idle_since = last_joined or session.started_at
+    return now - idle_since > timedelta(minutes=settings.SESSION_IDLE_MINUTES)
+
+
+async def expire_stale_sessions(db: AsyncSession) -> list[Session]:
+    """End every session its diners have walked away from, and free their tables."""
+    now = datetime.now(UTC)
+    active = list(
+        await db.scalars(
+            select(Session).where(Session.ended_at.is_(None)).order_by(Session.session_id)
+        )
+    )
+    candidates = [session for session in active if await _stale(db, session, now)]
+    if not candidates:
+        return []
+
+    await db.execute(
+        select(Table.table_id)
+        .where(Table.table_id.in_({session.table_id for session in candidates}))
+        .order_by(Table.table_id)
+        .with_for_update()
+    )
+    expired: list[Session] = []
+    for session in candidates:
+        await db.refresh(session)
+        if session.ended_at is None and await _stale(db, session, now):
+            await end_session(db, session, SessionEndReason.TIMEOUT, now)
+            expired.append(session)
+
+    # Commit
+    await db.commit()
+    return expired
+
+
+async def close_if_settled(db: AsyncSession, session_id: int) -> Session | None:
+    """End a session once every order on it is paid and nobody at the table is mid-cart."""
+    session = await db.get(Session, session_id)
+    if session is None:
+        return None
+
+    await db.execute(
+        select(Table.table_id).where(Table.table_id == session.table_id).with_for_update()
+    )
+    await db.refresh(session)
+    if session.ended_at is not None or _TABLE_CARTS.get(session_id):
+        return None
+
+    state = await order_state(db, session_id)
+    if state.unpaid or not state.paid:
+        return None
+
+    await end_session(db, session, SessionEndReason.COMPLETED)
+
+    # Commit
+    await db.commit()
+    return session
+
+
+def diners_present(session: Session, now: datetime) -> bool:
+    """Diners keep their table for a while after paying, so they can still call the crew."""
+    if session.ended_at is None:
+        return True
+    return (
+        session.end_reason is SessionEndReason.COMPLETED
+        and now - session.ended_at <= timedelta(minutes=settings.SESSION_SETTLED_MINUTES)
+    )
 
 
 async def authorize_device(db: AsyncSession, session_id: int, device_token: UUID) -> SessionDevice:

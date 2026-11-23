@@ -9,6 +9,7 @@ from app.models.enums import (
     MenuSize,
     PaymentStatus,
     PriorityStatus,
+    SessionEndReason,
     SessionType,
     UiMode,
 )
@@ -23,6 +24,12 @@ DisplaySource = Literal["pinch", "button", "offer"]
 class SessionOpen(BaseModel):
     qr_token: UUID
     device_token: UUID | None = None
+    mode: Literal["auto", "join", "new"] = "auto"
+
+
+class SessionChoiceRead(BaseModel):
+    choice_required: Literal[True] = True
+    table_number: int
 
 
 class DeclarationWrite(BaseModel):
@@ -110,6 +117,7 @@ class TableCartRead(BaseModel):
 class SessionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    choice_required: Literal[False] = False
     session_id: int
     table_id: str
     table_number: int
@@ -132,3 +140,5 @@ class SessionRead(BaseModel):
     discount_status: DiscountStatus = "none"
     trigger_count: int
     last_trigger_at: str | None
+    ended: bool = False
+    end_reason: SessionEndReason | None = None

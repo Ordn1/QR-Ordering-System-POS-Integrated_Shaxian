@@ -1,4 +1,4 @@
-from app.models import Transaction
+from app.models import Session, Transaction
 from app.websocket.manager import manager
 
 
@@ -36,6 +36,21 @@ def cart_changed_event(session_id: int) -> dict:
     }
 
 
+def session_ended_event(session: Session) -> dict:
+    return {
+        "type": "session_ended",
+        "session_id": session.session_id,
+        "reason": session.end_reason.value if session.end_reason else None,
+    }
+
+
+def table_changed_event(table_id: str) -> dict:
+    return {
+        "type": "table_changed",
+        "table_id": table_id,
+    }
+
+
 async def publish_status(transaction: Transaction) -> None:
     await manager.to_table(transaction.session_id, order_status_event(transaction))
     await manager.to_kitchen(queue_changed_event())
@@ -52,6 +67,15 @@ async def publish_session_changed(session_id: int) -> None:
 
 async def publish_cart_changed(session_id: int) -> None:
     await manager.to_table(session_id, cart_changed_event(session_id))
+
+
+async def publish_session_ended(session: Session) -> None:
+    await manager.to_table(session.session_id, session_ended_event(session))
+    await manager.to_kitchen(table_changed_event(session.table_id))
+
+
+async def publish_table_changed(table_id: str) -> None:
+    await manager.to_kitchen(table_changed_event(table_id))
 
 async def publish_assistance_changed(session_id: int) -> None:
     await manager.to_kitchen(assistance_changed_event(session_id))

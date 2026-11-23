@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import PriorityStatus
+from app.models.enums import PriorityStatus, Tender
 from app.schemas.fields import SmallPositive
 
 
@@ -17,7 +17,8 @@ class PosOrderCreate(BaseModel):
     declared_priority_status: PriorityStatus = PriorityStatus.STANDARD
     # The cashier pressed "Confirm ID is legit" after looking at the physical card.
     id_confirmed: bool = False
-    cash_tendered: Decimal
+    tender: Tender = Tender.CASH
+    cash_tendered: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
     items: list[PosOrderLineWrite] = Field(min_length=1)
 
 

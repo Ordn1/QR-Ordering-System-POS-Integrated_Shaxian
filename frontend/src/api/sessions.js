@@ -1,7 +1,7 @@
 import { api } from './client';
 
-export const openSession = (qrToken, deviceToken) =>
-  api.post('/sessions', { qr_token: qrToken, device_token: deviceToken ?? null });
+export const openSession = (qrToken, deviceToken, mode = 'auto') =>
+  api.post('/sessions', { qr_token: qrToken, device_token: deviceToken ?? null, mode });
 
 export const readSession = (sessionId) => api.get(`/sessions/${sessionId}`);
 

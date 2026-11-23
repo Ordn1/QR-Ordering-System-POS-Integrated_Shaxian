@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     CONFUSION_MAX_PER_SESSION: int = 3
 
     SESSION_MAX_AGE_HOURS: int = 3
+    SESSION_IDLE_MINUTES: int = 30
+    SESSION_SETTLED_MINUTES: int = 45
+    SESSION_SWEEP_SECONDS: int = 60
+
+    COOKIE_SECURE: bool = False
 
     MENU_IMAGE_DIR: str = "menu"
     FRONTEND_BASE_URL: str = "http://localhost:5173"

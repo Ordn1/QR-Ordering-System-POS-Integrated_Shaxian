@@ -9,6 +9,7 @@ import TextInput from '../shared/TextInput';
 const BLANK = {
   cat_id: '',
   menu_code: '',
+  pos_code: '',
   name_en: '',
   name_fil: '',
   name_bis: '',
@@ -33,6 +34,7 @@ function toPayload(form) {
   return {
     cat_id: form.cat_id,
     menu_code: form.menu_code.trim(),
+    pos_code: optional(form.pos_code),
     name_en: form.name_en.trim(),
     name_fil: form.name_fil.trim(),
     name_bis: form.name_bis.trim(),
@@ -70,12 +72,16 @@ export default function MenuItemModal({ item, categories, onCancel, onSubmit }) 
   const set = (key) => (event) =>
     setForm((current) => ({ ...current, [key]: event.target.value }));
 
-  // Codes start with a capital letter (A1, A3s, D2+); capitalise it as it is typed.
   const setCode = (event) =>
-    setForm((current) => ({
-      ...current,
-      menu_code: event.target.value.replace(/^[a-z]/, (letter) => letter.toUpperCase()),
-    }));
+    setForm((current) => {
+      const menuCode = event.target.value.replace(/^[a-z]/, (letter) => letter.toUpperCase());
+      const mirrored = current.pos_code === '' || current.pos_code === current.menu_code;
+      return {
+        ...current,
+        menu_code: menuCode,
+        pos_code: mirrored ? menuCode : current.pos_code,
+      };
+    });
 
   const toggle = (key) => (event) =>
     setForm((current) => ({ ...current, [key]: event.target.checked }));
@@ -122,6 +128,15 @@ export default function MenuItemModal({ item, categories, onCancel, onSubmit }) 
           error={fieldErrors.menu_code}
           onChange={setCode}
           hint="A1, A3s, D2+"
+        />
+        <TextInput
+          label={t('admin.fieldPosCode')}
+          inputClass="poscode"
+          maxLength={10}
+          value={form.pos_code}
+          error={fieldErrors.pos_code}
+          onChange={set('pos_code')}
+          hint={form.menu_code || 'A1'}
         />
         <TextInput
           label={t('admin.fieldNameZh')}

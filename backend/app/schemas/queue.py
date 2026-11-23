@@ -9,8 +9,14 @@ from app.models.enums import (
     PaymentStatus,
     PriorityStatus,
     SessionType,
+    Tender,
     TxnStatus,
 )
+from app.schemas.fields import ALPHA, ID_LAST4, sized
+from app.schemas.pos import TransmitResult
+
+CardholderName = sized(80, ALPHA)
+IssuingLgu = sized(50, ALPHA)
 
 
 class PendingVerificationRead(BaseModel):
@@ -24,24 +30,46 @@ class PendingVerificationRead(BaseModel):
     is_companion: bool = False
     managed_by_number: int | None = None
     managed_by_name: str | None = None
+    delta_if_valid: Decimal = Decimal("0.00")
+    delta_if_invalid: Decimal = Decimal("0.00")
 
 
 class VerificationWrite(BaseModel):
     """The cashier looked at the physical OSCA / PWD card and judged it legit or not.
 
-    The card details are no longer typed in; the staff member's confirmation is the record.
+    The card details are optional; the staff member's confirmation is the record.
     """
 
     log_id: int = Field(ge=1)
     outcome: Literal["verified", "rejected"]
+    id_last4: str | None = Field(default=None, pattern=ID_LAST4)
+    cardholder_name: CardholderName | None = None
+    issuing_lgu: IssuingLgu | None = None
+
+
+class IdCheckWrite(BaseModel):
+    log_id: int = Field(ge=1)
+    discount_eligible: bool
+    id_last4: str | None = Field(default=None, pattern=ID_LAST4)
+    cardholder_name: CardholderName | None = None
+    issuing_lgu: IssuingLgu | None = None
+
+
+class SettlementWrite(BaseModel):
+    tender: Tender = Tender.CASH
+    cash_tendered: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
+    checks: list[IdCheckWrite] = Field(default_factory=list)
 
 
 class QueueItemRead(BaseModel):
     item_id: str
+    pos_code: str | None = None
     name: str
     qty: int
     unit_price: Decimal
     subtotal: Decimal
+    device_id: int | None = None
+    is_discounted: bool = False
 
 
 class QueueEntryRead(BaseModel):
@@ -80,10 +108,6 @@ class StatusWrite(BaseModel):
     status: TxnStatus
 
 
-class CashPaymentWrite(BaseModel):
-    cash_tendered: Decimal | None = None
-
-
 class PaymentShareStatusRead(BaseModel):
     payment_id: int
     device_id: int | None
@@ -109,8 +133,10 @@ class OrderStatusRead(BaseModel):
     net_amount: Decimal
     payment_status: PaymentStatus
     receipt_no: str | None = None
+    tender: Tender | None = None
     cash_tendered: Decimal | None = None
     change_due: Decimal | None = None
+    transmission: TransmitResult | None = None
     shares_total: int = 0
     shares_paid: int = 0
     unpaid_amount: Decimal = Decimal("0.00")

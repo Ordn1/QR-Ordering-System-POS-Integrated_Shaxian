@@ -7,6 +7,7 @@ from app.config import settings
 from app.core.deps import AnyStaff, CurrentStaff, DbSession
 from app.core.exceptions import BusinessRuleError
 from app.models import AuditLog
+from app.schemas.menu import MenuItemStaffRead
 from app.schemas.pos import (
     BridgeStatus,
     PosOrderCreate,
@@ -14,6 +15,7 @@ from app.schemas.pos import (
     TransmissionRead,
     TransmitResult,
 )
+from app.services import menu as menu_service
 from app.services import pos as pos_service
 from app.websocket import events
 
@@ -53,14 +55,22 @@ async def _lookup_persisted_register(
     return record
 
 
+@router.get("/items", response_model=list[MenuItemStaffRead])
+async def register_items(db: DbSession, staff: AnyStaff) -> list[MenuItemStaffRead]:
+    items = await menu_service.list_items(db)
+    return [MenuItemStaffRead.model_validate(item) for item in items]
+
+
 @router.post("/orders", response_model=TransmitResult, status_code=201)
 async def create_pos_order(
     payload: PosOrderCreate, db: DbSession, staff: AnyStaff
 ) -> TransmitResult:
-    transaction, result = await pos_service.create_counter_order(
+    transaction, result, closed = await pos_service.create_counter_order(
         db, payload, staff_id=staff.staff_id, endpoint=settings.POS_ENDPOINT
     )
     await events.publish_new_order(transaction)
+    if closed is not None:
+        await events.publish_session_ended(closed)
     return TransmitResult(**vars(result))
 
 

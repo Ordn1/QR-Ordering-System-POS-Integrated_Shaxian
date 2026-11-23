@@ -21,13 +21,13 @@ PURPOSE = {
  "tables":"Registers every physical table and the unique QR token printed on its marker. Referenced by sessions.",
  "staff_accounts":"Login credentials for the Service Crew and System Administrator roles. Passwords are never stored in plaintext.",
  "categories":"Menu category records and the order their tabs appear in. Referenced by menu_items.",
- "menu_items":"Every orderable item: its code from the printed menu board (A1, A3s, D2+), English, Filipino and Bisaya names plus the Chinese name, price, photo, and the nutrition and allergen disclosures required by the Menu Information Module.",
- "sessions":"One ordering interaction from QR scan to checkout. Anchors transactions, devices, analytics and priority declarations. Demographic fields are populated by direct user input, never by a camera.",
+ "menu_items":"Every orderable item: its code from the printed menu board (A1, A3s, D2+), the register code the cashier keys into the Columbia POS (pos_code, staff-facing only), English, Filipino and Bisaya names plus the Chinese name, price, photo, and the nutrition and allergen disclosures required by the Menu Information Module.",
+ "sessions":"One ordering interaction from QR scan to checkout. Anchors transactions, devices, analytics and priority declarations. Demographic fields are populated by direct user input, never by a camera. end_reason records why it closed: every order paid, idle or long-settled timeout, a new diner starting over at the table, or a staff reset.",
  "session_devices":"Every phone that joins a table session, plus any senior or PWD diner a phone adds who has no phone of their own. A Standard or single-device Priority session has one phone row; a Group session has two or more, enabling split-bill attribution. Each phone also keeps its own display settings: menu size, high contrast and bigger buttons.",
  "transactions":"Every placed order with its full tax and discount breakdown. Parent of transaction_items, payments and kitchen_queue, and the source read by the Apriori batch job.",
  "transaction_items":"Line items per transaction. The direct source of the market baskets used in Apriori computation.",
  "kitchen_queue":"Operationalises the fairness-bounded priority queue: live position plus, on each Standard order, how many Priority orders have been placed ahead of it. Once that count reaches the cap the order cannot be passed again.",
- "payments":"One or more payment records per transaction, supporting both single-payer orders and split Group sessions.",
+ "payments":"One or more payment records per transaction, supporting both single-payer orders and split Group sessions. tender records how a counter payment was taken: cash, GCash from the counter QR standee, or card on the counter terminal.",
  "apriori_rules":"Association rules mined by the Apriori batch job from completed transactions, segmented by session_type and read at recommendation time.",
  "analytics_events":"Every interaction event from the React client. Primary source for the confusion-trigger and recommendation-acceptance rates. Not seeded: rows come only from real sessions.",
  "priority_verification_log":"One row per phone that declares priority status. A senior or PWD discount stays provisional until the cashier checks the ID: a verified check records the last four digits, cardholder and issuing LGU; a rejected check clears discount_eligible. Contains no image or biometric data.",
@@ -48,7 +48,7 @@ pk, fk, uq, ck = (collections.defaultdict(list) for _ in range(4))
 for tbl, kind, defn in q("""
 select c.conrelid::regclass::text, c.contype::text, replace(pg_get_constraintdef(c.oid), chr(10), ' ')
 from pg_constraint c join pg_class r on r.oid=c.conrelid join pg_namespace n on n.oid=r.relnamespace
-where n.nspname='public'"""):
+where n.nspname='public' and c.contype in ('p','f','u','c')"""):
     {"p": pk, "f": fk, "u": uq, "c": ck}[kind][tbl].append(defn)
 
 enums = collections.defaultdict(list)

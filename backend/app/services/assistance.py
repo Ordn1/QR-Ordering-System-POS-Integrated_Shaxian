@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from math import ceil
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -14,7 +14,7 @@ from app.models import (
     StaffAccount,
     Table,
 )
-from app.models.enums import AssistanceReason, EventType
+from app.models.enums import AssistanceReason, EventType, SessionEndReason
 from app.schemas.assistance import AssistanceQueueRead, AssistanceRead
 from app.services import session as session_service
 
@@ -53,7 +53,7 @@ async def request_help(
 ) -> tuple[AssistanceRequest, bool]:
     """Ask for a crew member. One open request per phone, and a short wait after an answer."""
     session = await session_service.get_session(db, session_id)
-    if session.ended_at is not None:
+    if not session_service.diners_present(session, datetime.now(UTC)):
         raise BusinessRuleError("That table session has ended. Scan the QR code again.")
 
     await db.execute(
@@ -102,8 +102,10 @@ async def current_request(
 
 
 async def open_requests(db: AsyncSession) -> list[AssistanceQueueRead]:
-    """Tables still waiting for a crew member, oldest first."""
-    oldest = datetime.now(UTC) - timedelta(hours=settings.SESSION_MAX_AGE_HOURS)
+    """Tables still waiting for a crew member, oldest first, including diners who already paid."""
+    now = datetime.now(UTC)
+    oldest = now - timedelta(hours=settings.SESSION_MAX_AGE_HOURS)
+    settled_since = now - timedelta(minutes=settings.SESSION_SETTLED_MINUTES)
     rows = (
         await db.execute(
             select(AssistanceRequest, Table.table_number)
@@ -111,7 +113,13 @@ async def open_requests(db: AsyncSession) -> list[AssistanceQueueRead]:
             .join(Table, Table.table_id == Session.table_id)
             .where(
                 AssistanceRequest.acknowledged_at.is_(None),
-                Session.ended_at.is_(None),
+                or_(
+                    Session.ended_at.is_(None),
+                    and_(
+                        Session.end_reason == SessionEndReason.COMPLETED,
+                        Session.ended_at >= settled_since,
+                    ),
+                ),
                 Session.started_at >= oldest,
             )
             .order_by(AssistanceRequest.requested_at)

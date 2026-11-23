@@ -176,7 +176,8 @@
       "offer": "Changed by accepting an offer",
       "declaration": "Preset by a declaration"
     },
-    "factUndeclaredBigger": "Diners without a declaration who chose a bigger menu"
+    "factUndeclaredBigger": "Diners without a declaration who chose a bigger menu",
+    "fieldPosCode": "Register code (Columbia POS)"
   },
   "auth": {
     "brand": "Shaxian Snacks",
@@ -246,13 +247,23 @@
     "yes": "Yes",
     "no": "No",
     "viewAsList": "Switch to list view",
-    "viewAsTiles": "Switch to tile view"
+    "viewAsTiles": "Switch to tile view",
+    "done": "Done"
   },
   "entry": {
     "eyebrow": "Table ordering",
     "starting": "Starting your order session",
     "unknownTitle": "That QR code is not recognised",
-    "unknownBody": "Ask a staff member for help, or scan the code on your table again."
+    "unknownBody": "Ask a staff member for help, or scan the code on your table again.",
+    "activeTitle": "Table {{number}} currently has an active order.",
+    "activeBody": "Are you ordering together with this table, or starting a new order?",
+    "joinGroup": "Join group order",
+    "joinGroupNote": "Add your dishes to this table's order. You can split the bill later.",
+    "startNew": "Start new order",
+    "startNewNote": "Closes the order before yours. Choose this if those diners have left.",
+    "closedPaid": "Your order is paid. Want something more? Start a new order.",
+    "closedOther": "This table's order has been closed.",
+    "orderAgain": "Order again"
   },
   "group": {
     "hostTitle": "You started this table order",
@@ -315,7 +326,7 @@
     "latency": "Latency",
     "logEmpty": "No transmissions yet.",
     "logTitle": "Transmission log",
-    "notFiscal": "Prototype — not a fiscal receipt",
+    "notFiscal": "Not an official receipt — Columbia POS prints the BIR receipt",
     "payloadSize": "Payload",
     "payloadTitle": "Payload · {{queue}}",
     "queue": "Queue",
@@ -327,7 +338,26 @@
     "status_acknowledged": "Acknowledged",
     "status_failed": "Failed",
     "terminal": "Store · terminal",
-    "viewPayload": "Payload"
+    "viewPayload": "Payload",
+    "sectionSeniorPwd": "Senior / PWD · 20% off",
+    "sectionRegular": "Regular items",
+    "subtotalSeniorPwd": "Senior / PWD subtotal",
+    "subtotalRegular": "Regular subtotal",
+    "slipRef": "Slip ref.",
+    "cashTendered": "Cash tendered",
+    "changeDue": "Change",
+    "paidBy": "Paid by",
+    "tender_cash": "Cash",
+    "tender_gcash": "GCash",
+    "tender_card": "Card",
+    "showBarcodes": "Show barcodes",
+    "settleOrder": "Settle payment · {{amount}}",
+    "slipTitle": "Register slip · {{receipt}}",
+    "punched": "{{queue}} sent to the kitchen",
+    "punchOrder": "Send to kitchen · {{amount}}",
+    "logTab": "Register slips & sync log ({{count}})",
+    "searchPlaceholder": "Search dish or code (Wonton, A1)…",
+    "idCheckNext": "You will check the Senior / PWD ID in the next step."
   },
   "priority": {
     "open": "Priority assistance",
@@ -437,10 +467,6 @@
     "idVerified": "ID verified",
     "idLookPrompt": "Look at the physical OSCA or PWD card. If the photo, name and validity check out, confirm it is legit.",
     "idConfirmLegit": "Confirm ID is legit",
-    "idRejected": "No valid ID",
-    "idNeeded": "Check every ID before marking this order paid.",
-    "idSaved": "ID check recorded for {{queue}}",
-    "idRemoved": "Discount removed from {{queue}}",
     "assistTitle": "Calls for help",
     "assistNeeded": "Table {{table}} needs help",
     "assistPhone": "Phone {{number}}",
@@ -448,7 +474,28 @@
     "assistOffered": "accepted an offer of help",
     "assistAcknowledge": "On my way",
     "assistOnTheWay": "Table {{table}} knows you're coming",
-    "claimCompanion": "{{name}} (added by Phone {{number}})"
+    "claimCompanion": "{{name}} (added by Phone {{number}})",
+    "idDiscountEligible": "Valid ID — keep the 20% discount",
+    "idNotEligible": "No valid ID — charge full price (+{{amount}})",
+    "idLast4": "Last 4 digits of ID",
+    "idLast4Error": "Enter all 4 digits, or leave it blank.",
+    "idCardholder": "Cardholder name",
+    "idLgu": "Issuing LGU",
+    "idOptional": "Optional. Kept for the Senior / PWD discount log.",
+    "tenderLabel": "Payment method",
+    "cashTendered": "Cash tendered (₱)",
+    "exactCash": "Exact ({{amount}})",
+    "cashShort": "Not enough cash",
+    "gcashNote": "The customer scans the GCash QR standee at the counter. Confirm once {{amount}} shows in the shop's GCash app.",
+    "cardNote": "Charge {{amount}} on the counter card terminal, then confirm here.",
+    "settleConfirm": "Paid {{amount}} · {{tender}}",
+    "settleTitle": "Settle {{queue}}",
+    "settledTitle": "{{queue}} paid",
+    "slipAcknowledged": "Payment recorded and the register slip acknowledged.",
+    "slipFailed": "Payment recorded, but the register did not acknowledge the slip.",
+    "slipRetry": "Send again",
+    "keyIntoColumbia": "Key these codes into Columbia POS",
+    "printSlip": "Print slip"
   },
   "status": {
     "title": "Order status",

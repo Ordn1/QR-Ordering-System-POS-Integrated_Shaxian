@@ -9,9 +9,11 @@ from app.models.enums import (
     PAYMENT_METHOD,
     PAYMENT_STATUS,
     PRINT_STATUS,
+    TENDER,
     PaymentMethod,
     PaymentStatus,
     PrintStatus,
+    Tender,
 )
 
 
@@ -34,6 +36,7 @@ class Payment(Base):
         sa.ForeignKey("session_devices.device_id"),
     )
     method: Mapped[PaymentMethod] = mapped_column(PAYMENT_METHOD, nullable=False)
+    tender: Mapped[Tender | None] = mapped_column(TENDER)
     amount: Mapped[Decimal] = mapped_column(sa.Numeric(10, 2), nullable=False)
     discount_applied: Mapped[Decimal] = mapped_column(
         sa.Numeric(10, 2),

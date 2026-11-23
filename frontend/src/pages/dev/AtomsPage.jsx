@@ -15,6 +15,7 @@ import IconButton from '../../components/shared/IconButton';
 import KpiCard from '../../components/shared/KpiCard';
 import Modal from '../../components/shared/Modal';
 import QtyStepper from '../../components/shared/QtyStepper';
+import RegisterCode from '../../components/shared/RegisterCode';
 import SelectField from '../../components/shared/SelectField';
 import TextInput from '../../components/shared/TextInput';
 import { MENU_SIZES, useUiStore } from '../../store/uiStore';
@@ -324,6 +325,15 @@ export default function AtomsPage() {
                   <input type="radio" name="pay" />
                   Pay online
                 </label>
+                <label className="switch-field">
+                  <input type="checkbox" role="switch" />
+                  <span>Show barcodes</span>
+                </label>
+                <div className="row-3">
+                  <span className="atoms-type-token">Register code</span>
+                  <RegisterCode code="A1" />
+                  <RegisterCode code="D2+" size="large" />
+                </div>
                 <div className="row-3">
                   <span className="atoms-type-token">Quantity</span>
                   <QtyStepper value={quantity} onChange={setQuantity} itemLabel="1pc Fried Chicken" />

@@ -16,7 +16,7 @@ from app.models import (
     Transaction,
     TransactionItem,
 )
-from app.models.enums import PaymentStatus, PrintStatus, TxnStatus
+from app.models.enums import PaymentStatus, PrintStatus, Tender, TxnStatus
 
 QUEUE_LOCK_SQL = text("SELECT pg_advisory_xact_lock(hashtext('kitchen_queue'))")
 CENTAVO = Decimal("0.01")
@@ -219,8 +219,10 @@ async def advance_status(
     return transaction
 
 
-async def confirm_cash_payment(db: AsyncSession, txn_id: int, staff_id: str) -> Transaction:
-    """Mark all unpaid payment shares settled once the crew has collected cash."""
+async def confirm_counter_payment(
+    db: AsyncSession, txn_id: int, staff_id: str, tender: Tender
+) -> Transaction:
+    """Mark all unpaid payment shares settled once the crew has collected cash, GCash or card."""
     transaction = await db.get(Transaction, txn_id)
     if transaction is None:
         raise NotFoundError("That order no longer exists. Refresh the queue.")
@@ -240,6 +242,7 @@ async def confirm_cash_payment(db: AsyncSession, txn_id: int, staff_id: str) -> 
     now = datetime.now(UTC)
     for payment in unpaid:
         payment.status = PaymentStatus.PAID
+        payment.tender = tender
         payment.paid_at = now
         payment.print_status = PrintStatus.SUCCESS
 

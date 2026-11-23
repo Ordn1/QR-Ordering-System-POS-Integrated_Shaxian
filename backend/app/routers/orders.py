@@ -343,6 +343,7 @@ async def get_transaction_detail(
         lines=[
             TransactionItemDetailRead(
                 item_id=line.item_id,
+                pos_code=item.pos_code,
                 name=item.name_en,
                 quantity=line.quantity,
                 unit_price=line.unit_price,

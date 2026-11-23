@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 
 import { peso, queueLabel } from '../../lib/format';
 import { DURATION, MOVE, OFFSET } from '../../lib/motion';
+import { codeSummary } from '../../lib/registerCodes';
 import Badge from '../shared/Badge';
 
 function elapsedMins(since) {
@@ -50,6 +51,9 @@ export default function QueueList({ entries, activeId, onSelect }) {
                   <span className="queue-row-main">
                     {t('staff.tableNumber', { number: entry.table_number })}
                   </span>
+                  {entry.items?.length ? (
+                    <span className="queue-row-codes numeric">{codeSummary(entry.items)}</span>
+                  ) : null}
                   <span className="queue-row-sub">
                     {t('staff.itemCount', { count: entry.item_count })} · {peso(entry.net_amount)}
                   </span>

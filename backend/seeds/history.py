@@ -38,6 +38,7 @@ from app.models.enums import (
     UiMode,
 )
 from app.services.order import CartLine, price_order
+from seeds.menu import DISHES
 
 MANILA = ZoneInfo("Asia/Manila")
 SEED = 20260725
@@ -157,6 +158,31 @@ def describe_source() -> str:
     if csv_path is not None:
         return f"loaded from {csv_path.name}"
     return "generated history, not real diners"
+
+
+def unknown_csv_dishes() -> tuple[Path | None, list[str]]:
+    csv_path = _locate_csv()
+    if csv_path is None:
+        return None, []
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        named = {
+            name.strip()
+            for row in csv.DictReader(handle)
+            for name in row["items"].split("|")
+            if name.strip()
+        }
+    return csv_path, sorted(named - {dish.name_en for dish in DISHES})
+
+
+def require_known_dishes() -> None:
+    csv_path, unknown = unknown_csv_dishes()
+    if unknown:
+        raise SystemExit(
+            f"{csv_path} names {len(unknown)} dishes that are not on the seeded menu:\n"
+            f"  {', '.join(unknown)}\n"
+            "Rename them to the menu's English names, or move the file away to seed the "
+            "generated history instead. Nothing was changed."
+        )
 
 
 async def seed_history(

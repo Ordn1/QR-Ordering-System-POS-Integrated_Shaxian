@@ -175,3 +175,52 @@
   border-right: 1px solid var(--border);
   line-height: var(--tap-target);
 }
+
+.switch-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.switch-field input {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: calc(var(--control-box) * 2);
+  height: var(--control-box);
+  margin: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: background-color var(--duration-hover) var(--ease-out);
+}
+
+.switch-field input::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: calc(var(--control-box) - var(--space-1));
+  height: calc(var(--control-box) - var(--space-1));
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  box-shadow: var(--shadow-raised);
+  transition: transform var(--duration-hover) var(--ease-out);
+}
+
+.switch-field input:checked {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+.switch-field input:checked::after {
+  transform: translateX(var(--control-box));
+}
+
+.switch-field input:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-focus);
+}

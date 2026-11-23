@@ -1,4 +1,9 @@
-"""CLI script that exports all table QR codes as printable PNG files into backend/qr_exports/."""
+"""CLI script that exports all table QR codes as printable PNG files into backend/qr_exports/.
+
+The codes point at --base-url when given, otherwise at FRONTEND_BASE_URL from .env with a
+localhost host swapped for this laptop's LAN IP. FRONTEND_BASE_URL=https://localhost:5173
+therefore exports https://<LAN-IP>:5173/t/<token>.
+"""
 
 import argparse
 import asyncio
@@ -50,7 +55,10 @@ def main() -> None:
         "--base-url",
         type=str,
         default=None,
-        help="Base URL for QR codes (defaults to auto-detected LAN URL: http://<LAN_IP>:5173)",
+        help=(
+            "Base URL for QR codes, e.g. https://192.168.1.10:5173 "
+            "(defaults to FRONTEND_BASE_URL with localhost swapped for the LAN IP)"
+        ),
     )
     parser.add_argument(
         "--output-dir",

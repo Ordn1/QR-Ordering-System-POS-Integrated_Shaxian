@@ -27,6 +27,7 @@ import Modal from '../../components/shared/Modal';
 import SelectField from '../../components/shared/SelectField';
 import TextInput from '../../components/shared/TextInput';
 import ViewToggle from '../../components/shared/ViewToggle';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAuthStore } from '../../store/authStore';
 import { toast } from '../../store/toastStore';
 import { useUiStore } from '../../store/uiStore';
@@ -71,6 +72,11 @@ export default function TablesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useWebSocket(
+    '/ws/kitchen',
+    useCallback((payload) => payload?.type === 'table_changed' && load(), [load]),
+  );
 
   function scanUrlFor(table) {
     const cleanBase = (baseUrl || lanUrl || window.location.origin)

@@ -92,6 +92,19 @@ class AssistanceReason(str, Enum):
     OFFERED = "offered"
 
 
+class SessionEndReason(str, Enum):
+    COMPLETED = "completed"
+    TIMEOUT = "timeout"
+    NEW_CUSTOMER_OVERRIDE = "new_customer_override"
+    STAFF_RESET = "staff_reset"
+
+
+class Tender(str, Enum):
+    CASH = "cash"
+    GCASH = "gcash"
+    CARD = "card"
+
+
 def pg_enum(python_enum: type[Enum], name: str) -> postgresql.ENUM:
     return postgresql.ENUM(
         python_enum,
@@ -114,6 +127,8 @@ PRINT_STATUS = pg_enum(PrintStatus, "print_status_enum")
 EVENT_TYPE = pg_enum(EventType, "event_type_enum")
 MENU_SIZE = pg_enum(MenuSize, "menu_size_enum")
 ASSISTANCE_REASON = pg_enum(AssistanceReason, "assistance_reason_enum")
+SESSION_END_REASON = pg_enum(SessionEndReason, "session_end_reason_enum")
+TENDER = pg_enum(Tender, "tender_enum")
 
 ENUM_DEFINITIONS: tuple[tuple[str, tuple[str, ...]], ...] = tuple(
     (pg_type.name, tuple(member.value for member in pg_type.enum_class))
@@ -131,5 +146,7 @@ ENUM_DEFINITIONS: tuple[tuple[str, tuple[str, ...]], ...] = tuple(
         EVENT_TYPE,
         MENU_SIZE,
         ASSISTANCE_REASON,
+        SESSION_END_REASON,
+        TENDER,
     )
 )

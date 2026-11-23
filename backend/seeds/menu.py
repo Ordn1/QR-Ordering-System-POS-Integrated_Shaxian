@@ -535,6 +535,7 @@ async def seed_menu(session: AsyncSession) -> dict[str, MenuItem]:
         item = MenuItem(
             cat_id=categories[dish.category].cat_id,
             menu_code=dish.code,
+            pos_code=dish.code,
             name_en=dish.name_en,
             name_fil=dish.name_fil,
             name_bis=dish.name_bis,

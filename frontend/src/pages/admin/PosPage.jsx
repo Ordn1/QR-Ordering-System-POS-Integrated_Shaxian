@@ -13,11 +13,12 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { listCategories, listItems } from '../../api/menu';
+import { listCategories } from '../../api/menu';
 import {
   createPosOrder,
   fetchBridgeStatus,
   fetchTransmissions,
+  listRegisterItems,
   transmit,
 } from '../../api/pos';
 import * as queueApi from '../../api/queue';
@@ -29,17 +30,19 @@ import Card from '../../components/shared/Card';
 import DataTable from '../../components/shared/DataTable';
 import Modal from '../../components/shared/Modal';
 import Pagination from '../../components/shared/Pagination';
+import RegisterCode from '../../components/shared/RegisterCode';
 import SelectField from '../../components/shared/SelectField';
-import TextInput from '../../components/shared/TextInput';
 import usePagination from '../../hooks/usePagination';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import AssistanceAlerts from '../../components/staff/AssistanceAlerts';
+import CashierConfirmModal from '../../components/staff/CashierConfirmModal';
+import RegisterCodeList from '../../components/staff/RegisterCodeList';
+import TenderPicker from '../../components/staff/TenderPicker';
 import { peso, queueLabel, shortDate } from '../../lib/format';
 import { menuImageUrl } from '../../lib/menuImage';
+import { tenderReady } from '../../lib/tender';
 import { toast } from '../../store/toastStore';
-import { claimLabel } from '../../lib/shareLabel';
 
-const BILLS = [100, 200, 500, 1000];
 const PRIORITY_OPTIONS = [
   { value: 'standard', label: 'Standard (12% VAT)' },
   { value: 'senior', label: 'Senior (20% Off + Exempt)' },
@@ -71,18 +74,19 @@ export default function PosPage() {
   const [tables, setTables] = useState([]);
   const [selectedCat, setSelectedCat] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showBarcodes, setShowBarcodes] = useState(false);
 
   const [queueCodeInput, setQueueCodeInput] = useState('');
   const [recalledTxnId, setRecalledTxnId] = useState(null);
+  const [settling, setSettling] = useState(null);
 
   const [tableId, setTableId] = useState('TBL-0001');
   const [priorityStatus, setPriorityStatus] = useState('standard');
   const [walkInIdConfirmed, setWalkInIdConfirmed] = useState(false);
-  const [confirmingId, setConfirmingId] = useState(false);
   const [posCart, setPosCart] = useState([]);
-  const [cashTendered, setCashTendered] = useState('');
+  const [walkInTender, setWalkInTender] = useState('cash');
+  const [cashTendered, setCashTendered] = useState(null);
   const [submittingOrder, setSubmittingOrder] = useState(false);
-  const [revokingDiscount, setRevokingDiscount] = useState(false);
   const [issuedReceipt, setIssuedReceipt] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -97,7 +101,7 @@ export default function PosPage() {
         fetchTransmissions(),
         queueApi.listQueue(),
         listCategories(),
-        listItems(),
+        listRegisterItems(),
         listTables(),
       ])
         .then(([nextStatus, nextRows, nextQueue, nextCats, nextItems, tableCatalog]) => {
@@ -142,14 +146,19 @@ export default function PosPage() {
     [queueEntries, recalledTxnId],
   );
 
+  const recalledDue = recalledOrder
+    ? Number(recalledOrder.unpaid_amount) > 0
+      ? Number(recalledOrder.unpaid_amount)
+      : Number(recalledOrder.net_amount ?? 0)
+    : 0;
+  const claimDevices = new Set(
+    (recalledOrder?.pending_verifications ?? []).map((claim) => claim.device_id),
+  );
+  const recalledDiscounted = (item) => claimDevices.has(item.device_id) || item.is_discounted;
+
   function selectRecalledOrder(entry) {
     setRecalledTxnId(entry.txn_id);
     setQueueCodeInput(queueLabel(entry.queue_number));
-    const due =
-      Number(entry.unpaid_amount) > 0
-        ? Number(entry.unpaid_amount)
-        : Number(entry.net_amount ?? 0);
-    setCashTendered(due > 0 ? due.toFixed(2) : '');
   }
 
   function handleRecallSubmit(event) {
@@ -179,7 +188,7 @@ export default function PosPage() {
   function switchToWalkInMode() {
     setRecalledTxnId(null);
     setQueueCodeInput('');
-    setCashTendered('');
+    setCashTendered(null);
     setWalkInIdConfirmed(false);
   }
 
@@ -217,22 +226,8 @@ export default function PosPage() {
     return { gross, vatable, vatExempt, vat, discount, net, count };
   }, [posCart, walkInDiscounted]);
 
-  const activeAmountDue = useMemo(() => {
-    if (recalledOrder) {
-      const unpaid = Number(recalledOrder.unpaid_amount ?? 0);
-      const net = Number(recalledOrder.net_amount ?? 0);
-      return unpaid > 0 ? unpaid : net;
-    }
-    return walkInTotals.net;
-  }, [recalledOrder, walkInTotals.net]);
-
-  const numericTendered = Number(cashTendered);
-  const validTender =
-    activeAmountDue > 0 &&
-    String(cashTendered).trim() !== '' &&
-    Number.isFinite(numericTendered) &&
-    numericTendered >= activeAmountDue;
-  const changeDue = validTender ? roundCentavo(numericTendered - activeAmountDue) : 0;
+  const walkInCash = cashTendered ?? walkInTotals.net.toFixed(2);
+  const walkInReady = tenderReady(walkInTender, walkInCash, walkInTotals.net);
 
   function addToPosCart(item) {
     if (recalledOrder) {
@@ -254,6 +249,7 @@ export default function PosPage() {
         ...current,
         {
           item_id: item.item_id,
+          pos_code: item.pos_code,
           name: item.name_en,
           price: Number(item.price),
           quantity: 1,
@@ -276,125 +272,15 @@ export default function PosPage() {
 
   function clearPosTicket() {
     setPosCart([]);
-    setCashTendered('');
+    setCashTendered(null);
+    setWalkInTender('cash');
     setPriorityStatus('standard');
     setWalkInIdConfirmed(false);
   }
 
-  async function handleConfirmRecalledId() {
-    if (!recalledOrder) {
-      return;
-    }
-    setConfirmingId(true);
-    try {
-      const updated = await queueApi.verifyPriorityId(recalledOrder.txn_id);
-      await load();
-      const nextDue = Number(updated?.unpaid_amount || updated?.net_amount || 0);
-      if (nextDue > 0) {
-        setCashTendered(nextDue.toFixed(2));
-      }
-      toast.success(
-        `${recalledOrder.declared_priority_status.toUpperCase()} ID confirmed legit for ${queueLabel(recalledOrder.queue_number)}.`,
-      );
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setConfirmingId(false);
-    }
-  }
-
-  async function handleRevokeRecalledDiscount() {
-    if (!recalledOrder) {
-      return;
-    }
-    setRevokingDiscount(true);
-    try {
-      const updated = await queueApi.revokePriorityDiscount(recalledOrder.txn_id);
-      await load();
-      const nextDue = Number(updated?.unpaid_amount || updated?.net_amount || 0);
-      if (nextDue > 0) {
-        setCashTendered(nextDue.toFixed(2));
-      }
-      toast.success(
-        `Reverted ${queueLabel(recalledOrder.queue_number)} to standard VAT-inclusive price.`,
-      );
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setRevokingDiscount(false);
-    }
-  }
-
-  async function handleCompleteRecalledQrSale() {
-    if (!recalledOrder) {
-      return;
-    }
-    const needsIdVerification = (recalledOrder.pending_verifications?.length ?? 0) > 0;
-
-    if (needsIdVerification) {
-      toast.error(
-        'Check the physical Senior/PWD ID first: tap "Confirm ID is Legit" or "No Valid ID Presented".',
-      );
-      return;
-    }
-
-    if (!validTender) {
-      toast.error(`Enter cash tendered of at least ${peso(activeAmountDue)}.`);
-      return;
-    }
-
-    setSubmittingOrder(true);
-    try {
-      const result = await queueApi.confirmPayment(
-        recalledOrder.txn_id,
-        numericTendered.toFixed(2),
-      );
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const receiptNo =
-        result?.receipt_no ||
-        `OR-${todayIso.replace(/-/g, '')}-${String(recalledOrder.queue_number).padStart(4, '0')}`;
-
-      setIssuedReceipt({
-        receipt_no: receiptNo,
-        payload: {
-          store_code: status?.store_code ?? 'SXN-SASA-01',
-          terminal_code: status?.terminal_code ?? 'REG-01',
-          queue_number: recalledOrder.queue_number,
-          table_number: recalledOrder.table_number,
-          queue_date: todayIso,
-          lines: (recalledOrder.items || []).map((item) => ({
-            item_code: item.item_id,
-            description: item.name,
-            quantity: item.qty,
-            unit_price: String(item.unit_price),
-            subtotal: String(item.subtotal ?? item.unit_price * item.qty),
-          })),
-          totals: {
-            gross: String(recalledOrder.gross_amount),
-            vatable_sales: String(recalledOrder.vatable_sales ?? '0.00'),
-            vat_exempt_sales: String(recalledOrder.vat_exempt_sales ?? '0.00'),
-            vat: String(recalledOrder.vat_amount),
-            statutory_discount: String(recalledOrder.discount_amount),
-            net: String(activeAmountDue.toFixed(2)),
-          },
-          payment: {
-            method: 'cashier',
-            cash_tendered: numericTendered.toFixed(2),
-            change_due: changeDue.toFixed(2),
-          },
-        },
-      });
-
-      toast.success(
-        `QR Order ${queueLabel(recalledOrder.queue_number)} settled (${receiptNo}).`,
-      );
-      switchToWalkInMode();
-      await load();
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setSubmittingOrder(false);
-    }
+  function handleSettled() {
+    switchToWalkInMode();
+    load();
   }
 
   async function handlePunchCounterOrder() {
@@ -406,7 +292,7 @@ export default function PosPage() {
       toast.error('Check the physical Senior/PWD ID card and tap "Confirm ID is Legit" first.');
       return;
     }
-    if (!validTender) {
+    if (!walkInReady) {
       toast.error(`Enter cash tendered of at least ${peso(walkInTotals.net)}.`);
       return;
     }
@@ -417,15 +303,14 @@ export default function PosPage() {
         table_id: tableId,
         declared_priority_status: priorityStatus,
         id_confirmed: walkInDiscounted && walkInIdConfirmed,
-        cash_tendered: numericTendered.toFixed(2),
+        tender: walkInTender,
+        cash_tendered: walkInTender === 'cash' ? Number(walkInCash).toFixed(2) : null,
         items: posCart.map((line) => ({
           item_id: line.item_id,
           quantity: line.quantity,
         })),
       });
-      toast.success(
-        `Order ${queueLabel(result.queue_number)} sent to Kitchen Queue (${result.receipt_no}).`,
-      );
+      toast.success(t('pos.punched', { queue: queueLabel(result.queue_number) }));
       setIssuedReceipt(result);
       clearPosTicket();
       await load();
@@ -455,12 +340,14 @@ export default function PosPage() {
   }
 
   const filteredMenu = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
     return menuItems.filter((item) => {
       const matchesCat = selectedCat === 'ALL' || item.cat_id === selectedCat;
       const matchesQuery =
-        !searchQuery.trim() ||
-        item.name_en.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-        item.item_id.toLowerCase().includes(searchQuery.trim().toLowerCase());
+        !query ||
+        item.name_en.toLowerCase().includes(query) ||
+        item.item_id.toLowerCase().includes(query) ||
+        (item.pos_code ?? '').toLowerCase().startsWith(query);
       return matchesCat && matchesQuery;
     });
   }, [menuItems, selectedCat, searchQuery]);
@@ -554,6 +441,15 @@ export default function PosPage() {
           </span>
         </div>
         <div className="page-header-actions">
+          <label className="switch-field">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={showBarcodes}
+              onChange={(event) => setShowBarcodes(event.target.checked)}
+            />
+            <span>{t('pos.showBarcodes')}</span>
+          </label>
           <Button
             variant={activeTab === 'register' ? 'primary' : 'secondary'}
             onClick={() => setActiveTab('register')}
@@ -564,7 +460,7 @@ export default function PosPage() {
             variant={activeTab === 'log' ? 'primary' : 'secondary'}
             onClick={() => setActiveTab('log')}
           >
-            Official Receipts & Sync Log ({rows.length})
+            {t('pos.logTab', { count: rows.length })}
           </Button>
           <Button variant="secondary" icon={RefreshCw} onClick={load}>
             {t('pos.refresh')}
@@ -698,7 +594,7 @@ export default function PosPage() {
                       Settling Recalled QR Order {queueLabel(recalledOrder.queue_number)} · Table {recalledOrder.table_number}
                     </strong>
                     <p style={{ margin: '2px 0 0', fontSize: 'var(--font-sm)' }}>
-                      Collect cash on the right register panel, or switch to Walk-In Mode to punch a new counter order.
+                      Key the codes into Columbia POS, then settle on the right, or switch to Walk-In Mode to punch a new counter order.
                     </p>
                   </div>
                   <Button variant="secondary" icon={RotateCcw} onClick={switchToWalkInMode}>
@@ -719,7 +615,7 @@ export default function PosPage() {
                 <input
                   type="text"
                   className="text-input"
-                  placeholder="Search dish or code (Wonton, MNU-0001)…"
+                  placeholder={t('pos.searchPlaceholder')}
                   maxLength={60}
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
@@ -812,7 +708,11 @@ export default function PosPage() {
                           width: '100%',
                         }}
                       >
-                        <span className="eyebrow numeric">{item.item_id}</span>
+                        {item.pos_code ? (
+                          <RegisterCode code={item.pos_code} />
+                        ) : (
+                          <span className="eyebrow numeric">{item.item_id}</span>
+                        )}
                         {inTicket ? (
                           <Badge value="available" label={`${inTicket.quantity}×`} />
                         ) : null}
@@ -877,85 +777,12 @@ export default function PosPage() {
                       </Button>
                     </div>
 
-                    {recalledOrder.declared_priority_status !== 'standard' ||
-                    recalledOrder.pending_verifications?.length ? (
-                      <div
-                        className="stack-2"
-                        style={{
-                          padding: 'var(--space-3)',
-                          border: '1px solid var(--border, #d6d3cd)',
-                          background: 'var(--cream, #f7f3eb)',
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                          }}
-                        >
-                          <strong style={{ fontSize: 'var(--font-sm)' }}>
-                            Senior / PWD ID ({recalledOrder.declared_priority_status.toUpperCase()})
-                            {recalledOrder.pending_verifications?.length
-                              ? ` · ${claimLabel(recalledOrder.pending_verifications[0], t)}`
-                              : ''}
-                          </strong>
-                          {!recalledOrder.pending_verifications?.length ? (
-                            <Badge value="paid" label="ID Verified" />
-                          ) : (
-                            <Badge value="pending" label="Inspect Physical ID" />
-                          )}
-                        </div>
-
-                        {recalledOrder.pending_verifications?.length ? (
-                          <>
-                            <p className="cash-id-prompt">{t('staff.idLookPrompt')}</p>
-                            <Button
-                              variant="primary"
-                              icon={ShieldCheck}
-                              loading={confirmingId}
-                              disabled={revokingDiscount}
-                              onClick={handleConfirmRecalledId}
-                            >
-                              Confirm ID is Legit
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              loading={revokingDiscount}
-                              disabled={confirmingId}
-                              onClick={handleRevokeRecalledDiscount}
-                            >
-                              No Valid ID Presented — Revert to Standard Price
-                            </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    <div
-                      style={{
-                        borderTop: '1px solid var(--border, #d6d3cd)',
-                        paddingTop: 'var(--space-2)',
-                      }}
-                    >
-                      <strong style={{ display: 'block', marginBottom: 'var(--space-2)' }}>
-                        QR Order Items ({recalledOrder.item_count})
-                      </strong>
-                      <ul
-                        className="receipt-item-list"
-                        style={{ maxHeight: '220px', overflowY: 'auto' }}
-                      >
-                        {(recalledOrder.items || []).map((item, idx) => (
-                          <li key={idx} className="receipt-item-row">
-                            <span className="receipt-item-qty numeric">{item.qty}×</span>
-                            <span className="receipt-item-name">{item.name}</span>
-                            <span className="receipt-item-price numeric">
-                              {peso(item.subtotal ?? item.unit_price * item.qty)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    <p className="eyebrow">{t('staff.keyIntoColumbia')}</p>
+                    <RegisterCodeList
+                      items={recalledOrder.items ?? []}
+                      isDiscounted={recalledDiscounted}
+                      showBarcodes={showBarcodes}
+                    />
 
                     <dl className="receipt-totals">
                       <div className="receipt-total-row">
@@ -1018,68 +845,15 @@ export default function PosPage() {
                       </div>
                     ) : (
                       <>
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: '1fr 1fr',
-                            gap: 'var(--space-2)',
-                            alignItems: 'end',
-                          }}
-                        >
-                          <TextInput
-                            label="Cash Tendered (₱)"
-                            required
-                            inputClass="currency"
-                            inputMode="decimal"
-                            maxLength={9}
-                            value={cashTendered}
-                            onChange={(event) => setCashTendered(event.target.value)}
-                          />
-                          <div
-                            style={{
-                              padding: '10px var(--space-3)',
-                              border: '1px solid var(--border-strong, #c9c4bc)',
-                              background: 'var(--cream, #f7f3eb)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <span className="eyebrow" style={{ margin: 0 }}>
-                              Change Due
-                            </span>
-                            <strong className="numeric" style={{ fontSize: 'var(--font-md)' }}>
-                              {validTender ? peso(changeDue) : '—'}
-                            </strong>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                          <Button
-                            variant="secondary"
-                            onClick={() => setCashTendered(activeAmountDue.toFixed(2))}
-                          >
-                            Exact ({peso(activeAmountDue)})
-                          </Button>
-                          {BILLS.filter((bill) => bill >= activeAmountDue).map((bill) => (
-                            <Button
-                              key={bill}
-                              variant="secondary"
-                              onClick={() => setCashTendered(bill.toFixed(2))}
-                            >
-                              ₱{bill}
-                            </Button>
-                          ))}
-                        </div>
-
+                        {recalledOrder.pending_verifications?.length ? (
+                          <p className="cash-id-needed">{t('pos.idCheckNext')}</p>
+                        ) : null}
                         <Button
                           variant="checkout"
                           icon={ShoppingBag}
-                          loading={submittingOrder}
-                          disabled={!validTender}
-                          onClick={handleCompleteRecalledQrSale}
+                          onClick={() => setSettling(recalledOrder)}
                         >
-                          Complete QR Payment & Print OR · {peso(activeAmountDue)}
+                          {t('pos.settleOrder', { amount: peso(recalledDue) })}
                         </Button>
                       </>
                     )}
@@ -1220,7 +994,7 @@ export default function PosPage() {
                                 className="receipt-item-name"
                                 style={{ marginLeft: 'var(--space-2)' }}
                               >
-                                {line.name}
+                                <RegisterCode code={line.pos_code} /> {line.name}
                               </span>
                               <span className="receipt-item-price numeric">
                                 {peso(line.price * line.quantity)}
@@ -1265,70 +1039,24 @@ export default function PosPage() {
                       </div>
                     </dl>
 
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
-                        gap: 'var(--space-2)',
-                        alignItems: 'end',
-                      }}
-                    >
-                      <TextInput
-                        label="Cash Tendered (₱)"
-                        required
-                        inputClass="currency"
-                        inputMode="decimal"
-                        maxLength={9}
-                        value={cashTendered}
-                        onChange={(event) => setCashTendered(event.target.value)}
-                      />
-                      <div
-                        style={{
-                          padding: '10px var(--space-3)',
-                          border: '1px solid var(--border-strong, #c9c4bc)',
-                          background: 'var(--cream, #f7f3eb)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <span className="eyebrow" style={{ margin: 0 }}>
-                          Change Due
-                        </span>
-                        <strong className="numeric" style={{ fontSize: 'var(--font-md)' }}>
-                          {validTender ? peso(changeDue) : '—'}
-                        </strong>
-                      </div>
-                    </div>
-
                     {walkInTotals.net > 0 ? (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        <Button
-                          variant="secondary"
-                          onClick={() => setCashTendered(walkInTotals.net.toFixed(2))}
-                        >
-                          Exact ({peso(walkInTotals.net)})
-                        </Button>
-                        {BILLS.filter((bill) => bill >= walkInTotals.net).map((bill) => (
-                          <Button
-                            key={bill}
-                            variant="secondary"
-                            onClick={() => setCashTendered(bill.toFixed(2))}
-                          >
-                            ₱{bill}
-                          </Button>
-                        ))}
-                      </div>
+                      <TenderPicker
+                        due={walkInTotals.net}
+                        tender={walkInTender}
+                        cash={walkInCash}
+                        onTenderChange={setWalkInTender}
+                        onCashChange={setCashTendered}
+                      />
                     ) : null}
 
                     <Button
                       variant="checkout"
                       icon={ShoppingBag}
                       loading={submittingOrder}
-                      disabled={posCart.length === 0 || !validTender}
+                      disabled={posCart.length === 0 || !walkInReady}
                       onClick={handlePunchCounterOrder}
                     >
-                      Punch Order & Print Official Receipt · {peso(walkInTotals.net)}
+                      {t('pos.punchOrder', { amount: peso(walkInTotals.net) })}
                     </Button>
                   </div>
                 )}
@@ -1366,7 +1094,7 @@ export default function PosPage() {
           ) : null}
 
           <Card title={t('pos.registerTitle')}>
-            <RegisterReceipt transmission={latest} />
+            <RegisterReceipt transmission={latest} showBarcodes={showBarcodes} />
           </Card>
 
           <div className="pos-log">
@@ -1398,26 +1126,36 @@ export default function PosPage() {
 
       {issuedReceipt ? (
         <Modal
-          title={`Official Receipt Issued · ${issuedReceipt.receipt_no}`}
+          title={t('pos.slipTitle', { receipt: issuedReceipt.receipt_no ?? '—' })}
           size="small"
           onClose={() => setIssuedReceipt(null)}
           footer={
             <>
               <Button variant="secondary" icon={Printer} onClick={() => window.print()}>
-                Print Official Receipt
+                {t('staff.printSlip')}
               </Button>
               <Button
                 variant="primary"
                 data-modal-cancel="true"
                 onClick={() => setIssuedReceipt(null)}
               >
-                Done
+                {t('common.done')}
               </Button>
             </>
           }
         >
-          <RegisterReceipt transmission={issuedReceipt} />
+          <RegisterReceipt transmission={issuedReceipt} showBarcodes={showBarcodes} />
         </Modal>
+      ) : null}
+
+      {settling ? (
+        <CashierConfirmModal
+          key={settling.txn_id}
+          entry={settling}
+          showBarcodes={showBarcodes}
+          onSettled={handleSettled}
+          onClose={() => setSettling(null)}
+        />
       ) : null}
 
       {inspecting ? (

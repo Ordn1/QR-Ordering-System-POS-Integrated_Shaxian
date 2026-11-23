@@ -43,11 +43,18 @@ python -m seeds.run         # populate demo data, prints table QR URLs
 uvicorn app.main:app --reload --port 8001
 ```
 
-To rebuild the schema from empty:
+To reset the database between test runs, stop the backend and run:
 
 ```bash
-alembic downgrade base && alembic upgrade head && python -m seeds.run
+python -m seeds.reset            # keeps the table QR codes already printed
+python -m seeds.reset --new-qr   # issues new QR tokens; reprint them afterwards
 ```
+
+It rebuilds the schema from empty, so every test order, session, kitchen queue,
+payment, analytics event and audit entry is cleared. Then it reseeds the menu,
+tables, staff and order history, and mines the `standard`, `priority` and
+`group` Apriori rules. It refuses to run while other connections to the
+database are open, and checks the order-history CSV before dropping anything.
 
 ### What the seed contains
 
@@ -56,10 +63,15 @@ alembic downgrade base && alembic upgrade head && python -m seeds.run
   Filipino and Bisaya names and descriptions. The board skips codes F5 and H2;
   F4 Braised Beef Shank is seeded as sold out. Calories are left blank rather
   than estimated. Source: `backend/seeds/menu.py`.
-- **Order history**: if `backend/seeds/transactions.csv` exists, it is
-  loaded from that file. Otherwise the seed generates 48 orders over the 16
-  days before you seed, from a fixed random seed. Generated orders are not
-  real diners; they exist so the Apriori job has baskets to mine.
+- **Order history**: if `backend/seeds/transactions.csv` (or
+  `backend/transactions.csv`) exists, it is loaded from that file, and every
+  dish it names must match a seeded English name. Otherwise the seed generates
+  48 orders over the 16 days before you seed, from a fixed random seed.
+  Generated orders are not real diners; they exist so the Apriori job has
+  baskets to mine.
+- **Register codes**: each dish's `pos_code`, the code the cashier keys into
+  the Columbia POS, starts as its menu-board code (`A1`, `B2`). Admins can
+  change it in the menu editor. Customers never see it.
 - **Apriori rules mined from that history** by the same job the admin
   dashboard runs (`python -m jobs.apriori`). None are typed in.
 - **No analytics events.** The dashboard's recommendation funnel fills only
@@ -76,9 +88,10 @@ A declaration belongs to the phone that made it, so in a group only that
 phone's items are discounted. The discount stays provisional until the crew
 checks the ID in the cash confirmation dialog:
 
-- **ID verified**: records the last four digits, the cardholder and the
-  issuing LGU, and keeps the discount.
-- **No valid ID**: re-prices that phone's items at full VAT.
+- **Valid ID**: keeps the discount. The last four digits, the cardholder and
+  the issuing LGU can be recorded too; they are optional.
+- **No valid ID**: re-prices that phone's items at full VAT. The dialog shows
+  the new amount before the cashier confirms.
 
 Discounted shares are paid at the cashier, and cash cannot be confirmed
 while a check is still pending. Pregnant diners get queue priority without
@@ -160,6 +173,76 @@ Inter is self-hosted at `public/fonts/InterVariable.woff2` rather than loaded
 from a CDN, because the system must work with no internet connection. This
 build ships the `cv11` and `ss01` feature sets the type spec depends on;
 subset builds commonly strip them.
+
+## Alpha testing on the shop's Wi-Fi
+
+### The counter: parallel POS
+
+The counter's Columbia POS prints the BIR receipt and cannot be written to, so
+the system runs on a cashier tablet beside it and replaces the paper slips:
+
+- The **POS** page (`/staff/pos`) recalls a QR order by its queue number. The
+  slip lists each dish's register code and quantity first (`A1 × 2`), split into
+  Senior / PWD and Regular items, ready to key into Columbia POS.
+- **Show barcodes** adds a Code 128 barcode for each code, for a USB scanner on
+  Columbia POS. Reading a barcode off a screen needs an imager (CCD or 2D)
+  scanner; most laser scanners cannot.
+- **Settle** opens one dialog: check each Senior / PWD ID, choose Cash, GCash
+  (the counter QR standee) or Card (the counter terminal), and confirm. One tap
+  records the payment and the slip.
+- Kitchen tickets show the same codes: `[A1] Wonton × 2`.
+
+### Tables free themselves
+
+A table goes back to vacant on its own when:
+
+- every order on it is paid, and no phone at the table is still filling a cart;
+- no order is placed within 30 minutes of the last phone joining;
+- 45 minutes pass after its last order with nothing left to pay.
+
+A phone that scans a table with an order in progress is never turned away. It
+is asked whether it is joining that order or starting a new one; starting a new
+one closes the old session, and its kitchen tickets and payments are kept.
+Diners who have paid can still call a crew member for 45 minutes. Staff can
+still set any table vacant, occupied or reserved by hand, and an admin's
+reserved status survives the automatic release.
+
+### HTTPS on the LAN
+
+Phones only reach the Vite server, which proxies `/api` and `/ws` to the
+backend on `127.0.0.1:8001`, so only Vite needs a certificate. Make one with
+[mkcert](https://github.com/FiloSottile/mkcert) for the laptop's LAN address:
+
+```bash
+mkcert -install
+cd frontend
+mkdir certs
+mkcert -cert-file certs/shaxian-lan.pem -key-file certs/shaxian-lan-key.pem localhost 127.0.0.1 <LAN-IP>
+```
+
+Vite serves HTTPS whenever those two files exist (`frontend/certs/` is
+git-ignored). Then set these in `.env`:
+
+```
+FRONTEND_BASE_URL=https://localhost:5173
+CORS_ORIGINS=https://localhost:5173,https://<LAN-IP>:5173
+COOKIE_SECURE=true
+```
+
+Each test phone must trust the mkcert root certificate (`mkcert -CAROOT` shows
+the folder; install its `rootCA.pem` on the phone), or the browser warns on
+every visit. Reserve the laptop's IP on the router so it does not change
+between runs, then export the table QR codes again; they follow
+`FRONTEND_BASE_URL`, with `localhost` swapped for the LAN IP:
+
+```bash
+cd backend
+python export_qr_codes.py
+```
+
+In offline LAN mode leave `PAYMONGO_SECRET_KEY` empty, and online payment falls
+back to the cashier. With internet, PayMongo sandbox keys turn on GCash, Maya,
+card and QR Ph.
 
 ## 3D dish showcase
 

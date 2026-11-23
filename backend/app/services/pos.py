@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -30,18 +31,22 @@ from app.models.enums import (
     PriorityStatus,
     PrintStatus,
     SessionType,
+    Tender,
     UiMode,
 )
 from app.schemas.pos import PosOrderCreate
 from app.services import order as order_service
 from app.services import queue as queue_service
+from app.services import session as session_service
 
-STORE_CODE = "SXN-SASA-01"
+STORE_CODE = "SXN-STAANA-01"
 TERMINAL_CODE = "REG-01"
 ACTION = "pos_transmit"
 ENTITY = "pos_transmission"
 MAX_ATTEMPTS = 3
 TIMEOUT_SECONDS = 5.0
+SLIP_SECTIONS = (("senior_pwd", True), ("regular", False))
+DIGIT_RUNS = re.compile(r"(\d+)")
 
 
 @dataclass(frozen=True)
@@ -62,13 +67,25 @@ def _money(value: Decimal) -> str:
     return f"{Decimal(value):.2f}"
 
 
+def tendered_amount(tender: Tender, cash_tendered: Decimal | None, due: Decimal) -> Decimal:
+    """What the customer handed over. GCash and card are always charged the exact amount."""
+    if tender is not Tender.CASH:
+        return due
+    tendered = due if cash_tendered is None else cash_tendered
+    if tendered < due:
+        raise BusinessRuleError(
+            f"Cash tendered (₱{tendered:.2f}) is less than amount due (₱{due:.2f})."
+        )
+    return tendered
+
+
 # Create
 async def create_counter_order(
     db: AsyncSession,
     payload: PosOrderCreate,
     staff_id: str,
     endpoint: str,
-) -> tuple[Transaction, Transmission]:
+) -> tuple[Transaction, Transmission, Session | None]:
     """Ring up a direct counter / waiter POS order, place it in the kitchen queue, and issue an OR."""
     table = await db.get(Table, payload.table_id)
     if table is None or not table.is_active:
@@ -108,12 +125,8 @@ async def create_counter_order(
         )
 
     priced = order_service.price_order(cart_lines)
-    if payload.cash_tendered < priced.net_amount:
-        raise BusinessRuleError(
-            f"Cash tendered (₱{payload.cash_tendered:.2f}) is less than amount due (₱{priced.net_amount:.2f})."
-        )
-
-    change_due = payload.cash_tendered - priced.net_amount
+    tendered = tendered_amount(payload.tender, payload.cash_tendered, priced.net_amount)
+    change_due = tendered - priced.net_amount
     now = datetime.now(UTC)
 
     ordering_session = Session(
@@ -193,6 +206,7 @@ async def create_counter_order(
             txn_id=transaction.txn_id,
             device_id=device.device_id,
             method=PaymentMethod.CASHIER,
+            tender=payload.tender,
             amount=priced.net_amount,
             discount_applied=priced.discount_amount,
             aggregator_ref="POS-COUNTER",
@@ -211,10 +225,64 @@ async def create_counter_order(
         transaction.txn_id,
         endpoint,
         staff_id=staff_id,
-        cash_tendered=payload.cash_tendered,
+        cash_tendered=tendered,
         change_due=change_due,
+        tender=payload.tender,
     )
-    return transaction, tx_result
+    closed = await session_service.close_if_settled(db, ordering_session.session_id)
+    return transaction, tx_result, closed
+
+
+def _code_order(item: MenuItem) -> tuple[int, list[str | int], str]:
+    """Menu-board order for register codes: A2 before A10, coded dishes before uncoded ones."""
+    if item.pos_code is None:
+        return 1, [], item.name_en
+    parts = DIGIT_RUNS.split(item.pos_code.upper())
+    return 0, [int(part) if index % 2 else part for index, part in enumerate(parts)], item.name_en
+
+
+def _slip(rows: list[tuple[TransactionItem, MenuItem]]) -> dict[str, Any]:
+    """The cashier's slip: one section per tax treatment, each code once, in menu-board order."""
+    priced = order_service.price_order(
+        [
+            order_service.CartLine(
+                item_id=line.item_id,
+                quantity=line.quantity,
+                unit_price=line.unit_price,
+                discount_eligible=line.is_discounted,
+            )
+            for line, _ in rows
+        ]
+    ).lines
+    dishes = {item.item_id: item for _, item in rows}
+
+    slip: dict[str, Any] = {}
+    for key, discounted in SLIP_SECTIONS:
+        section = [line for line in priced if line.is_discounted is discounted]
+        merged: dict[str, tuple[int, Decimal]] = {}
+        for line in section:
+            quantity, subtotal = merged.get(line.item_id, (0, Decimal("0.00")))
+            merged[line.item_id] = (quantity + line.quantity, subtotal + line.subtotal)
+        slip[key] = {
+            "lines": [
+                {
+                    "pos_code": dishes[item_id].pos_code,
+                    "description": dishes[item_id].name_en,
+                    "quantity": quantity,
+                    "subtotal": _money(subtotal),
+                }
+                for item_id, (quantity, subtotal) in sorted(
+                    merged.items(), key=lambda pair: _code_order(dishes[pair[0]])
+                )
+            ],
+            "gross": _money(sum((line.subtotal for line in section), Decimal("0.00"))),
+            "vatable": _money(sum((line.vatable for line in section), Decimal("0.00"))),
+            "vat": _money(sum((line.vat for line in section), Decimal("0.00"))),
+            "vat_exempt": _money(sum((line.vat_exempt for line in section), Decimal("0.00"))),
+            "discount": _money(sum((line.discount_amount for line in section), Decimal("0.00"))),
+            "net": _money(sum((line.line_net for line in section), Decimal("0.00"))),
+        }
+    return slip
 
 
 async def build_payload(
@@ -222,6 +290,7 @@ async def build_payload(
     txn_id: int,
     cash_tendered: Decimal | None = None,
     change_due: Decimal | None = None,
+    tender: Tender | None = None,
 ) -> dict[str, Any]:
     """Compile one transaction into the register's expected shape."""
     transaction = await db.get(Transaction, txn_id)
@@ -230,25 +299,34 @@ async def build_payload(
 
     ordering_session = await db.get(Session, transaction.session_id)
     table = await db.get(Table, ordering_session.table_id)
-    payment = await db.scalar(select(Payment).where(Payment.txn_id == txn_id))
-
-    rows = await db.execute(
-        select(TransactionItem, MenuItem)
-        .join(MenuItem, MenuItem.item_id == TransactionItem.item_id)
-        .where(TransactionItem.txn_id == txn_id)
-        .order_by(TransactionItem.txi_id)
+    payments = list(
+        await db.scalars(
+            select(Payment).where(Payment.txn_id == txn_id).order_by(Payment.payment_id)
+        )
     )
+    payment = payments[0] if payments else None
+    tender = tender or next((p.tender for p in reversed(payments) if p.tender), None)
+
+    rows = (
+        await db.execute(
+            select(TransactionItem, MenuItem)
+            .join(MenuItem, MenuItem.item_id == TransactionItem.item_id)
+            .where(TransactionItem.txn_id == txn_id)
+            .order_by(TransactionItem.txi_id)
+        )
+    ).all()
 
     lines = [
         {
             "item_code": item.item_id,
+            "pos_code": item.pos_code,
             "description": item.name_en,
             "quantity": line.quantity,
             "unit_price": _money(line.unit_price),
             "subtotal": _money(line.subtotal),
             "discounted": line.is_discounted,
         }
-        for line, item in rows.all()
+        for line, item in rows
     ]
 
     effective_tendered = (
@@ -282,9 +360,11 @@ async def build_payload(
 
     payload = {
         **base_for_hash,
+        "slip": _slip(rows),
         "payment": {
             "method": payment.method.value if payment else None,
-            "status": payment.status.value if payment else None,
+            "tender": tender.value if tender else None,
+            "status": order_service.aggregate_payment_status(payments).value,
             "cash_tendered": _money(effective_tendered),
             "change_due": _money(effective_change),
         },
@@ -302,10 +382,11 @@ async def transmit(
     staff_id: str | None = None,
     cash_tendered: Decimal | None = None,
     change_due: Decimal | None = None,
+    tender: Tender | None = None,
 ) -> Transmission:
     """Push one transaction to the register, retrying, and record the attempt."""
     payload = await build_payload(
-        db, txn_id, cash_tendered=cash_tendered, change_due=change_due
+        db, txn_id, cash_tendered=cash_tendered, change_due=change_due, tender=tender
     )
 
     status = "failed"

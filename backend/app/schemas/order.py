@@ -19,6 +19,7 @@ class TransactionVoidWrite(BaseModel):
 
 class TransactionItemDetailRead(BaseModel):
     item_id: str
+    pos_code: str | None = None
     name: str
     quantity: int
     unit_price: Decimal

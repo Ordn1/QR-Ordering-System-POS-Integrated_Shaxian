@@ -1,17 +1,21 @@
 from datetime import UTC, datetime
 import io
 import socket
+from urllib.parse import urlsplit, urlunsplit
 import uuid
 
 import qrcode
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError
 from app.models import AuditLog, Session, Table
-from app.models.enums import OccupancyStatus
+from app.models.enums import OccupancyStatus, SessionEndReason
 from app.schemas.table import TableCatalogRead, TableCreate, TableRead, TableUpdate
 from app.services import session as session_service
+
+LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
 def detect_lan_ip() -> str:
@@ -25,9 +29,13 @@ def detect_lan_ip() -> str:
         return "127.0.0.1"
 
 
-def detect_lan_url(port: int = 5173) -> str:
-    ip = detect_lan_ip()
-    return f"http://{ip}:{port}"
+def detect_lan_url() -> str:
+    """The address phones open: FRONTEND_BASE_URL, with a loopback host swapped for the LAN IP."""
+    base = urlsplit(settings.FRONTEND_BASE_URL.strip())
+    netloc = base.netloc
+    if base.hostname in LOOPBACK_HOSTS:
+        netloc = detect_lan_ip() + (f":{base.port}" if base.port else "")
+    return urlunsplit((base.scheme, netloc, "", "", "")).rstrip("/")
 
 
 async def _to_table_read(db: AsyncSession, table: Table) -> TableRead:
@@ -141,8 +149,12 @@ async def update_table(
     table_id: str,
     payload: TableUpdate,
     staff_id: str | None = None,
-) -> TableRead:
-    """Update a table's number, occupancy status, or active service state."""
+) -> tuple[TableRead, list[Session]]:
+    """Update a table's number, occupancy status, or active service state.
+
+    Marking a table vacant or retiring it ends its open sessions; the admin's chosen
+    status is applied after, so it always wins over the automatic one.
+    """
     table = await get_table(db, table_id)
     await guard_table_number(db, payload.table_number, exclude=table_id)
 
@@ -152,22 +164,13 @@ async def update_table(
         "is_active": table.is_active,
     }
 
+    ended: list[Session] = []
+    if payload.occupancy_status == OccupancyStatus.VACANT or not payload.is_active:
+        ended = await _end_open_sessions(db, table_id)
+
     table.table_number = payload.table_number
     table.occupancy_status = payload.occupancy_status
     table.is_active = payload.is_active
-
-    if payload.occupancy_status == OccupancyStatus.VACANT or not payload.is_active:
-        active_sessions = (
-            await db.scalars(
-                select(Session).where(
-                    Session.table_id == table_id, Session.ended_at.is_(None)
-                )
-            )
-        ).all()
-        now = datetime.now(UTC)
-        for s in active_sessions:
-            s.ended_at = now
-            session_service.clear_table_cart(s.session_id)
 
     db.add(
         AuditLog(
@@ -187,7 +190,19 @@ async def update_table(
     # Commit
     await db.commit()
     await db.refresh(table)
-    return await _to_table_read(db, table)
+    return await _to_table_read(db, table), ended
+
+
+async def _end_open_sessions(db: AsyncSession, table_id: str) -> list[Session]:
+    open_sessions = list(
+        await db.scalars(
+            select(Session).where(Session.table_id == table_id, Session.ended_at.is_(None))
+        )
+    )
+    now = datetime.now(UTC)
+    for open_session in open_sessions:
+        await session_service.end_session(db, open_session, SessionEndReason.STAFF_RESET, now)
+    return open_sessions
 
 
 # Delete
@@ -228,20 +243,11 @@ async def delete_table(
 # Update
 async def reset_table_session(
     db: AsyncSession, table_id: str, staff_id: str | None = None
-) -> TableRead:
+) -> tuple[TableRead, list[Session]]:
     table = await get_table(db, table_id)
-
-    active_sessions = (
-        await db.scalars(
-            select(Session).where(Session.table_id == table_id, Session.ended_at.is_(None))
-        )
-    ).all()
-    now = datetime.now(UTC)
-    for s in active_sessions:
-        s.ended_at = now
-        session_service.clear_table_cart(s.session_id)
-
     old_status = table.occupancy_status.value
+
+    ended = await _end_open_sessions(db, table_id)
     table.occupancy_status = OccupancyStatus.VACANT
 
     db.add(
@@ -257,7 +263,7 @@ async def reset_table_session(
 
     await db.commit()
     await db.refresh(table)
-    return await _to_table_read(db, table)
+    return await _to_table_read(db, table), ended
 
 
 # Update

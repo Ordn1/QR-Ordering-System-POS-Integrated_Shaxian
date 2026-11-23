@@ -1,18 +1,45 @@
-import { CheckCircle2, Printer, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Printer, RefreshCw, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { transmit } from '../../api/pos';
+import { settlePayment } from '../../api/queue';
 import { peso, queueLabel } from '../../lib/format';
+import { toCentavos } from '../../lib/registerCodes';
+import { claimLabel } from '../../lib/shareLabel';
+import { tenderReady } from '../../lib/tender';
+import { toast } from '../../store/toastStore';
+import RegisterReceipt from '../admin/RegisterReceipt';
 import Badge from '../shared/Badge';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
 import TextInput from '../shared/TextInput';
-import { claimLabel } from '../../lib/shareLabel';
+import RegisterCodeList from './RegisterCodeList';
+import TenderPicker from './TenderPicker';
 
-const BILLS = [100, 200, 500, 1000];
+const LAST4_PARTIAL = /^[0-9]{1,3}$/;
 
-function IdCheck({ claim, busy, onRecord }) {
+const BLANK_CHECK = {
+  discount_eligible: true,
+  id_last4: '',
+  cardholder_name: '',
+  issuing_lgu: '',
+};
+
+function checkPayload(claim, check) {
+  const kept = (value) => (check.discount_eligible && value.trim() !== '' ? value.trim() : null);
+  return {
+    log_id: claim.log_id,
+    discount_eligible: check.discount_eligible,
+    id_last4: kept(check.id_last4),
+    cardholder_name: kept(check.cardholder_name),
+    issuing_lgu: kept(check.issuing_lgu),
+  };
+}
+
+function IdCheck({ claim, check, onChange }) {
   const { t } = useTranslation();
+  const set = (key) => (event) => onChange({ ...check, [key]: event.target.value });
 
   return (
     <fieldset className="cash-id-check">
@@ -24,137 +51,148 @@ function IdCheck({ claim, busy, onRecord }) {
 
       <p className="cash-id-prompt">{t('staff.idLookPrompt')}</p>
 
-      <div className="cash-id-actions">
-        <Button
-          variant="secondary"
-          disabled={busy}
-          onClick={() => onRecord(claim, { outcome: 'rejected' })}
-        >
-          {t('staff.idRejected')}
-        </Button>
-        <Button
-          variant="primary"
-          icon={ShieldCheck}
-          loading={busy}
-          onClick={() => onRecord(claim, { outcome: 'verified' })}
-        >
-          {t('staff.idConfirmLegit')}
-        </Button>
-      </div>
+      <label className="switch-field">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={check.discount_eligible}
+          onChange={(event) => onChange({ ...check, discount_eligible: event.target.checked })}
+        />
+        <span>
+          {check.discount_eligible
+            ? t('staff.idDiscountEligible')
+            : t('staff.idNotEligible', { amount: peso(claim.delta_if_invalid) })}
+        </span>
+      </label>
+
+      {check.discount_eligible ? (
+        <div className="cash-id-fields">
+          <TextInput
+            label={t('staff.idLast4')}
+            inputClass="numeric"
+            inputMode="numeric"
+            maxLength={4}
+            value={check.id_last4}
+            error={LAST4_PARTIAL.test(check.id_last4) ? t('staff.idLast4Error') : null}
+            onChange={set('id_last4')}
+          />
+          <TextInput
+            label={t('staff.idCardholder')}
+            inputClass="alpha"
+            maxLength={80}
+            value={check.cardholder_name}
+            onChange={set('cardholder_name')}
+          />
+          <TextInput
+            label={t('staff.idLgu')}
+            inputClass="alpha"
+            maxLength={50}
+            hint="Davao City"
+            value={check.issuing_lgu}
+            onChange={set('issuing_lgu')}
+          />
+          <p className="cash-id-optional">{t('staff.idOptional')}</p>
+        </div>
+      ) : null}
     </fieldset>
   );
 }
 
-export default function CashierConfirmModal({ entry, busy, onConfirm, onVerify, onClose }) {
+export default function CashierConfirmModal({ entry, showBarcodes = false, onSettled, onClose }) {
   const { t } = useTranslation();
-  const pending = entry.pending_verifications ?? [];
-  const amountDue =
-    Number(entry.unpaid_amount) > 0
-      ? Number(entry.unpaid_amount)
-      : Number(entry.net_amount ?? 0);
-  const [tendered, setTendered] = useState(amountDue.toFixed(2));
+  const claims = entry.pending_verifications ?? [];
+  const [checks, setChecks] = useState(() =>
+    Object.fromEntries(claims.map((claim) => [claim.log_id, BLANK_CHECK])),
+  );
+  const [tender, setTender] = useState('cash');
+  const [cash, setCash] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [settled, setSettled] = useState(null);
-  const [error, setError] = useState(null);
+  const [resending, setResending] = useState(false);
 
-  const numericTendered = Number(tendered);
-  const validTender = Number.isFinite(numericTendered) && numericTendered >= amountDue;
-  const changeDue = validTender ? Math.max(0, numericTendered - amountDue) : 0;
+  const owing = Number(entry.unpaid_amount) > 0 ? entry.unpaid_amount : entry.net_amount;
+  const due =
+    claims.reduce(
+      (total, claim) =>
+        total +
+        toCentavos(
+          checks[claim.log_id].discount_eligible ? claim.delta_if_valid : claim.delta_if_invalid,
+        ),
+      toCentavos(owing),
+    ) / 100;
+  const cashValue = cash ?? due.toFixed(2);
+  const claimDevices = new Map(
+    claims.map((claim) => [claim.device_id, checks[claim.log_id].discount_eligible]),
+  );
+  const isDiscounted = (item) => claimDevices.get(item.device_id) ?? item.is_discounted;
+  const detailsValid = claims.every((claim) => !LAST4_PARTIAL.test(checks[claim.log_id].id_last4));
+  const ready = detailsValid && tenderReady(tender, cashValue, due);
 
-  async function handleSettle() {
-    if (!validTender) {
-      setError(`Cash tendered must be at least ${peso(amountDue)}.`);
-      return;
-    }
-    setError(null);
-    const result = await onConfirm(entry, numericTendered.toFixed(2));
-    if (result) {
-      setSettled({
-        receipt_no:
-          result.receipt_no ||
-          `OR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(entry.queue_number).padStart(4, '0')}`,
-        cash_tendered: result.cash_tendered ?? numericTendered,
-        change_due: result.change_due ?? changeDue,
+  async function settle() {
+    setBusy(true);
+    try {
+      const result = await settlePayment(entry.txn_id, {
+        tender,
+        cash_tendered: tender === 'cash' ? Number(cashValue).toFixed(2) : null,
+        checks: claims.map((claim) => checkPayload(claim, checks[claim.log_id])),
       });
+      setSettled(result);
+      toast.success(t('staff.markedPaid', { queue: queueLabel(entry.queue_number) }));
+      onSettled?.(result);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    setResending(true);
+    try {
+      const transmission = await transmit(entry.txn_id);
+      setSettled((current) => ({ ...current, transmission }));
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setResending(false);
     }
   }
 
   if (settled) {
+    const acknowledged = settled.transmission?.status === 'acknowledged';
     return (
       <Modal
-        title={`POS Official Receipt · ${settled.receipt_no}`}
+        title={t('staff.settledTitle', { queue: queueLabel(entry.queue_number) })}
         size="small"
         onClose={onClose}
         footer={
           <>
             <Button variant="secondary" icon={Printer} onClick={() => window.print()}>
-              Print Official Receipt
+              {t('staff.printSlip')}
             </Button>
             <Button variant="primary" data-modal-cancel="true" onClick={onClose}>
-              Done
+              {t('common.done')}
             </Button>
           </>
         }
       >
-        <div className="register-slip">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
-            <CheckCircle2 size={20} className="text-green" />
-            <strong>POS Sale Settled & Transmitted</strong>
-          </div>
-          <p className="register-store">{t('auth.brand')}</p>
-          <p className="register-branch">SXN-SASA-01 · REG-01</p>
-          <p className="register-receipt-no numeric">{settled.receipt_no}</p>
-
-          <dl className="register-head">
-            <dt>{t('pos.queue')}</dt>
-            <dd className="numeric">{queueLabel(entry.queue_number)}</dd>
-            <dt>{t('staff.tableNumber', { number: entry.table_number })}</dt>
-            <dd>{entry.declared_priority_status}</dd>
-          </dl>
-
-          {entry.items && entry.items.length > 0 ? (
-            <ul className="register-lines">
-              {entry.items.map((item, idx) => (
-                <li key={idx}>
-                  <span>
-                    {item.qty} × {item.name}
-                  </span>
-                  <span className="numeric">{peso(item.unit_price * item.qty)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          <dl className="register-totals">
-            <dt>{t('checkout.gross')}</dt>
-            <dd className="numeric">{peso(entry.gross_amount)}</dd>
-            {Number(entry.discount_amount) > 0 ? (
-              <>
-                <dt>{t('checkout.discount')}</dt>
-                <dd className="numeric">−{peso(entry.discount_amount)}</dd>
-              </>
-            ) : (
-              <>
-                <dt>{t('checkout.vat')}</dt>
-                <dd className="numeric">{peso(entry.vat_amount)}</dd>
-              </>
-            )}
-            <dt className="register-net">{t('checkout.net')}</dt>
-            <dd className="register-net numeric">{peso(amountDue)}</dd>
-            <dt>Cash Tendered</dt>
-            <dd className="numeric">{peso(settled.cash_tendered)}</dd>
-            <dt style={{ fontWeight: 700 }}>Change Due</dt>
-            <dd className="numeric" style={{ fontWeight: 700 }}>
-              {peso(settled.change_due)}
-            </dd>
-          </dl>
+        <div className={`cash-ack${acknowledged ? '' : ' cash-ack-failed'}`} role="status">
+          {acknowledged ? <CheckCircle2 size={18} /> : <TriangleAlert size={18} />}
+          <span>{t(acknowledged ? 'staff.slipAcknowledged' : 'staff.slipFailed')}</span>
+          {acknowledged ? null : (
+            <Button variant="secondary" icon={RefreshCw} loading={resending} onClick={resend}>
+              {t('staff.slipRetry')}
+            </Button>
+          )}
         </div>
+        <RegisterReceipt transmission={settled.transmission} showBarcodes={showBarcodes} />
       </Modal>
     );
   }
 
   return (
     <Modal
-      title={`POS Cash Register · ${queueLabel(entry.queue_number)}`}
+      title={t('staff.settleTitle', { queue: queueLabel(entry.queue_number) })}
       size="small"
       onClose={onClose}
       footer={
@@ -162,117 +200,44 @@ export default function CashierConfirmModal({ entry, busy, onConfirm, onVerify, 
           <Button variant="secondary" data-modal-cancel="true" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button
-            variant="primary"
-            loading={busy}
-            disabled={!validTender || pending.length > 0}
-            onClick={handleSettle}
-          >
-            Complete POS Sale · {peso(amountDue)}
+          <Button variant="primary" loading={busy} disabled={!ready} onClick={settle}>
+            {t('staff.settleConfirm', { amount: peso(due), tender: t(`pos.tender_${tender}`) })}
           </Button>
         </>
       }
     >
-      <div className="cash-meta" style={{ marginBottom: 'var(--space-3)' }}>
+      <div className="cash-meta">
         <Badge value={entry.declared_priority_status} />
         <span>{t('staff.tableNumber', { number: entry.table_number })}</span>
         <span>{t('staff.itemCount', { count: entry.item_count })}</span>
       </div>
 
-      {entry.items && entry.items.length > 0 ? (
-        <ul className="register-lines" style={{ marginBottom: 'var(--space-3)' }}>
-          {entry.items.map((item, idx) => (
-            <li key={idx}>
-              <span>
-                {item.qty} × {item.name}
-              </span>
-              <span className="numeric">{peso(item.unit_price * item.qty)}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <p className="eyebrow">{t('staff.keyIntoColumbia')}</p>
+      <RegisterCodeList
+        items={entry.items ?? []}
+        isDiscounted={isDiscounted}
+        showBarcodes={showBarcodes}
+      />
 
-      {pending.map((claim) => (
+      {claims.map((claim) => (
         <IdCheck
           key={claim.log_id}
           claim={claim}
-          busy={busy}
-          onRecord={(target, check) => onVerify(entry, target, check)}
+          check={checks[claim.log_id]}
+          onChange={(next) => setChecks((current) => ({ ...current, [claim.log_id]: next }))}
         />
       ))}
 
-      <dl className="detail-list cash-totals">
-        <dt className="eyebrow">{t('checkout.gross')}</dt>
-        <dd className="numeric">{peso(entry.gross_amount)}</dd>
-        {Number(entry.discount_amount) > 0 ? (
-          <>
-            <dt className="eyebrow">{t('checkout.discount')}</dt>
-            <dd className="numeric">−{peso(entry.discount_amount)}</dd>
-          </>
-        ) : (
-          <>
-            <dt className="eyebrow">{t('checkout.vat')}</dt>
-            <dd className="numeric">{peso(entry.vat_amount)}</dd>
-          </>
-        )}
-      </dl>
-
       <p className="cash-due-label eyebrow">{t('checkout.net')}</p>
-      <p className="cash-due numeric">{peso(amountDue)}</p>
+      <p className="cash-due numeric">{peso(due)}</p>
 
-      {pending.length > 0 ? <p className="cash-id-needed">{t('staff.idNeeded')}</p> : null}
-
-      <div className="stack-3" style={{ marginTop: 'var(--space-3)' }}>
-        <TextInput
-          label="Cash Tendered (₱)"
-          required
-          inputClass="currency"
-          inputMode="decimal"
-          maxLength={9}
-          value={tendered}
-          error={error}
-          onChange={(event) => {
-            setTendered(event.target.value);
-            setError(null);
-          }}
-        />
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-          <Button
-            variant="secondary"
-            onClick={() => setTendered(amountDue.toFixed(2))}
-          >
-            Exact ({peso(amountDue)})
-          </Button>
-          {BILLS.filter((bill) => bill >= amountDue).map((bill) => (
-            <Button
-              key={bill}
-              variant="secondary"
-              onClick={() => setTendered(bill.toFixed(2))}
-            >
-              ₱{bill}
-            </Button>
-          ))}
-        </div>
-
-        <div
-          style={{
-            padding: 'var(--space-3)',
-            border: '1px solid var(--color-border, #d6d3cd)',
-            background: 'var(--color-surface-subtle, #f7f5f0)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <span className="eyebrow" style={{ margin: 0 }}>
-            Change Due
-          </span>
-          <strong className="numeric" style={{ fontSize: 'var(--text-lg)' }}>
-            {validTender ? peso(changeDue) : 'Insufficient cash'}
-          </strong>
-        </div>
-      </div>
+      <TenderPicker
+        due={due}
+        tender={tender}
+        cash={cashValue}
+        onTenderChange={setTender}
+        onCashChange={setCash}
+      />
     </Modal>
   );
 }

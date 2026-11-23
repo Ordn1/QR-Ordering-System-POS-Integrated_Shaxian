@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import * as menuApi from '../../api/menu';
+import { listRegisterItems } from '../../api/pos';
 import MenuItemModal from '../../components/admin/MenuItemModal';
 import MenuTile from '../../components/admin/MenuTile';
 import Badge from '../../components/shared/Badge';
@@ -33,7 +34,7 @@ export default function MenuPage() {
 
   const load = useCallback(
     () =>
-      Promise.all([menuApi.listItems(), menuApi.listCategories()])
+      Promise.all([listRegisterItems(), menuApi.listCategories()])
         .then(([nextItems, nextCategories]) => {
           setItems(nextItems);
           setCategories(nextCategories);

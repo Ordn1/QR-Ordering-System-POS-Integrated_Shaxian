@@ -40,6 +40,10 @@ class MenuItem(Base):
             "menu_code ~ '^[A-Z][0-9]{1,2}[a-z+]?$'", name="chk_menu_items_menu_code_format"
         ),
         sa.UniqueConstraint("menu_code", name="uq_menu_items_menu_code"),
+        sa.CheckConstraint(
+            "pos_code ~ '^[A-Za-z0-9+-]{1,10}$'", name="chk_menu_items_pos_code_format"
+        ),
+        sa.UniqueConstraint("pos_code", name="uq_menu_items_pos_code"),
     )
 
     item_id: Mapped[str] = mapped_column(
@@ -53,6 +57,7 @@ class MenuItem(Base):
         nullable=False,
     )
     menu_code: Mapped[str | None] = mapped_column(sa.String(4))
+    pos_code: Mapped[str | None] = mapped_column(sa.String(10))
     name_en: Mapped[str] = mapped_column(sa.String(60), nullable=False)
     name_fil: Mapped[str] = mapped_column(sa.String(60), nullable=False)
     name_bis: Mapped[str] = mapped_column(sa.String(60), nullable=False)

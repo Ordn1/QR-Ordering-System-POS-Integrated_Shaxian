@@ -6,6 +6,7 @@ from app.schemas.menu import (
     CategoryWrite,
     MenuItemAvailabilityWrite,
     MenuItemRead,
+    MenuItemStaffRead,
     MenuItemWrite,
 )
 from app.services import menu as menu_service
@@ -51,30 +52,30 @@ async def list_images(staff: AnyStaff) -> list[str]:
     return menu_service.list_available_images()
 
 
-@router.post("/items", response_model=MenuItemRead, status_code=201)
+@router.post("/items", response_model=MenuItemStaffRead, status_code=201)
 async def create_item(
     payload: MenuItemWrite, db: DbSession, staff: AdminStaff
-) -> MenuItemRead:
+) -> MenuItemStaffRead:
     item = await menu_service.create_item(db, payload)
-    return MenuItemRead.model_validate(item)
+    return MenuItemStaffRead.model_validate(item)
 
 
-@router.patch("/items/{item_id}", response_model=MenuItemRead)
+@router.patch("/items/{item_id}", response_model=MenuItemStaffRead)
 async def update_item(
     item_id: str, payload: MenuItemWrite, db: DbSession, staff: AdminStaff
-) -> MenuItemRead:
+) -> MenuItemStaffRead:
     item = await menu_service.update_item(db, item_id, payload, staff_id=staff.staff_id)
-    return MenuItemRead.model_validate(item)
+    return MenuItemStaffRead.model_validate(item)
 
 
-@router.patch("/items/{item_id}/availability", response_model=MenuItemRead)
+@router.patch("/items/{item_id}/availability", response_model=MenuItemStaffRead)
 async def toggle_item_availability(
     item_id: str, payload: MenuItemAvailabilityWrite, db: DbSession, staff: AnyStaff
-) -> MenuItemRead:
+) -> MenuItemStaffRead:
     item = await menu_service.toggle_availability(
         db, item_id, payload.is_available, staff_id=staff.staff_id
     )
-    return MenuItemRead.model_validate(item)
+    return MenuItemStaffRead.model_validate(item)
 
 
 @router.delete("/items/{item_id}", status_code=204)

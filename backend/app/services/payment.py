@@ -1,4 +1,5 @@
 import base64
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 import hashlib
@@ -21,10 +22,14 @@ from app.models import (
     SessionDevice,
     Table,
     Transaction,
+    TransactionItem,
 )
-from app.models.enums import PaymentMethod, PaymentStatus, PrintStatus
+from app.models.enums import PaymentMethod, PaymentStatus, PrintStatus, Tender
+from app.schemas.queue import SettlementWrite
 from app.services import pos as pos_service
 from app.services import queue as queue_service
+from app.services import session as session_service
+from app.services import verification as verification_service
 from app.websocket import events
 
 logger = logging.getLogger(__name__)
@@ -36,6 +41,16 @@ MIN_ONLINE_AMOUNT = Decimal("20.00")
 # payments run on a payment intent ("pi_") whose QR we show on our own receipt page.
 CHECKOUT_PREFIX = "cs_"
 QRPH_PREFIX = "pi_"
+
+
+@dataclass(frozen=True)
+class CounterSettlement:
+    transaction: Transaction
+    tender: Tender
+    tendered: Decimal
+    change_due: Decimal
+    transmission: pos_service.Transmission | None
+    closed: Session | None
 
 
 # Validate
@@ -276,6 +291,91 @@ async def _finalize_paid_transaction(
             )
         except Exception:  # noqa: BLE001
             logger.exception("POS transmission failed for online txn %s", transaction.txn_id)
+
+        closed = await session_service.close_if_settled(db, transaction.session_id)
+        if closed is not None:
+            await events.publish_session_ended(closed)
+
+
+async def _unpaid_due(db: AsyncSession, txn_id: int) -> Decimal:
+    payments = list(await db.scalars(select(Payment).where(Payment.txn_id == txn_id)))
+    if not payments:
+        raise NotFoundError("That order has no payment record.")
+    return sum(
+        (p.amount for p in payments if p.status is not PaymentStatus.PAID), Decimal("0.00")
+    )
+
+
+# Update
+async def settle_at_counter(
+    db: AsyncSession, txn_id: int, staff_id: str, settlement: SettlementWrite
+) -> CounterSettlement:
+    """One tap at the counter: check every ID, take the money, and send the slip to the register.
+
+    The cash is checked against the amount the ID checks will leave owing before anything
+    is written, so a short tender changes nothing.
+    """
+    transaction = await db.get(Transaction, txn_id)
+    if transaction is None:
+        raise NotFoundError("That order no longer exists. Refresh the queue.")
+
+    claims = (await verification_service.pending_checks(db, [transaction])).get(txn_id, [])
+    checks = {check.log_id: check for check in settlement.checks}
+    if any(claim.log_id not in checks for claim in claims):
+        raise BusinessRuleError("Check the senior or PWD ID before confirming payment.")
+    if set(checks) - {claim.log_id for claim in claims}:
+        raise BusinessRuleError(
+            "That ID check is no longer waiting on this order. Refresh the queue."
+        )
+
+    due = await _unpaid_due(db, txn_id)
+    if due <= Decimal("0.00"):
+        raise BusinessRuleError(f"Order Q-{transaction.queue_number:03d} is already marked paid.")
+
+    # Validate
+    items = list(
+        await db.scalars(select(TransactionItem).where(TransactionItem.txn_id == txn_id))
+    )
+    for claim in claims:
+        if_valid, if_invalid = verification_service.price_deltas(items, claim.device_id)
+        due += if_valid if checks[claim.log_id].discount_eligible else if_invalid
+    pos_service.tendered_amount(settlement.tender, settlement.cash_tendered, due)
+
+    for claim in claims:
+        check = checks[claim.log_id]
+        await verification_service.record_check(
+            db, txn_id, claim.log_id, staff_id, check.discount_eligible, check
+        )
+
+    due = await _unpaid_due(db, txn_id)
+    tendered = pos_service.tendered_amount(settlement.tender, settlement.cash_tendered, due)
+    transaction = await queue_service.confirm_counter_payment(
+        db, txn_id, staff_id, settlement.tender
+    )
+
+    transmission: pos_service.Transmission | None = None
+    try:
+        transmission = await pos_service.transmit(
+            db,
+            txn_id,
+            settings.POS_ENDPOINT,
+            staff_id=staff_id,
+            cash_tendered=tendered,
+            change_due=tendered - due,
+            tender=settlement.tender,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("POS transmission failed for txn %s", txn_id)
+
+    closed = await session_service.close_if_settled(db, transaction.session_id)
+    return CounterSettlement(
+        transaction=transaction,
+        tender=settlement.tender,
+        tendered=tendered,
+        change_due=tendered - due,
+        transmission=transmission,
+        closed=closed,
+    )
 
 
 # Update

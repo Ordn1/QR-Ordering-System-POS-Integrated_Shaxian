@@ -26,7 +26,7 @@ async def login(payload: LoginRequest, response: Response, db: DbSession) -> Sta
         value=token,
         httponly=True,
         samesite="strict",
-        secure=False,
+        secure=settings.COOKIE_SECURE,
         max_age=settings.ACCESS_TOKEN_HOURS * 3600,
         path="/",
     )
@@ -36,7 +36,13 @@ async def login(payload: LoginRequest, response: Response, db: DbSession) -> Sta
 
 @router.post("/logout", status_code=204)
 async def logout(response: Response) -> None:
-    response.delete_cookie(key=COOKIE_NAME, path="/", httponly=True, samesite="strict")
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        path="/",
+        httponly=True,
+        samesite="strict",
+        secure=settings.COOKIE_SECURE,
+    )
 
 
 @router.get("/me", response_model=StaffRead)
